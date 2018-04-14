@@ -1,0 +1,8 @@
+pytest
+pytest-cov
+coveralls
+flake8
+tox
+twine
+pyscrypt
+pycrypto

@@ -1,0 +1,10 @@
+*.pyc
+.idea/*
+.cache/*
+.coverage
+htmlcov/*
+build/*
+dist/*
+.tox/*
+multicrypto.egg-info/*
+.pytest_cache/
