@@ -8,3 +8,4 @@ dist/*
 .tox/*
 multicrypto.egg-info/*
 .pytest_cache/
+.deploy.txt
