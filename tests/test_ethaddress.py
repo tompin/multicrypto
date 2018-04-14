@@ -22,7 +22,7 @@ invalid_checksum_eth_addresses = [
 
 
 @pytest.mark.parametrize("address", invalid_checksum_eth_addresses)
-def test_valid_checksum_eth_addresses(address):
+def test_invalid_checksum_eth_addresses(address):
     with pytest.raises(AssertionError):
         assert address == to_checksum_address(address)
 
@@ -34,4 +34,3 @@ def test_valid_checksum_eth_addresses(address):
 # Private key: 9442b4b82c8011530f3a363cc87a4ea91efd53552faab2e63fd352db9367bb24
 # Public key:  3f538de115393e2a8851b4c19f686b6bb245213c3823e69336583f1d72c53d20831ea0574900b31d833932b3e8e71b4e99d574c6480890d60153fc2dccbc96d6
 # Address:     0x083c41ea13af6c2d5aaddf6e73142eb9a7b00183
-
