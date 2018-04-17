@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/tompin/multicrypto.svg?branch=master)](https://travis-ci.org/tompin/multicrypto)
 [![Coverage Status](https://coveralls.io/repos/github/tompin/multicrypto/badge.svg?branch=master)](https://coveralls.io/github/tompin/multicrypto?branch=master)
 [![Latest Version](https://pypip.in/version/multicrypto/badge.svg)](https://pypi.python.org/pypi/multicrypto/)
-[![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg")](https://www.python.org/)
+[![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Experimental Tool for translating and creating custom look addresses for various cryptocurrencies.
