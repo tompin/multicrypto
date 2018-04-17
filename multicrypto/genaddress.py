@@ -7,7 +7,7 @@ import sys
 from fastecdsa.curve import secp256k1
 from fastecdsa.keys import gen_private_key
 
-from multicrypto.address import convert_public_key_to_addres, N, G, \
+from multicrypto.address import convert_public_key_to_address, N, G, \
     convert_private_key_to_wif_format, validate_pattern
 from multicrypto.coins import coins, validate_coin_symbol
 
@@ -26,7 +26,7 @@ def generate_address(worker_num, coin_settings, pattern, compressed, segwit, fou
     counter = 0
     start_time = datetime.datetime.now()
     while not quit.is_set():
-        address = convert_public_key_to_addres(point, prefix_bytes, compressed, segwit)
+        address = convert_public_key_to_address(point, prefix_bytes, compressed, segwit)
         if address.startswith(pattern):
             private_key = (seed + counter) % N
             print('address found: {}'.format(address))
@@ -53,8 +53,6 @@ def get_args():
     parser.add_argument('-c', '--cores', type=int, required=False,
                         default=multiprocessing.cpu_count(),
                         help='How many cores we would like to use. Default maximum available.')
-    parser.add_argument('-f', '--file', type=str, required=False, default=None,
-                        help='Store script output in the provided file')
     parser.add_argument('-u', '--uncompressed', action='store_true',
                         help='Generate address based on uncompressed wif private key format')
     parser.add_argument('-w', '--segwit', action='store_true',
@@ -66,14 +64,10 @@ def start_workers(args):
     coin_symbol = args.symbol.upper()
     pattern = args.pattern
     workers = args.cores
-    file_name = args.file
     compressed = not args.uncompressed
     segwit = args.segwit
     if segwit and not compressed:
         raise Exception('Segwit addresses must used compressed public key representation')
-    if file_name:
-        file_handler = logging.FileHandler(file_name)
-        logger.addHandler(file_handler)
     jobs = []
     quit = multiprocessing.Event()
     found = multiprocessing.Event()
