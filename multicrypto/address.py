@@ -25,16 +25,17 @@ def get_encoded_point(point, compressed):
 
 def convert_private_key_to_address(private_key, address_prefix_bytes, compressed=True):
     public_key = G * private_key
-    return convert_public_key_to_addres(public_key, address_prefix_bytes, compressed)
+    return convert_public_key_to_address(public_key, address_prefix_bytes, compressed)
 
 
 def calculate_address(digest, address_prefix_bytes):
     input_data = address_prefix_bytes + digest
     check_sum = double_sha256(input_data)[:4]
-    return bytes_to_base58(input_data + check_sum)
+    address = bytes_to_base58(input_data + check_sum)
+    return address
 
 
-def convert_public_key_to_addres(public_key, address_prefix_bytes, compressed=True, segwit=False):
+def convert_public_key_to_address(public_key, address_prefix_bytes, compressed=True, segwit=False):
     encoded_public_key = get_encoded_point(public_key, compressed)
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
     digest = hashlib.new('ripemd160', hashed_public_key).digest()

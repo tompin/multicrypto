@@ -4,7 +4,7 @@ from fastecdsa.curve import secp256k1
 from fastecdsa.keys import gen_keypair
 
 
-def convert_public_key_to_addres(public_key, with_check_sum=False):
+def convert_public_key_to_address(public_key, with_check_sum=False):
     encoded_public_key = '{}{}'.format(public_key.x, public_key.y).encode()
     address = '0x' + keccak_256(encoded_public_key).hexdigest()[24:]
     if with_check_sum:
@@ -14,7 +14,7 @@ def convert_public_key_to_addres(public_key, with_check_sum=False):
 
 def generate_address(with_check_sum=False):
     private_key, public_key = gen_keypair(secp256k1)
-    return convert_public_key_to_addres(public_key, with_check_sum)
+    return convert_public_key_to_address(public_key, with_check_sum)
 
 
 def to_checksum_address(address):
@@ -24,3 +24,9 @@ def to_checksum_address(address):
         address_data[i].upper() if int(address_hash[i], 16) > 7 else address_data[i]
         for i in range(40))
     return '0x' + address_data
+
+
+def convert_private_key_to_wif_format(private_key):
+    hex_value = hex(private_key)[2:]
+    padding = '0' * (64 - len(hex_value))
+    return padding + hex_value
