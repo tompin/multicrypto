@@ -47,7 +47,7 @@ coins = {
             'script_prefix_bytes': b'\x1e'},
     'VTC': {'name': 'vertcoin', 'address_prefix_bytes': b'\x47', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x05'},
-    'ZCH': {'name': 'zcash', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
+    'ZEC': {'name': 'zcash', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x1c\xbd'},
     'ZCL': {'name': 'zclassic', 'address_prefix_bytes': b'\x1c\xb8',
             'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd'},
