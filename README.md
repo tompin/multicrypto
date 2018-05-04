@@ -22,23 +22,26 @@ Supported coins are:
 * Bitcoin Private (BTCP)
 * BitcoinZ (BTCZ)
 * Bitstar (BITS)
+* Buck (BUCK)
 * Crave (CRAVE)
 * Dash (DASH)
 * Diamond (DMD)
 * Dogecoin (DOGE)
 * Elite (1337)
+* Exvo (EXVO)
 * Hush (HUSH)
 * Komodo (KMD)
 * Litecoin (LTC)
 * Mooncoin (MOON)
 * Qtum (QTUM)
+* Safecoin (SAFE)
 * Snow Gem (SNG)
 * Sirius (SIRX)
 * Smartcash (SMART)
 * Unify (UNIFY)
 * Unobtanium (UNO)
 * Vertcoin (VTC)
-* Zcash (ZCH)
+* Zcash (ZEC)
 * Zclassic (ZCL)
 * Zeitcoin (ZEIT)
 * ZenCash (ZEN)
@@ -96,7 +99,7 @@ or corresponding tool (importing in Qt wallet doesn't always work)
 ```bash
   bitcoin-cli importprivkey <GENERATED_PRIV_KEY>
 ```
-To verify the key was imported check:
+To verify the key was imported successfully:
 ```bash
  bitcoin-cli dumpprivkey <GENERATED_ADDRESS>
 ```
