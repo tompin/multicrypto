@@ -35,6 +35,15 @@ def calculate_address(digest, address_prefix_bytes):
     return address
 
 
+def get_public_key_hash(address, address_prefix_bytes):
+    address_data = base58_to_bytes(address)
+    input_data = address_data[:-4]
+    if not input_data.startswith(address_prefix_bytes):
+        raise Exception('Incorrect address prefix')
+    digest = input_data[len(address_prefix_bytes):]
+    return digest
+
+
 def convert_public_key_to_address(public_key, address_prefix_bytes, compressed=True, segwit=False):
     encoded_public_key = get_encoded_point(public_key, compressed)
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
