@@ -14,7 +14,7 @@ def get_args():
                                                  'value of the private key')
     parser.add_argument('-p', '--private_key', type=str, required=True,
                         help='Private key which we want to translate')
-    parser.add_argument('-o', '--output_symbol', type=str, required=False,
+    parser.add_argument('-o', '--output_symbol', type=str, required=False, default='',
                         help='Symbol of the coin for which we want to know corresponding '
                              'translated private key')
     parser.add_argument('-f', '--file', type=str, required=False, default=None,
