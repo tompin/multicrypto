@@ -1,18 +1,13 @@
 import hashlib
 
 from fastecdsa.curve import secp256k1
-from multicrypto.coins import coins
 
 from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58
+from multicrypto.coins import coins
+from multicrypto.utils import double_sha256
 
 G = secp256k1.G  # generator point
 N = secp256k1.q  # order of the curve
-
-
-# Calculations are based on https://en.bitcoin.it/w/images/en/9/9b/PubKeyToAddr.png
-
-def double_sha256(input_data):
-    return hashlib.sha256(hashlib.sha256(input_data).digest()).digest()
 
 
 def get_encoded_point(point, compressed):
@@ -30,7 +25,7 @@ def convert_private_key_to_address(private_key, address_prefix_bytes, compressed
 
 def calculate_address(digest, address_prefix_bytes):
     input_data = address_prefix_bytes + digest
-    check_sum = double_sha256(input_data)[:4]
+    check_sum = double_sha256(input_data).digest()[:4]
     address = bytes_to_base58(input_data + check_sum)
     return address
 
@@ -44,7 +39,7 @@ def get_public_key_hash(address, address_prefix_bytes):
     return digest
 
 
-def convert_public_key_to_address(public_key, address_prefix_bytes, compressed=True, segwit=False):
+def calculate_public_key_hash(public_key, compressed=True, segwit=False):
     encoded_public_key = get_encoded_point(public_key, compressed)
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
     digest = hashlib.new('ripemd160', hashed_public_key).digest()
@@ -52,6 +47,11 @@ def convert_public_key_to_address(public_key, address_prefix_bytes, compressed=T
         redeem_script = b'\x00\x14' + digest
         hashed_script = hashlib.sha256(redeem_script).digest()
         digest = hashlib.new('ripemd160', hashed_script).digest()
+    return digest
+
+
+def convert_public_key_to_address(public_key, address_prefix_bytes, compressed=True, segwit=False):
+    digest = calculate_public_key_hash(public_key, compressed, segwit)
     return calculate_address(digest, address_prefix_bytes)
 
 
@@ -60,7 +60,7 @@ def convert_private_key_to_wif_format(private_key, secret_prefix_bytes, compress
     input_data = secret_prefix_bytes + bin_private_key
     if compressed:
         input_data += b'\x01'
-    check_sum = double_sha256(input_data)[:4]
+    check_sum = double_sha256(input_data).digest()[:4]
     return bytes_to_base58(input_data + check_sum)
 
 
@@ -102,7 +102,7 @@ def validate_address(address, coin, script):
     elif len(address_bytes) < len(prefix_bytes) + 24:
         raise Exception('Too little characters in address')
     check_sum = address_bytes[-4:]
-    calculated_check_sum = double_sha256(address_bytes[:-4])
+    calculated_check_sum = double_sha256(address_bytes[:-4]).digest()
     if check_sum != calculated_check_sum:
         raise Exception('Check sum is not correct')
     return validate_pattern(address, coin, script)

@@ -2,7 +2,7 @@ coins = {
     '1337': {'name': 'elite', 'address_prefix_bytes': b'\x30', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x1c'},
     'BTC': {'name': 'bitcoin', 'address_prefix_bytes': b'\x00', 'secret_prefix_bytes': b'\x80',
-            'script_prefix_bytes': b'\x05'},
+            'script_prefix_bytes': b'\x05', 'version': '01000000'},
     'BTG': {'name': 'bitcoin gold', 'address_prefix_bytes': b'\x26', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x17'},
     'BCH': {'name': 'bitcoin cash', 'address_prefix_bytes': b'\x00',
