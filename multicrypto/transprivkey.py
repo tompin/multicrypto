@@ -2,7 +2,8 @@ import argparse
 import logging
 
 from multicrypto.address import translate_private_key, validate_base58, \
-    get_private_key_from_wif_format, convert_private_key_to_address
+    get_private_key_from_wif_format, convert_private_key_to_address, \
+    convert_private_key_to_wif_format
 from multicrypto.coins import coins, validate_coin_symbol
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def get_args():
 
 def translate(args):
     output_coin_symbol = args.output_symbol.upper()
-    wif_private_key = args.private_key
+    private_key = args.private_key
     file_name = args.file
 
     if file_name:
@@ -32,11 +33,15 @@ def translate(args):
         logger.addHandler(file_handler)
 
     if not output_coin_symbol:
-        translated_private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+        translated_private_key, compressed = get_private_key_from_wif_format(private_key)
         return translated_private_key, compressed, ''
 
     try:
         validate_coin_symbol(output_coin_symbol)
+        if private_key.isdigit() and ('0' in private_key or len(private_key) > 52):
+            wif_private_key = convert_private_key_to_wif_format(int(private_key), b'\x80')
+        else:
+            wif_private_key = private_key
         validate_base58(wif_private_key)
     except Exception as e:
         logger.error(e)
