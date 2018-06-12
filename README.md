@@ -16,7 +16,6 @@ specified prefix.
 
 Supported coins are:
 * Bitcoin (BTC)
-* Bitcoin Cash (BCH)
 * Bitcoin Gold (BTG)
 * Bitcoin Hush (BTCH)
 * Bitcoin Private (BTCP)
@@ -28,7 +27,6 @@ Supported coins are:
 * Diamond (DMD)
 * Dogecoin (DOGE)
 * Elite (1337)
-* Exvo (EXVO)
 * Hush (HUSH)
 * Komodo (KMD)
 * Litecoin (LTC)
