@@ -32,8 +32,8 @@ def translate(args):
         logger.addHandler(file_handler)
 
     if not output_coin_symbol:
-        translated_private_key = get_private_key_from_wif_format(wif_private_key)
-        return translated_private_key, ''
+        translated_private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+        return translated_private_key, compressed, ''
 
     try:
         validate_coin_symbol(output_coin_symbol)
@@ -47,14 +47,14 @@ def translate(args):
     translated_private_key = translate_private_key(wif_private_key, output_private_key_prefix_bytes)
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
     address = convert_private_key_to_address(private_key, output_address_prefix_bytes, compressed)
-    return translated_private_key, address
+    return translated_private_key, compressed, address
 
 
 def main():
     args = get_args()
-    translated_private_key, address = translate(args)
-    print('{} private key: {}, address: {}'.format(
-        args.output_symbol, translated_private_key, address))
+    translated_private_key, compressed, address = translate(args)
+    print('Private key: {}, compressed: {}, address: {}, coin symbol: {}'.format(
+        translated_private_key, compressed, address, args.output_symbol or None))
 
 
 if __name__ == '__main__':

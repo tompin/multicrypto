@@ -11,6 +11,6 @@ from multicrypto.transprivkey import main
 def test_transprivkey_succes(sys_stdout):
     main()
 
-    res = 'HUSH private key: KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp' \
-          ', address: t1gU3ts9oBgy4gtc3y9FmrgbSBrSStN1WK4\n'
+    res = 'Private key: KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp' \
+          ', compressed: True, address: t1gU3ts9oBgy4gtc3y9FmrgbSBrSStN1WK4, coin symbol: HUSH\n'
     assert sys_stdout.getvalue() == res
