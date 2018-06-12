@@ -1,6 +1,8 @@
 import hashlib
 from binascii import unhexlify
 
+from fastecdsa.curve import secp256k1
+
 
 def int_to_bytes(integer, byteorder):
     return integer.to_bytes((integer.bit_length() + 7) // 8, byteorder=byteorder)
@@ -20,7 +22,7 @@ def double_sha256(input_data):
     return hashlib.sha256(hashlib.sha256(input_data).digest())
 
 
-def double_sha256_hex(hex_str):
+def double_sha256_hex(hex_str=b''):
     hex_str = hex_str.decode()
     input_data = hex_to_bytes(hex_str, byteorder='big')
     return double_sha256(input_data)
@@ -63,8 +65,17 @@ def der_encode_signature(signature):
     der_sequence = b'\x30'
     der_int = b'\x02'
     r, s = signature
+
+    # BIP 66 additional rules
+    if s > secp256k1.q / 2:
+        s = secp256k1.q - s
     r_bytes = int_to_bytes(r, byteorder='big')
     s_bytes = int_to_bytes(s, byteorder='big')
+    if r_bytes[0] & 0x80:
+        r_bytes = b'\x00' + r_bytes
+    if s_bytes[0] & 0x80:
+        s_bytes = b'\x00' + s_bytes
+
     r_der_encoded = der_int + int_to_bytes(len(r_bytes), byteorder='big') + r_bytes
     s_der_encoded = der_int + int_to_bytes(len(s_bytes), byteorder='big') + s_bytes
     sequence = r_der_encoded + s_der_encoded

@@ -30,7 +30,7 @@ class TransactionInput:
         self.private_key = private_key
         self.public_key = private_key * secp256k1.G
         compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
-        if hexlify(compressed_public_key_hash).decode() in script:
+        if compressed_public_key_hash.hex() in script:
             compressed_public_key = True
         else:
             compressed_public_key = False
@@ -59,7 +59,7 @@ class Transaction:
         self.id = None
         self.raw = None
         self.coin = coin
-        self.version = params.get('version') or coin.get('version') or b'\x00\x00\x00\x00'
+        self.version = params.get('version') or coin.get('version') or b'\x01\x00\x00\x00'
         self.sequence = params.get('sequence') or coin.get('sequence') or b'\xff\xff\xff\xff'
         self.lock_time = params.get('lock_time') or coin.get('lock_time') or b'\x00\x00\x00\x00'
         self.hash_type = params.get('hash_type') or coin.get('hash_type') or b'\x01\x00\x00\x00'
@@ -126,11 +126,11 @@ class Transaction:
         )
         #  ECDSA signing is done as follows:
         #  given a message 'm', a sign-secret 'k', a private key 'x'
-        #  calculate point R = G*k
+        #  calculate point R = G * k
         #  r = xcoordinate(R)
         #  s = (m + x * r) / k (mod q)
         #  q is the group order of secp256k1 = 2**256 - 432420386565659656852420866394968145599
-        sig = sign(message, input.private_key, curve=secp256k1, hashfunc=double_sha256_hex)
+        sig = sign(message.hex(), input.private_key, curve=secp256k1, hashfunc=double_sha256_hex)
         encoded_signature = der_encode_signature(sig)
         signature = encoded_signature + b'\x01'
         script_sig = (
