@@ -1,3 +1,5 @@
+from multicrypto.utils import int_to_bytes
+
 base58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 base58_digits_values = {digit: value for value, digit in enumerate(base58)}
 
@@ -20,7 +22,7 @@ def base58_to_bytes(base58_data):
         value *= 58
         value += base58_digits_values[digit]
     leading_zeros = b'\x00' * (len(base58_data) - len(data_without_leading_ones))
-    return leading_zeros + value.to_bytes((value.bit_length() + 7) // 8, byteorder='big')
+    return leading_zeros + int_to_bytes(value, byteorder='big')
 
 
 def base58_to_int(base58_data):

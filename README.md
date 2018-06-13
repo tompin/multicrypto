@@ -16,7 +16,6 @@ specified prefix.
 
 Supported coins are:
 * Bitcoin (BTC)
-* Bitcoin Cash (BCH)
 * Bitcoin Gold (BTG)
 * Bitcoin Hush (BTCH)
 * Bitcoin Private (BTCP)
@@ -28,7 +27,6 @@ Supported coins are:
 * Diamond (DMD)
 * Dogecoin (DOGE)
 * Elite (1337)
-* Exvo (EXVO)
 * Hush (HUSH)
 * Komodo (KMD)
 * Litecoin (LTC)
@@ -52,7 +50,7 @@ If you find this tool useful please donate to BTC address: 1BTC1NNjeiAmFqe2n1QJj
 ## INSTALLATION
 
 If you don't have Python 3 install it by following instructions from python.org. 
-Supported Python versions are 3.4, 3.5, 3.6, 3.7. Then Run:
+Supported Python versions are 3.5, 3.6, 3.7. Then Run:
 ```bash
 pip3 install multicrypto
 ```
