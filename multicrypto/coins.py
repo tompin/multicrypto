@@ -2,7 +2,10 @@ coins = {
     '1337': {'name': 'elite', 'address_prefix_bytes': b'\x30', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x1c'},
     'BTC': {'name': 'bitcoin', 'address_prefix_bytes': b'\x00', 'secret_prefix_bytes': b'\x80',
-            'script_prefix_bytes': b'\x05', 'version': '01000000'},
+            'script_prefix_bytes': b'\x05', 'api': [
+                {'utxo': 'https://insight.bitpay.com/api/addr/{}/utxo',
+                 'send': 'https://insight.bitpay.com/api/tx/send'}]
+             },
     'BTG': {'name': 'bitcoin gold', 'address_prefix_bytes': b'\x26', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x17'},
     'BITS': {'name': 'bitstar', 'address_prefix_bytes': b'\x19', 'secret_prefix_bytes': b'\x99',
@@ -24,7 +27,10 @@ coins = {
     'DMD': {'name': 'diamond', 'address_prefix_bytes': b'\x5a', 'secret_prefix_bytes': b'\xda',
             'script_prefix_bytes': b'\x08'},
     'HUSH': {'name': 'hush', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
-             'script_prefix_bytes': b'\x1c\xbd'},
+             'script_prefix_bytes': b'\x1c\xbd', 'api': [
+                {'utxo': 'https://explorer.myhush.org/api/addr/{}/utxo',
+                 'send': 'https://explorer.myhush.org/api/tx/send'}]
+             },
     'KMD': {'name': 'komodo', 'address_prefix_bytes': b'\x3c', 'secret_prefix_bytes': b'\xbc',
             'script_prefix_bytes': b'\x55'},
     'LTC': {'name': 'litecoin', 'address_prefix_bytes': b'\x30', 'secret_prefix_bytes': b'\xb0',

@@ -77,9 +77,9 @@ def get_private_key_from_wif_format(wif_private_key):
     return int.from_bytes(private_key_bytes, byteorder='big'), was_compressed
 
 
-def validate_pattern(pattern, coin, script):
+def validate_pattern(pattern, coin, is_script):
     validate_base58(pattern)
-    if script:
+    if is_script:
         start_address, end_address = get_address_range(coins[coin]['script_prefix_bytes'])
     else:
         start_address, end_address = get_address_range(coins[coin]['address_prefix_bytes'])
@@ -89,9 +89,9 @@ def validate_pattern(pattern, coin, script):
     return True
 
 
-def validate_address(address, coin, script):
+def validate_address(address, coin, is_script):
     address_bytes = base58_to_bytes(address)
-    if script:
+    if is_script:
         prefix_bytes = coins[coin]['script_prefix_bytes']
     else:
         prefix_bytes = coins[coin]['address_prefix_bytes']
@@ -105,7 +105,7 @@ def validate_address(address, coin, script):
     calculated_check_sum = double_sha256(address_bytes[:-4]).digest()
     if check_sum != calculated_check_sum:
         raise Exception('Check sum is not correct')
-    return validate_pattern(address, coin, script)
+    return validate_pattern(address, coin, is_script)
 
 
 def translate_address(address, input_address_prefix_bytes, output_address_prefix_bytes):

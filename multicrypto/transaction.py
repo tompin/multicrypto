@@ -56,6 +56,9 @@ class TransactionOutput:
 
 class Transaction:
     def __init__(self, coin, inputs, outputs, **params):
+        logger.debug('coin: {}, inputs: {}, outputs: {}, params: {}'.format(
+            coin['name'], inputs, outputs, params
+        ))
         self.id = None
         self.raw = None
         self.coin = coin
@@ -159,3 +162,4 @@ class Transaction:
         self.raw = raw_transaction_data.decode()
         logger.debug('Created transaction with id {} and raw data {}'.format(
             self.id, self.raw))
+        return self.raw
