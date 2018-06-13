@@ -6,10 +6,11 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Experimental Tool for translating and creating custom look addresses for various cryptocurrencies.
+Experimental Tool for sending funds, creating custom look addresses and translating addresses
+between various cryptocurrencies.
 
-Address translation produce address for different coin, which will have the same private key as address
-which is being translated. Of course private key is not needed or revealed during translation.
+Address translation produce address for different coin, which will have the same private key as
+translated address. Of course private key is not needed or revealed during translation.
 
 Creating address gives us possibility to generate private key and corresponding address with
 specified prefix.
@@ -62,7 +63,15 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
 
 ### Run
 
- 1. Translating address between coins:
+ 1. Sending funds:
+ ```bash
+ sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --private_key=<PRIVATE KEY>
+ ```
+ For example sending 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 1000 satoshis
+ ```bash
+ sendcrypto -c BTC -s 25000000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
+ ```
+ 2. Translating address between coins:
   ```bash
   transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL>
   ```
@@ -70,7 +79,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```bash
   transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o HUSH
   ```
- 2. Translating private key in wif format between coins
+ 3. Translating private key in wif format between coins
   ```bash
   transprivkey --private_key=<ADDRESS> --output_symbol=<COIN SYMBOL>
   ```
@@ -79,7 +88,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```bash
   transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o HUSH
   ```
- 3. Generating address with given pattern and corresponding private key:
+ 4. Generating address with given pattern and corresponding private key:
   ```bash
  genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL>
  ```
