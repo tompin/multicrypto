@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from multicrypto.address import validate_address
+from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.coins import coins, validate_coin_symbol
 from multicrypto.network import send
 
@@ -24,7 +24,6 @@ def get_args():
     return parser.parse_args()
 
 
-# TODO: validate wif private key
 def send_crypto(args):
     coin_symbol = args.coin_symbol.upper()
     address = args.address
@@ -34,6 +33,7 @@ def send_crypto(args):
     try:
         validate_coin_symbol(coin_symbol)
         validate_address(address, coin_symbol, is_script=False)
+        validate_wif_private_key(wif_private_key, coin_symbol)
     except Exception as e:
         logger.error(e)
         return

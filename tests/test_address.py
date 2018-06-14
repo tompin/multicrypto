@@ -1,8 +1,8 @@
 import pytest
-from multicrypto.coins import coins, validate_coin_symbol
 
 from multicrypto.address import get_private_key_from_wif_format, \
-    convert_private_key_to_address, translate_address, validate_pattern
+    convert_private_key_to_address, translate_address, validate_pattern, validate_wif_private_key
+from multicrypto.coins import coins, validate_coin_symbol
 
 
 def test_convert_private_key_to_address():
@@ -78,3 +78,35 @@ def test_translate_address():
         hush_address, coins['HUSH']['address_prefix_bytes'], coins['KMD']['address_prefix_bytes'])
 
     assert translated_address == kmd_address
+
+
+def test_validate_wif_private_key_compressed_success():
+    btc_wif_private_key_compressed = 'KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp'
+
+    result_compressed = validate_wif_private_key(btc_wif_private_key_compressed, 'BTC')
+
+    assert result_compressed
+
+
+def test_validate_wif_private_key_uncompressed_success():
+    btc_wif_private_key_uncompressed = '5HwoXVkHoRM8sL2KmNRS217n1g8mPPBomrY7yehCuXC1115WWsh'
+
+    result_uncompressed = validate_wif_private_key(btc_wif_private_key_uncompressed, 'BTC')
+
+    assert result_uncompressed
+
+
+def test_validate_wif_private_key_compressd_failure():
+    btc_wif_private_key_compressed = 'KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp'
+
+    with pytest.raises(Exception) as exc_info:
+        validate_wif_private_key(btc_wif_private_key_compressed, 'KMD')
+    assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin KMD'
+
+
+def test_validate_wif_private_key_uncompressed_failure():
+    btc_wif_private_key_uncompressed = '5HwoXVkHoRM8sL2KmNRS217n1g8mPPBomrY7yehCuXC1115WWsh'
+
+    with pytest.raises(Exception) as exc_info:
+        validate_wif_private_key(btc_wif_private_key_uncompressed, 'KMD')
+    assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin KMD'
