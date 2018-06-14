@@ -7,36 +7,44 @@ from multicrypto.utils import reverse_byte_hex
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
-def send(coin, wif_private_key, destination_address, satoshis, fee):
-    private_key, compressed = get_private_key_from_wif_format(wif_private_key)
-    source_addresss = convert_private_key_to_address(
-        private_key, coin['address_prefix_bytes'], compressed)
+def send(coin, wif_private_keys, destination_address, satoshis, fee):
+    source_data = []
+    for wif_private_key in wif_private_keys:
+        private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+        source_address = convert_private_key_to_address(
+            private_key, coin['address_prefix_bytes'], compressed)
+        logger.info('Using address {}'.format(source_address))
+        source_data.append((private_key, source_address))
+
     api = coin['api'][0]
-    result = requests.get(api['utxo'].format(source_addresss))
-    logger.debug(
-        'HTTP GET {} status: {} data: {}'.format(api['utxo'], result.status_code, result.text))
-    unspents = result.json()
     inputs = []
     input_satoshis = 0
-    for utxo in unspents:
-        input_satoshis += utxo['satoshis']
-        inputs.append(
-            {'transaction_id': reverse_byte_hex(utxo['txid']),
-             'output_index': utxo['vout'],
-             'script': utxo['scriptPubKey'],
-             'satoshis': utxo['satoshis'],
-             'private_key': private_key})
-        if input_satoshis >= satoshis + fee:
-            break
+    for private_key, source_address in source_data:
+        address_url = api['utxo'].format(source_address)
+        result = requests.get(address_url)
+        unspents = result.json()
+        for utxo in unspents:
+            input_satoshis += utxo['satoshis']
+            inputs.append(
+                {'transaction_id': reverse_byte_hex(utxo['txid']),
+                 'output_index': utxo['vout'],
+                 'script': utxo['scriptPubKey'],
+                 'satoshis': utxo['satoshis'],
+                 'private_key': private_key})
+            logger.info('Using input {} with {} satoshis'.format(utxo['txid'], utxo['satoshis']))
+            if input_satoshis >= satoshis + fee:
+                outputs = [{'address': destination_address, 'satoshis': satoshis}]
+                change = input_satoshis - satoshis - fee
+                if change > 0:
+                    outputs.append({'address': source_address, 'satoshis': change})
+                transaction = Transaction(coin, inputs, outputs)
+                raw_transaction = transaction.create()
+                result = requests.post(api['send'], json={'rawtx': raw_transaction})
+                return result.json()
     else:
-        raise Exception('Not enough funds in address: {}'.format(source_addresss))
-    outputs = [{'address': destination_address, 'satoshis': satoshis}]
-    change = input_satoshis - satoshis - fee
-    if change > 0:
-        outputs.append({'address': source_addresss, 'satoshis': change})
-    transaction = Transaction(coin, inputs, outputs)
-    raw_transaction = transaction.create()
-    result = requests.post(api['send'], json={'rawtx': raw_transaction})
-    return {'response status': result.status_code, 'data': result.json()}
+        raise Exception('Not enough funds in addresses: {}\n{} < {} + {}(fee)'.format(
+            ', '.join(source_address for private_key, source_address in source_data),
+            input_satoshis, satoshis, fee))

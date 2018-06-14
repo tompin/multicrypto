@@ -6,3 +6,4 @@ tox
 twine
 pyscrypt
 pycrypto
+responses

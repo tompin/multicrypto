@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 
 from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.coins import coins, validate_coin_symbol
@@ -9,9 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description='Send cryptocurrency to specified address')
-    parser.add_argument('-p', '--wif_private_key', type=str, required=True,
-                        help='Private key in WIF format which funds will be used to send')
+    parser = argparse.ArgumentParser(
+        description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
+            ','.join(coin['name'].title() for coin in coins.values() if coin.get('api'))))
+    parser.add_argument('-p', '--wif_private_keys', type=str, required=True,
+                        help='Comma separated private keys in WIF format which funds will be used'
+                             ' to send funds')
     parser.add_argument('-a', '--address', type=str, required=True,
                         help='Address to which we want to send')
     parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
@@ -25,26 +29,29 @@ def get_args():
 
 
 def send_crypto(args):
+    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     coin_symbol = args.coin_symbol.upper()
     address = args.address
-    wif_private_key = args.wif_private_key
+    wif_private_keys = args.wif_private_keys.split(',')
     satoshis = int(args.satoshis)
     fee = int(args.fee)
     try:
         validate_coin_symbol(coin_symbol)
         validate_address(address, coin_symbol, is_script=False)
-        validate_wif_private_key(wif_private_key, coin_symbol)
+        for wif_private_key in wif_private_keys:
+            validate_wif_private_key(wif_private_key, coin_symbol)
     except Exception as e:
         logger.error(e)
         return
     if not coins[coin_symbol].get('api'):
         logger.error('No api has been defined for coin {}'.format(coin_symbol))
-    return send(coins[coin_symbol], wif_private_key, address, satoshis, fee)
+    return send(coins[coin_symbol], wif_private_keys, address, satoshis, fee)
 
 
 def main():
     args = get_args()
     result = send_crypto(args)
+    logger.info(result)
     print(result)
 
 

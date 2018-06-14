@@ -36,6 +36,7 @@ setup(
             'transaddress=multicrypto.transaddress:main',
             'transprivkey=multicrypto.transprivkey:main',
             'genaddress=multicrypto.genaddress:main',
+            'sendcrypto=multicrypto.sendcrypto:main',
         ],
     },
 )

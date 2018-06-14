@@ -102,7 +102,7 @@ def validate_address(address, coin_symbol, is_script):
     elif len(address_bytes) < len(prefix_bytes) + 24:
         raise Exception('Too little characters in address')
     check_sum = address_bytes[-4:]
-    calculated_check_sum = double_sha256(address_bytes[:-4]).digest()
+    calculated_check_sum = double_sha256(address_bytes[:-4]).digest()[:4]
     if check_sum != calculated_check_sum:
         raise Exception('Check sum is not correct')
     return validate_pattern(address, coin_symbol, is_script)
