@@ -56,7 +56,7 @@ def send_crypto(args):
 def main():
     args = get_args()
     result = send_crypto(args)
-    logger.info(result)
+    print(result)
 
 
 if __name__ == '__main__':
