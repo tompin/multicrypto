@@ -16,8 +16,8 @@ coins = {
              'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x13\xaf'},
     'BTCZ': {'name': 'bitcoinz', 'address_prefix_bytes': b'\x1c\xb8',
              'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
-                {'utxo': 'https://explorer.btcz.rocks/api/addr{}/utxo',
-                 'send': 'https://explorer.btcz.rocks/api/tx/send'}]
+                 {'utxo': 'https://explorer.btcz.rocks/api/addr{}/utxo',
+                  'send': 'https://explorer.btcz.rocks/api/tx/send'}]
              },
     'BUCK': {'name': 'buck', 'address_prefix_bytes': b'\x1c\xb8',
              'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd'},
@@ -45,7 +45,7 @@ coins = {
     'QTUM': {'name': 'qtum', 'address_prefix_bytes': b'\x3a', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x32'},
     'SAFE': {'name': 'safecoin', 'address_prefix_bytes': b'\x3d', 'secret_prefix_bytes': b'\xbd',
-             'script_prefix_bytes': b'\x56','api': [
+             'script_prefix_bytes': b'\x56', 'api': [
                  {'utxo': 'https://explorer.safecoin.org/api/addr/{}/utxo',
                   'send': 'https://explorer.safecoin.org/api/tx/send'}]
              },
@@ -64,16 +64,16 @@ coins = {
     'ZEC': {'name': 'zcash', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x1c\xbd'},
     'ZCL': {'name': 'zclassic', 'address_prefix_bytes': b'\x1c\xb8',
-            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd','api': [
-                 {'utxo': 'http://explorer.zclmine.pro/insight-api-zcash/addr/{}/utxo',
-                  'send': 'http://explorer.zclmine.pro/insight-api-zcash/tx/send'}]
+            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
+                {'utxo': 'http://explorer.zclmine.pro/insight-api-zcash/addr/{}/utxo',
+                 'send': 'http://explorer.zclmine.pro/insight-api-zcash/tx/send'}]
             },
     'ZEIT': {'name': 'zeit', 'address_prefix_bytes': b'\x33', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x08'},
     'ZEN': {'name': 'zen cash', 'address_prefix_bytes': b'\x20\x89',
-            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd','api': [
-                 {'utxo': 'https://explorer.zensystem.io/insight-api-zen/addr/{}/utxo',
-                  'send': 'https://explorer.zensystem.io/insight-api-zen/tx/send'}]
+            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
+                {'utxo': 'https://explorer.zensystem.io/insight-api-zen/addr/{}/utxo',
+                 'send': 'https://explorer.zensystem.io/insight-api-zen/tx/send'}]
             },
     'ZERO': {'name': 'zero', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x1c\xbd', 'api': [
