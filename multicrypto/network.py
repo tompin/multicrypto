@@ -16,9 +16,7 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee):
         private_key, compressed = get_private_key_from_wif_format(wif_private_key)
         source_address = convert_private_key_to_address(
             private_key, coin['address_prefix_bytes'], compressed)
-        logger.info('Using address {}'.format(source_address))
         source_data.append((private_key, source_address))
-
     api = coin['api'][0]
     inputs = []
     input_satoshis = 0
@@ -34,17 +32,22 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee):
                  'script': utxo['scriptPubKey'],
                  'satoshis': utxo['satoshis'],
                  'private_key': private_key})
-            logger.info('Using input {} with {} satoshis'.format(utxo['txid'], utxo['satoshis']))
+            logger.info('Using address: {}, input: {}, satoshis: {}'.format(
+                source_address, utxo['txid'], utxo['satoshis']))
             if input_satoshis >= satoshis + fee:
                 outputs = [{'address': destination_address, 'satoshis': satoshis}]
                 change = input_satoshis - satoshis - fee
                 if change > 0:
                     outputs.append({'address': source_address, 'satoshis': change})
-                transaction = Transaction(coin, inputs, outputs)
+                last_block = {}
+                if 'check_block_at_height' in coin.get('params', {}):
+                    result = requests.get(api['blocks'])
+                    last_block = result.json()['blocks'][0]
+                transaction = Transaction(coin, inputs, outputs, check_block_at_height=last_block)
                 raw_transaction = transaction.create()
                 result = requests.post(api['send'], json={'rawtx': raw_transaction})
                 return result.json()
     else:
-        raise Exception('Not enough funds in addresses: {}\n{} < {} + {}(fee)'.format(
+        raise Exception('Not enough funds in addresses: {}\nSum of inputs {} < {} + {}(fee)'.format(
             ', '.join(source_address for private_key, source_address in source_data),
             input_satoshis, satoshis, fee))

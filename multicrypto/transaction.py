@@ -63,6 +63,7 @@ class Transaction:
         self.sequence = params.get('sequence') or coin.get('sequence') or b'\xff\xff\xff\xff'
         self.lock_time = params.get('lock_time') or coin.get('lock_time') or b'\x00\x00\x00\x00'
         self.hash_type = params.get('hash_type') or coin.get('hash_type') or b'\x01\x00\x00\x00'
+        self.last_block = params.get('check_block_at_height')
         self.inputs = [
             TransactionInput(
                 transaction_id=input['transaction_id'],
@@ -95,6 +96,10 @@ class Transaction:
         for output in self.outputs:
             script = OP_DUP + OP_HASH160 + OP_PUSH_20 + output.public_key_hash + \
                 OP_EQUALVERIFY + OP_CHECKSIG
+            if self.last_block:
+                script += b'\x20' + hex_to_bytes(self.last_block['hash'], byteorder='little')
+                height_bytes = int_to_bytes(self.last_block['height'], byteorder='little')
+                script += len(height_bytes).to_bytes(1, byteorder='big') + height_bytes + b'\xb4'
             output_block += output.satoshis.to_bytes(8, byteorder='little')
             output_block += int_to_bytes(len(script), byteorder='little')
             output_block += script
