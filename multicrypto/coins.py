@@ -13,7 +13,10 @@ coins = {
     'BTCH': {'name': 'bitcoin hush', 'address_prefix_bytes': b'\x3c',
              'secret_prefix_bytes': b'\xbc', 'script_prefix_bytes': b'\x55'},
     'BTCP': {'name': 'bitcoin private', 'address_prefix_bytes': b'\x13\x25',
-             'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x13\xaf'},
+             'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x13\xaf', 'api': [
+                 {'utxo': 'https://explorer.btcprivate.org/api/addr{}/utxo',
+                  'send': 'https://explorer.btcprivate.org/api/tx/send'}]
+             },
     'BTCZ': {'name': 'bitcoinz', 'address_prefix_bytes': b'\x1c\xb8',
              'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
                  {'utxo': 'https://explorer.btcz.rocks/api/addr{}/utxo',
@@ -49,8 +52,11 @@ coins = {
                  {'utxo': 'https://explorer.safecoin.org/api/addr/{}/utxo',
                   'send': 'https://explorer.safecoin.org/api/tx/send'}]
              },
-    'SNG': {'name': 'snowgem', 'address_prefix_bytes': b'\x1c\x28',
-            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\x2d'},
+    'XSG': {'name': 'snowgem', 'address_prefix_bytes': b'\x1c\x28',
+            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\x2d', 'api': [
+                {'utxo': 'https://insight.snowgem.org/api/addr/{}/utxo',
+                 'send': 'https://insight.snowgem.org/api/tx/send'}]
+            },
     'SIRX': {'name': 'sirius', 'address_prefix_bytes': b'\x3f', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x32'},
     'SMART': {'name': 'smartcash', 'address_prefix_bytes': b'\x3f', 'secret_prefix_bytes': b'\xbf',
@@ -71,9 +77,11 @@ coins = {
     'ZEIT': {'name': 'zeit', 'address_prefix_bytes': b'\x33', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x08'},
     'ZEN': {'name': 'zen cash', 'address_prefix_bytes': b'\x20\x89',
-            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
+            'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd',
+            'params': {'check_block_at_height': True}, 'api': [
                 {'utxo': 'https://explorer.zensystem.io/insight-api-zen/addr/{}/utxo',
-                 'send': 'https://explorer.zensystem.io/insight-api-zen/tx/send'}]
+                 'send': 'https://explorer.zensystem.io/insight-api-zen/tx/send',
+                 'blocks': 'https://explorer.zensystem.io/insight-api-zen/blocks?limit=1'}]
             },
     'ZERO': {'name': 'zero', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
              'script_prefix_bytes': b'\x1c\xbd', 'api': [
