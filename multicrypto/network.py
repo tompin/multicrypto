@@ -7,10 +7,10 @@ from multicrypto.utils import reverse_byte_hex
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
-def send(coin, wif_private_keys, destination_address, satoshis, fee):
+def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_input_threshold=None,
+         maximum_input_threshold=None):
     source_data = []
     for wif_private_key in wif_private_keys:
         private_key, compressed = get_private_key_from_wif_format(wif_private_key)
@@ -25,6 +25,10 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee):
         result = requests.get(address_url)
         unspents = result.json()
         for utxo in unspents:
+            if minimum_input_threshold and utxo['satoshis'] < minimum_input_threshold:
+                continue
+            if maximum_input_threshold and utxo['satoshis'] > maximum_input_threshold:
+                continue
             input_satoshis += utxo['satoshis']
             inputs.append(
                 {'transaction_id': reverse_byte_hex(utxo['txid']),
