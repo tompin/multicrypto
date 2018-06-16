@@ -13,7 +13,8 @@ coins = {
     'BTCH': {'name': 'bitcoin hush', 'address_prefix_bytes': b'\x3c',
              'secret_prefix_bytes': b'\xbc', 'script_prefix_bytes': b'\x55'},
     'BTCP': {'name': 'bitcoin private', 'address_prefix_bytes': b'\x13\x25',
-             'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x13\xaf', 'api': [
+             'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x13\xaf',
+             'sig_hash': b'x\41', 'api': [
                  {'utxo': 'https://explorer.btcprivate.org/api/addr{}/utxo',
                   'send': 'https://explorer.btcprivate.org/api/tx/send'}]
              },

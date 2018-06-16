@@ -6,8 +6,8 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Experimental Tool for sending funds, creating custom look addresses and translating addresses
-between various cryptocurrencies.
+Experimental Tool for sending funds (for now only P2PKH transaction type is supported), creating custom look 
+addresses and translating addresses between various cryptocurrencies.
 
 Address translation produce address for different coin, which will have the same private key as
 translated address. Of course private key is not needed or revealed during translation.
@@ -63,7 +63,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
 
 ### Run
 
- 1. Sending funds:
+ 1. Sending funds (P2PKH):
  ```bash
  sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
  ```

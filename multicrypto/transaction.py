@@ -137,7 +137,7 @@ class Transaction:
         #  q is the group order of secp256k1 = 2**256 - 432420386565659656852420866394968145599
         sig = sign(message.hex(), input.private_key, curve=secp256k1, hashfunc=double_sha256_hex)
         encoded_signature = der_encode_signature(sig)
-        signature = encoded_signature + b'\x01'
+        signature = encoded_signature + self.coin.get('sig_hash', b'\x01')
         script_sig = (
             len(signature).to_bytes(1, byteorder='little') +
             signature +
