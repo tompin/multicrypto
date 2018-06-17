@@ -30,7 +30,8 @@ def get_args():
     parser.add_argument('-x', '--maximum_input_threshold', type=int, required=False, default=None,
                         help='Use only inputs containing satoshis below or equal to the specified '
                              'threshold')
-
+    parser.add_argument('-l', '--limit_inputs', type=int, required=False, default=None,
+                        help='Specify limit for number of inputs that will be used in transaction')
     return parser.parse_args()
 
 
@@ -43,6 +44,10 @@ def send_crypto(args):
     fee = int(args.fee)
     minimum_input_threshold = args.minimum_input_threshold
     maximum_input_threshold = args.maximum_input_threshold
+    limit_inputs = args.limit_inputs
+    if limit_inputs and limit_inputs <= 0:
+        logger.error('Limit inputs must be positive')
+        return
     if minimum_input_threshold is not None and minimum_input_threshold <= 0:
         logger.error('Minimum input threshold must be positive')
         return
@@ -66,7 +71,7 @@ def send_crypto(args):
 
     try:
         result = send(coins[coin_symbol], wif_private_keys, address, satoshis, fee,
-                      minimum_input_threshold, maximum_input_threshold)
+                      minimum_input_threshold, maximum_input_threshold, limit_inputs)
     except Exception as e:
         logger.error(e)
         return

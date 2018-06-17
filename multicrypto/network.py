@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_input_threshold=None,
-         maximum_input_threshold=None):
+         maximum_input_threshold=None, limit_inputs=None):
     source_data = []
     for wif_private_key in wif_private_keys:
         private_key, compressed = get_private_key_from_wif_format(wif_private_key)
@@ -20,11 +20,14 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_inp
     api = coin['api'][0]
     inputs = []
     input_satoshis = 0
+    counter_inputs = 0
     for private_key, source_address in source_data:
         address_url = api['utxo'].format(source_address)
         result = requests.get(address_url)
         unspents = result.json()
         for utxo in unspents:
+            if limit_inputs and counter_inputs == limit_inputs:
+                break
             if minimum_input_threshold and utxo['satoshis'] < minimum_input_threshold:
                 continue
             if maximum_input_threshold and utxo['satoshis'] > maximum_input_threshold:
@@ -36,8 +39,9 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_inp
                  'script': utxo['scriptPubKey'],
                  'satoshis': utxo['satoshis'],
                  'private_key': private_key})
-            logger.info('Using address: {}, input: {}, satoshis: {}'.format(
-                source_address, utxo['txid'], utxo['satoshis']))
+            counter_inputs += 1
+            logger.info('{}. address: {}, input: {}, satoshis: {}'.format(
+                counter_inputs, source_address, utxo['txid'], utxo['satoshis']))
             if input_satoshis >= satoshis + fee:
                 outputs = [{'address': destination_address, 'satoshis': satoshis}]
                 change = input_satoshis - satoshis - fee
@@ -50,7 +54,7 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_inp
                 transaction = Transaction(coin, inputs, outputs, check_block_at_height=last_block)
                 raw_transaction = transaction.create()
                 result = requests.post(api['send'], json={'rawtx': raw_transaction})
-                return result.json()
+                return result.text
     else:
         raise Exception('Not enough funds in addresses: {}\nSum of inputs {} < {} + {}(fee)'.format(
             ', '.join(source_address for private_key, source_address in source_data),

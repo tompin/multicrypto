@@ -20,7 +20,7 @@ class TransactionInput:
                              becomes new transaction input
         :param script: Script in hex format
         :param satoshis: Amount in satoshis (int)
-        :param private_key: Private key needed to claim the input (int)
+        :param private_key: Private key (int) needed to claim the input
         """
         self.transaction_id = hex_to_bytes(transaction_id, byteorder='big')
         self.output_index = output_index.to_bytes(4, byteorder='little')
