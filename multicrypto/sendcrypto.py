@@ -22,7 +22,7 @@ def get_args():
                         for which we want to make money transfer')
     parser.add_argument('-s', '--satoshis', type=int, required=True,
                         help='How many satoshis you want to send')
-    parser.add_argument('-f', '--fee', type=str, required=False, default='1000',
+    parser.add_argument('-f', '--fee', type=str, required=False, default='10000',
                         help='Transaction fee')
     parser.add_argument('-n', '--minimum_input_threshold', type=int, required=False, default=None,
                         help='Use only inputs containing satoshis equal or above the specified '
