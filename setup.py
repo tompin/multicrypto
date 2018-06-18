@@ -33,10 +33,10 @@ setup(
     install_requires=['fastecdsa==1.6.1', 'pysha3==1.0.2'],
     entry_points={
         'console_scripts': [
-            'transaddress=multicrypto.transaddress:main',
-            'transprivkey=multicrypto.transprivkey:main',
-            'genaddress=multicrypto.genaddress:main',
-            'sendcrypto=multicrypto.sendcrypto:main',
+            'transaddress=multicrypto.commands.transaddress:main',
+            'transprivkey=multicrypto.commands.transprivkey:main',
+            'genaddress=multicrypto.commands.genaddress:main',
+            'sendcrypto=multicrypto.commands.sendcrypto:main',
         ],
     },
 )

@@ -5,7 +5,7 @@ import pytest
 from multicrypto.address import get_address_range
 from multicrypto.base58 import base58
 from multicrypto.coins import coins
-from multicrypto.genaddress import generate_address
+from multicrypto.commands.genaddress import generate_address
 
 
 class SetMock:

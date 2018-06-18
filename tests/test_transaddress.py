@@ -2,7 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-from multicrypto.transaddress import main
+from multicrypto.commands.transaddress import main
 
 
 @patch.object(sys, 'argv', [

@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import sys
 
@@ -7,6 +8,13 @@ from multicrypto.coins import coins, validate_coin_symbol
 from multicrypto.network import send
 
 logger = logging.getLogger(__name__)
+
+
+def check_positive(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+    return ivalue
 
 
 def get_args():
@@ -20,17 +28,17 @@ def get_args():
                         help='Address to which we want to send')
     parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
                         for which we want to make money transfer')
-    parser.add_argument('-s', '--satoshis', type=int, required=True,
+    parser.add_argument('-s', '--satoshis', type=check_positive, required=True,
                         help='How many satoshis you want to send')
-    parser.add_argument('-f', '--fee', type=str, required=False, default='10000',
+    parser.add_argument('-f', '--fee', type=check_positive, required=False, default=10000,
                         help='Transaction fee')
-    parser.add_argument('-n', '--minimum_input_threshold', type=int, required=False, default=None,
-                        help='Use only inputs containing satoshis equal or above the specified '
-                             'threshold')
-    parser.add_argument('-x', '--maximum_input_threshold', type=int, required=False, default=None,
-                        help='Use only inputs containing satoshis below or equal to the specified '
-                             'threshold')
-    parser.add_argument('-l', '--limit_inputs', type=int, required=False, default=None,
+    parser.add_argument('-n', '--minimum_input_threshold', type=check_positive, required=False,
+                        default=None, help='Use only inputs containing satoshis equal or above the '
+                                           'specified threshold')
+    parser.add_argument('-x', '--maximum_input_threshold', type=check_positive, required=False,
+                        default=None, help='Use only inputs containing satoshis below or equal to '
+                                           'the specified threshold')
+    parser.add_argument('-l', '--limit_inputs', type=check_positive, required=False, default=None,
                         help='Specify limit for number of inputs that will be used in transaction')
     return parser.parse_args()
 
@@ -41,21 +49,12 @@ def send_crypto(args):
     address = args.address
     wif_private_keys = args.wif_private_keys.split(',')
     satoshis = args.satoshis
-    fee = int(args.fee)
+    fee = args.fee
     minimum_input_threshold = args.minimum_input_threshold
     maximum_input_threshold = args.maximum_input_threshold
     limit_inputs = args.limit_inputs
-    if limit_inputs and limit_inputs <= 0:
-        logger.error('Limit inputs must be positive')
-        return
-    if minimum_input_threshold is not None and minimum_input_threshold <= 0:
-        logger.error('Minimum input threshold must be positive')
-        return
-    if maximum_input_threshold is not None and maximum_input_threshold <= 0:
-        logger.error('Maximum input threshold must be positive')
-        return
-    if minimum_input_threshold and maximum_input_threshold and \
-            minimum_input_threshold > maximum_input_threshold:
+    if (minimum_input_threshold and maximum_input_threshold and
+            minimum_input_threshold > maximum_input_threshold):
         logger.error('Minimum input threshold cannot be bigger than maximum input value!')
         return
     try:
@@ -67,7 +66,7 @@ def send_crypto(args):
         logger.error(e)
         return
     if not coins[coin_symbol].get('api'):
-        logger.error('No api has been defined for coin {}'.format(coin_symbol))
+        logger.error('No api has been defined for the coin {}'.format(coin_symbol))
 
     try:
         result = send(coins[coin_symbol], wif_private_keys, address, satoshis, fee,
@@ -83,6 +82,12 @@ def main():
     args = get_args()
     result = send_crypto(args)
     print(result)
+    try:
+        json.loads(result)
+    except Exception as e:
+        logger.error('Some error occured. Most likey too many inputs were used. Try to limit number'
+                     ' of inputs by using --minimum_input_threshold, --maximum_input_threshold and '
+                     '--limit_inputs parameters. Check "sendcrypto help" for more information.')
 
 
 if __name__ == '__main__':

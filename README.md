@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Experimental Tool for sending funds (for now only P2PKH transaction type is supported), creating custom look 
-addresses and translating addresses between various cryptocurrencies.
+addresses and translating addresses and private keys between various cryptocurrencies.
 
 Address translation produce address for different coin, which will have the same private key as
 translated address. Of course private key is not needed or revealed during translation.
@@ -15,7 +15,73 @@ translated address. Of course private key is not needed or revealed during trans
 Creating address gives us possibility to generate private key and corresponding address with
 specified prefix.
 
-Supported coins are:
+## INSTALLATION
+
+If you don't have Python 3 install it by following instructions from python.org. 
+Supported Python versions are 3.5, 3.6, 3.7. Then Run:
+```bash
+pip3 install multicrypto
+```
+The package contains four commands `sendcrypto`, `transaddress`, `transprivkey`, `genaddress`
+described below.
+### Additional packages on Ubuntu
+```bash
+sudo apt-get install build-essential python3-dev libgmp3-dev
+```
+## USAGE
+
+### Run
+
+ 1. Sending funds (P2PKH):
+ ```bash
+ sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
+ ```
+ For example sending 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 1000 satoshis
+ and only using inputs containing not more than 100000 satoshis:
+ ```bash
+ sendcrypto -c BTC -s 25000000 -x 100000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
+ ```
+ 2. Translating address between coins:
+  ```bash
+  transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL>
+  ```
+  For example to translate Bitcoin address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG to Hush address we enter:
+  ```bash
+  transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o HUSH
+  ```
+ 3. Translating private key in wif format between coins
+  ```bash
+  transprivkey --private_key=<PRIVATE_KEY> --output_symbol=<COIN SYMBOL>
+  ```
+  For example to translate Bitcoin private key KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
+   to Hush private key we enter:
+  ```bash
+  transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o HUSH
+  ```
+ 4. Generating address with given pattern and corresponding private key:
+  ```bash
+ genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL>
+ ```
+ For example for Hush coin and prefix t1aaaa we enter:
+  ```bash
+ genaddress -p t1aaaa -s Hush
+ ```
+ For Bitcoin segwit address we put:
+ ```bash
+ genaddress -p 3BTC -s BTC -w
+ ```
+### Import
+Created private key should be imported using bitcoin-cli program 
+or corresponding tool (importing in Qt wallet doesn't always work)
+```bash
+  bitcoin-cli importprivkey <GENERATED_PRIV_KEY>
+```
+To verify the key was imported successfully:
+```bash
+ bitcoin-cli dumpprivkey <GENERATED_ADDRESS>
+```
+
+### Supported coins
 * Bitcoin (BTC)
 * Bitcoin Gold (BTG)
 * Bitcoin Hush (BTCH)
@@ -48,69 +114,7 @@ Supported coins are:
 * Zoin (ZOIN)
 
 If you find this tool useful please donate to BTC address: 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG
-## INSTALLATION
 
-If you don't have Python 3 install it by following instructions from python.org. 
-Supported Python versions are 3.5, 3.6, 3.7. Then Run:
-```bash
-pip3 install multicrypto
-```
-### Additional packages on Ubuntu
-```bash
-sudo apt-get install build-essential python3-dev libgmp3-dev
-```
-## USAGE
-
-### Run
-
- 1. Sending funds (P2PKH):
- ```bash
- sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
- ```
- For example sending 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 1000 satoshis
- and only using inputs containing not more than 100000 satoshis:
- ```bash
- sendcrypto -c BTC -s 25000000 -x 100000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
- ```
- 2. Translating address between coins:
-  ```bash
-  transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL>
-  ```
-  For example to translate Bitcoin address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG to Hush address we enter:
-  ```bash
-  transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o HUSH
-  ```
- 3. Translating private key in wif format between coins
-  ```bash
-  transprivkey --private_key=<ADDRESS> --output_symbol=<COIN SYMBOL>
-  ```
-  For example to translate Bitcoin private key KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
-   to Hush private key we enter:
-  ```bash
-  transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o HUSH
-  ```
- 4. Generating address with given pattern and corresponding private key:
-  ```bash
- genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL>
- ```
- For example for Hush coin and prefix t1aaaa we enter:
-  ```bash
- genaddress -p t1aaaa -s Hush
- ```
- For Bitcoin segwit address we put:
- ```bash
- genaddress -p 3BTC -s BTC -w
- ```
-### Import
-Created private key should be imported using bitcoin-cli program 
-or corresponding tool (importing in Qt wallet doesn't always work)
-```bash
-  bitcoin-cli importprivkey <GENERATED_PRIV_KEY>
-```
-To verify the key was imported successfully:
-```bash
- bitcoin-cli dumpprivkey <GENERATED_ADDRESS>
-```
 ## Tests
 Install pytest ,pytest-cov and tox packages:
 ```bash

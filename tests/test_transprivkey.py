@@ -2,7 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-from multicrypto.transprivkey import main
+from multicrypto.commands.transprivkey import main
 
 
 @patch.object(sys, 'argv', [

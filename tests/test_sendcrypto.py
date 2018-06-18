@@ -5,7 +5,7 @@ from unittest.mock import patch
 import responses
 
 from multicrypto.coins import coins
-from multicrypto.sendcrypto import main
+from multicrypto.commands.sendcrypto import main
 
 
 @responses.activate
@@ -33,5 +33,5 @@ def test_sendcrypto_succes(sys_stdout):
                   content_type='application/json', status=200)
     main()
 
-    res = "{'txid': 'a9700b6b18559c2ee976c5a7a5b51f1f9b47daacca96148b3b0afd2b0c6da138'}\n"
+    res = '{"txid": "a9700b6b18559c2ee976c5a7a5b51f1f9b47daacca96148b3b0afd2b0c6da138"}\n'
     assert sys_stdout.getvalue() == res
