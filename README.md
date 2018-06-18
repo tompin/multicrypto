@@ -41,7 +41,15 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
  ```bash
  sendcrypto -c BTC -s 25000000 -x 100000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
  ```
- 2. Translating address between coins:
+ 2. Listing address inputs with total amount:
+ ```bash
+ checkaddress --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
+ ``` 
+ For example:
+ ```bash
+ checkaddress -c BTC -a 14YK4mzJGo5NKkNnmVJeuEAQftLt795Gec
+ ```
+ 3. Translating address between coins:
   ```bash
   transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL>
   ```
@@ -49,7 +57,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```bash
   transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o HUSH
   ```
- 3. Translating private key in wif format between coins
+ 4. Translating private key in wif format between coins
   ```bash
   transprivkey --private_key=<PRIVATE_KEY> --output_symbol=<COIN SYMBOL>
   ```
@@ -58,7 +66,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```bash
   transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o HUSH
   ```
- 4. Generating address with given pattern and corresponding private key:
+ 5. Generating address with given pattern and corresponding private key:
   ```bash
  genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL>
  ```
