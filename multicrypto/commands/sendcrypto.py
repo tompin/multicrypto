@@ -6,15 +6,9 @@ import sys
 from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.coins import coins, validate_coin_symbol
 from multicrypto.network import send
+from multicrypto.utils import check_positive
 
 logger = logging.getLogger(__name__)
-
-
-def check_positive(value):
-    ivalue = int(value)
-    if ivalue <= 0:
-        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
-    return ivalue
 
 
 def get_args():
@@ -22,8 +16,8 @@ def get_args():
         description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
             ','.join(coin['name'].title() for coin in coins.values() if coin.get('api'))))
     parser.add_argument('-p', '--wif_private_keys', type=str, required=True,
-                        help='Comma separated private keys in WIF format which funds will be used'
-                             ' to send funds')
+                        help='Comma separated private keys in WIF format which will be used'
+                             ' to send funds from')
     parser.add_argument('-a', '--address', type=str, required=True,
                         help='Address to which we want to send')
     parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \

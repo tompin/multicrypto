@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 from binascii import unhexlify
 
@@ -96,3 +97,10 @@ def reverse_byte_hex(hex_str):
     reversed_byte_str = byte_str[::-1]
     reversed_hex_str = reversed_byte_str.hex()
     return reversed_hex_str
+
+
+def check_positive(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+    return ivalue

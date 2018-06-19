@@ -5,15 +5,9 @@ import sys
 from multicrypto.address import validate_address
 from multicrypto.coins import coins, validate_coin_symbol
 from multicrypto.network import get_utxo_from_address
+from multicrypto.utils import check_positive
 
 logger = logging.getLogger(__name__)
-
-
-def check_positive(value):
-    ivalue = int(value)
-    if ivalue <= 0:
-        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
-    return ivalue
 
 
 def get_args():
