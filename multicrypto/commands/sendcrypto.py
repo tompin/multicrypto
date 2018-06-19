@@ -53,7 +53,7 @@ def send_crypto(args):
         return
     try:
         validate_coin_symbol(coin_symbol)
-        validate_address(address, coin_symbol, is_script=False)
+        validate_address(address, coin_symbol)
         for wif_private_key in wif_private_keys:
             validate_wif_private_key(wif_private_key, coin_symbol)
     except Exception as e:

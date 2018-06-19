@@ -23,6 +23,12 @@ def convert_private_key_to_address(private_key, address_prefix_bytes, compressed
     return convert_public_key_to_address(public_key, address_prefix_bytes, compressed)
 
 
+def convert_wif_private_key_to_address(wif_private_key, address_prefix_bytes):
+    private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+    address = convert_private_key_to_address(private_key, address_prefix_bytes, compressed)
+    return address
+
+
 def calculate_address(digest, address_prefix_bytes):
     input_data = address_prefix_bytes + digest
     check_sum = double_sha256(input_data).digest()[:4]
@@ -89,12 +95,25 @@ def validate_pattern(pattern, coin_symbol, is_script):
     return True
 
 
-def validate_address(address, coin_symbol, is_script):
+def get_address_prefix_bytes(address_bytes, coin):
+    if address_bytes.startswith(coin['script_prefix_bytes']):
+        return coin['script_prefix_bytes']
+    elif address_bytes.startswith(coin['address_prefix_bytes']):
+        return coin['address_prefix_bytes']
+    raise Exception('Incorrect address prefix bytes for {}'.format(coin['name']))
+
+
+def validate_address(address, coin_symbol, address_type=None):
     address_bytes = base58_to_bytes(address)
-    if is_script:
-        prefix_bytes = coins[coin_symbol]['script_prefix_bytes']
+    coin = coins[coin_symbol]
+    if address_type == 'p2sh':
+        prefix_bytes = coin['script_prefix_bytes']
+    elif address_type == 'p2pkh':
+        prefix_bytes = coin['address_prefix_bytes']
+    elif address_type is None:
+        prefix_bytes = get_address_prefix_bytes(address_bytes, coin)
     else:
-        prefix_bytes = coins[coin_symbol]['address_prefix_bytes']
+        raise Exception('Unrecognized address_type value')
     if not address_bytes.startswith(prefix_bytes):
         raise Exception('Address prefix is not correct for this coin')
     if len(address_bytes) > len(prefix_bytes) + 24:
@@ -105,7 +124,7 @@ def validate_address(address, coin_symbol, is_script):
     calculated_check_sum = double_sha256(address_bytes[:-4]).digest()[:4]
     if check_sum != calculated_check_sum:
         raise Exception('Check sum is not correct')
-    return validate_pattern(address, coin_symbol, is_script)
+    return validate_pattern(address, coin_symbol, address_type == 'p2sh')
 
 
 def validate_wif_private_key(wif_private_key, coin_symbol):

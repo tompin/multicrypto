@@ -32,16 +32,32 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
 
 ### Run
 
- 1. Sending funds (P2PKH):
+ 1. Combining many small inputs to larger ones.
+ ```bash
+ sweepaddress --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
+ ```
+ After mining some currency for longer period we could end up with address having a lot of small inputs. 
+ In such case it is very likely it will be not possible to send the funds in one transaction and it could
+  be difficult to cope with. Let say for Zen Cash we have private key of the address which inputs 
+  we want to combine, but we want only combine inputs which are smaller than 0.1 ZEN:
+  ```bash
+ sweepaddress -c ZEN --private_key --maximum_input_threshold==10000000
+ ```
+ This will create appropriate number of transactions (by default one transaction for each 200 inputs, you can 
+ override this value by setting parameter --batch_size, but setting it to high will result in too big transaction error),
+ transaction fee will be set to default 0.00001 ZEN (you can override it using --fee parameter) and the
+ funds will be sent back to original address (you can override the output address using --address parameter) 
+
+ 2. Sending funds (P2PKH):
  ```bash
  sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
  ```
- For example sending 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 1000 satoshis
+ Sending 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 10000 satoshis
  and only using inputs containing not more than 100000 satoshis:
  ```bash
  sendcrypto -c BTC -s 25000000 -x 100000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
  ```
- 2. Listing address inputs with total amount:
+ 3. Listing address inputs with total amount:
  ```bash
  checkaddress --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
  ``` 
@@ -49,7 +65,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
  ```bash
  checkaddress -c BTC -a 14YK4mzJGo5NKkNnmVJeuEAQftLt795Gec
  ```
- 3. Translating address between coins:
+ 4. Translating address between coins:
   ```bash
   transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL>
   ```
@@ -57,7 +73,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```bash
   transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o HUSH
   ```
- 4. Translating private key in wif format between coins
+ 5. Translating private key in wif format between coins
   ```bash
   transprivkey --private_key=<PRIVATE_KEY> --output_symbol=<COIN SYMBOL>
   ```
@@ -66,7 +82,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```bash
   transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o HUSH
   ```
- 5. Generating address with given pattern and corresponding private key:
+ 6. Generating address with given pattern and corresponding private key:
   ```bash
  genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL>
  ```
