@@ -41,12 +41,12 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   be difficult to cope with. Let say for Zen Cash we have private key of the address which inputs 
   we want to combine, but we want only combine inputs which are smaller than 0.1 ZEN:
   ```bash
- sweepaddress -c ZEN --private_key --maximum_input_threshold==10000000
+ sweepaddress -c ZEN -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp --maximum_input_threshold==10000000
  ```
  This will create appropriate number of transactions (by default one transaction for each 200 inputs, you can 
- override this value by setting parameter --batch_size, but setting it to high will result in too big transaction error),
+ override this value by setting parameter --batch_size, but setting it too high will result in too big transaction error),
  transaction fee will be set to default 0.00001 ZEN (you can override it using --fee parameter) and the
- funds will be sent back to original address (you can override the output address using --address parameter) 
+ funds will be sent back to original address (you can override the output address using --address parameter).
 
  2. Sending funds (P2PKH):
  ```bash
