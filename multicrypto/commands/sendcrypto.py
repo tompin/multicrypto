@@ -61,6 +61,7 @@ def send_crypto(args):
         return
     if not coins[coin_symbol].get('api'):
         logger.error('No api has been defined for the coin {}'.format(coin_symbol))
+        return
 
     try:
         result = send(coins[coin_symbol], wif_private_keys, address, satoshis, fee,

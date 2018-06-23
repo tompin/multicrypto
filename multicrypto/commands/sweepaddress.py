@@ -68,6 +68,7 @@ def sweep_address(args):
         return
     if not coin.get('api'):
         logger.error('No api has been defined for the coin {}'.format(coin_symbol))
+        return
     try:
         utxos = get_utxo_from_private_keys(
             coin=coin,

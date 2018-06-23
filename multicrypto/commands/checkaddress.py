@@ -48,6 +48,7 @@ def check_address(args):
         return
     if not coins[coin_symbol].get('api'):
         logger.error('No api has been defined for the coin {}'.format(coin_symbol))
+        return
 
     try:
         utxos = get_utxo_from_address(coins[coin_symbol], address, minimum_input_threshold,
