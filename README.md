@@ -22,7 +22,8 @@ Supported Python versions are 3.5, 3.6, 3.7. Then Run:
 ```bash
 pip3 install multicrypto
 ```
-The package contains four commands `sendcrypto`, `transaddress`, `transprivkey`, `genaddress`
+The package contains six commands `sweepaddress`, `sendcrypto`, `checkaddress`, `transaddress`,
+`transprivkey`, `genaddress`
 described below.
 ### Additional packages on Ubuntu
 ```bash
