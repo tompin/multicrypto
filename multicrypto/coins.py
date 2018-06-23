@@ -41,7 +41,10 @@ coins = {
     'KMD': {'name': 'komodo', 'address_prefix_bytes': b'\x3c', 'secret_prefix_bytes': b'\xbc',
             'script_prefix_bytes': b'\x55'},
     'LTC': {'name': 'litecoin', 'address_prefix_bytes': b'\x30', 'secret_prefix_bytes': b'\xb0',
-            'script_prefix_bytes': b'\x05'},
+            'script_prefix_bytes': b'\x05', 'api': [
+                 {'utxo': 'https://insight.litecore.io/api/addr/{}/utxo',
+                  'send': 'https://insight.litecore.io/api/tx/send'}]
+            },
     'LTZ': {'name': 'litecoinz', 'address_prefix_bytes': b'\x0a\xb3',
             'secret_prefix_bytes': b'\xb0', 'script_prefix_bytes': b'\x0a\xb8'},
     'MOON': {'name': 'mooncoin', 'address_prefix_bytes': b'\x03', 'secret_prefix_bytes': b'\x83',
