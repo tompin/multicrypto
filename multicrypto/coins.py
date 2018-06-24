@@ -7,20 +7,23 @@ coins = {
                  'send': 'https://insight.bitpay.com/api/tx/send'}]
             },
     'BTG': {'name': 'bitcoin gold', 'address_prefix_bytes': b'\x26', 'secret_prefix_bytes': b'\x80',
-            'script_prefix_bytes': b'\x17'},
+            'script_prefix_bytes': b'\x17', 'sig_hash': b'\x41', 'api': [
+                {'utxo': 'https://explorer.bitcoingold.org/insight-api/addr/{}/utxo',
+                 'send': 'https://explorer.bitcoingold.org/insight-api/tx/send'}]
+            },
     'BITS': {'name': 'bitstar', 'address_prefix_bytes': b'\x19', 'secret_prefix_bytes': b'\x99',
              'script_prefix_bytes': b'\x08'},
     'BTCH': {'name': 'bitcoin hush', 'address_prefix_bytes': b'\x3c',
              'secret_prefix_bytes': b'\xbc', 'script_prefix_bytes': b'\x55'},
     'BTCP': {'name': 'bitcoin private', 'address_prefix_bytes': b'\x13\x25',
              'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x13\xaf',
-             'sig_hash': b'x\41', 'api': [
-                 {'utxo': 'https://explorer.btcprivate.org/api/addr{}/utxo',
+             'sig_hash': b'\x41', 'api': [
+                 {'utxo': 'https://explorer.btcprivate.org/api/addr/{}/utxo',
                   'send': 'https://explorer.btcprivate.org/api/tx/send'}]
              },
     'BTCZ': {'name': 'bitcoinz', 'address_prefix_bytes': b'\x1c\xb8',
              'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
-                 {'utxo': 'https://explorer.btcz.rocks/api/addr{}/utxo',
+                 {'utxo': 'https://explorer.btcz.rocks/api/addr/{}/utxo',
                   'send': 'https://explorer.btcz.rocks/api/tx/send'}]
              },
     'BUCK': {'name': 'buck', 'address_prefix_bytes': b'\x1c\xb8',
@@ -42,8 +45,8 @@ coins = {
             'script_prefix_bytes': b'\x55'},
     'LTC': {'name': 'litecoin', 'address_prefix_bytes': b'\x30', 'secret_prefix_bytes': b'\xb0',
             'script_prefix_bytes': b'\x05', 'api': [
-                 {'utxo': 'https://insight.litecore.io/api/addr/{}/utxo',
-                  'send': 'https://insight.litecore.io/api/tx/send'}]
+                {'utxo': 'https://insight.litecore.io/api/addr/{}/utxo',
+                 'send': 'https://insight.litecore.io/api/tx/send'}]
             },
     'LTZ': {'name': 'litecoinz', 'address_prefix_bytes': b'\x0a\xb3',
             'secret_prefix_bytes': b'\xb0', 'script_prefix_bytes': b'\x0a\xb8'},
