@@ -72,6 +72,11 @@ coins = {
               'script_prefix_bytes': b'\x05'},
     'UNO': {'name': 'unobtanium', 'address_prefix_bytes': b'\x82', 'secret_prefix_bytes': b'\xe0',
             'script_prefix_bytes': b'\x1e'},
+    'VOT': {'name': 'votecoin', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
+            'script_prefix_bytes': b'\x1c\xbd', 'api': [
+                {'utxo': 'http://explorer.votecoin.site/insight-api-zcash/addr/{}/utxo',
+                 'send': 'http://explorer.votecoin.site/insight-api-zcash/tx/send'}]
+            },
     'VTC': {'name': 'vertcoin', 'address_prefix_bytes': b'\x47', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x05'},
     'ZEC': {'name': 'zcash', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
