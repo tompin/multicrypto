@@ -80,7 +80,10 @@ coins = {
     'VTC': {'name': 'vertcoin', 'address_prefix_bytes': b'\x47', 'secret_prefix_bytes': b'\x80',
             'script_prefix_bytes': b'\x05'},
     'ZEC': {'name': 'zcash', 'address_prefix_bytes': b'\x1c\xb8', 'secret_prefix_bytes': b'\x80',
-            'script_prefix_bytes': b'\x1c\xbd'},
+            'script_prefix_bytes': b'\x1c\xbd', 'api': [
+                {'utxo': 'https://zcash.blockexplorer.com/api/addr/{}/utxo',
+                 'send': 'https://zcash.blockexplorer.com/api/tx/send'}]
+            },
     'ZCL': {'name': 'zclassic', 'address_prefix_bytes': b'\x1c\xb8',
             'secret_prefix_bytes': b'\x80', 'script_prefix_bytes': b'\x1c\xbd', 'api': [
                 {'utxo': 'http://explorer.zclmine.pro/insight-api-zcash/addr/{}/utxo',
