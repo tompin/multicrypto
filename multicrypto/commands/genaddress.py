@@ -7,12 +7,14 @@ import sys
 from fastecdsa.curve import secp256k1
 from fastecdsa.keys import gen_private_key
 
-from multicrypto.address import convert_public_key_to_address, N, G, \
-    convert_private_key_to_wif_format, validate_pattern
+from multicrypto.address import convert_public_key_to_address, convert_private_key_to_wif_format, \
+    validate_pattern
 from multicrypto.coins import coins, validate_coin_symbol
 
 
 logger = logging.getLogger(__name__)
+N = secp256k1.q  # order of the curve
+G = secp256k1.G  # generator point
 
 
 def generate_address(worker_num, coin_settings, pattern, compressed, segwit, found, quit):

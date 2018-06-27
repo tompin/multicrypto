@@ -1,42 +1,12 @@
 import hashlib
 
 from fastecdsa.curve import secp256k1
-from fastecdsa.point import Point
 
 from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58
 from multicrypto.coins import coins
-from multicrypto.utils import double_sha256
+from multicrypto.utils import double_sha256, encode_point
 
 G = secp256k1.G  # generator point
-N = secp256k1.q  # order of the curve
-P = secp256k1.p  # curve prime value
-A = secp256k1.a  # curve coefficient
-B = secp256k1.b  # curve coefficient
-
-
-def decode_point(hex_str):
-    if len(hex_str) == 130:  # uncompressed
-        x = int(hex_str[2:66], 16)
-        y = int(hex_str[66:130], 16)
-        return Point(x=x, y=y, curve=secp256k1)
-    elif len(hex_str) == 66:  # compressed
-        x = int(hex_str[2:66], 16)
-        beta = pow(x**3 + A * x + B, (P + 1) // 4, P)
-        if (beta + int(hex_str[:2], 16)) % 2:
-            y = P - beta
-        else:
-            y = beta
-        return Point(x=x, y=y, curve=secp256k1)
-    else:
-        raise Exception('Unrecognized point format')
-
-
-def encode_point(point, compressed):
-    if compressed:
-        return bytes([2 + (point.y % 2)]) + point.x.to_bytes(32, byteorder='big')
-    else:
-        return b'\x04' + point.x.to_bytes(32, byteorder='big') + \
-               point.y.to_bytes(32, byteorder='big')
 
 
 def convert_private_key_to_address(private_key, address_prefix_bytes, compressed=True):
