@@ -31,7 +31,7 @@ def decode_point(hex_str):
         raise Exception('Unrecognized point format')
 
 
-def get_encoded_point(point, compressed):
+def encode_point(point, compressed):
     if compressed:
         return bytes([2 + (point.y % 2)]) + point.x.to_bytes(32, byteorder='big')
     else:
@@ -67,7 +67,7 @@ def get_public_key_hash(address, address_prefix_bytes):
 
 
 def calculate_public_key_hash(public_key, compressed=True, segwit=False):
-    encoded_public_key = get_encoded_point(public_key, compressed)
+    encoded_public_key = encode_point(public_key, compressed)
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
     digest = hashlib.new('ripemd160', hashed_public_key).digest()
     if segwit:

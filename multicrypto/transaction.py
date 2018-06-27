@@ -4,7 +4,7 @@ from binascii import hexlify
 from fastecdsa.curve import secp256k1
 from fastecdsa.ecdsa import sign
 
-from multicrypto.address import get_public_key_hash, get_encoded_point, calculate_public_key_hash
+from multicrypto.address import get_public_key_hash, encode_point, calculate_public_key_hash
 from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_CHECKSIG, OP_EQUALVERIFY, OP_0
 from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, double_sha256_hex, \
     reverse_byte_hex
@@ -34,7 +34,7 @@ class TransactionInput:
             compressed_public_key = True
         else:
             compressed_public_key = False
-        self.encoded_public_key = get_encoded_point(
+        self.encoded_public_key = encode_point(
             self.public_key, compressed=compressed_public_key)
         self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
 
