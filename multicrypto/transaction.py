@@ -1,4 +1,5 @@
 import logging
+import time
 from binascii import hexlify
 
 from fastecdsa.curve import secp256k1
@@ -105,9 +106,8 @@ class Transaction:
             output_block += script
         return output_block
 
-    def sign_input(self, position):
-        input = self.inputs[position]
-        message = (
+    def get_data_to_sign(self, position):
+        data = (
             # Four-byte version field
             self.version +
 
@@ -129,6 +129,11 @@ class Transaction:
             # Four-byte "hash code type"
             self.hash_type
         )
+        return data
+
+    def sign_input(self, position):
+        input = self.inputs[position]
+        message = self.get_data_to_sign(position)
         #  ECDSA signing is done as follows:
         #  given a message 'm', a sign-secret 'k', a private key 'x'
         #  calculate point R = G * k
@@ -154,6 +159,65 @@ class Transaction:
             self.sign_input(i)
         raw_transaction_data = hexlify(
             self.version +
+            self.inputs_counter +
+            self.get_encoded_inputs(position=range(len(self.inputs))) +
+            self.outputs_counter +
+            self.get_encoded_outputs() +
+            self.lock_time
+        )
+        self.id = reverse_byte_hex(double_sha256_hex(raw_transaction_data).hexdigest())
+        self.raw = raw_transaction_data.decode()
+        logger.info('Created transaction with id: {}\nRaw data: {}'.format(
+            self.id, self.raw))
+        return self.raw
+
+
+class POSTransaction(Transaction):
+    def __init__(self, coin, inputs, outputs, transaction_time=None, **params):
+        if transaction_time is None:
+            self.transaction_time = int(time.time()).to_bytes(4, byteorder='little')
+        else:
+            self.transaction_time = transaction_time
+        for input in inputs:
+            input['transaction_id'] = reverse_byte_hex(input['transaction_id'])
+        super().__init__(coin, inputs, outputs, **params)
+
+    def get_data_to_sign(self, position):
+        data = (
+            # Four-byte version field
+            self.version +
+
+            # Transaction creation time
+            self.transaction_time +
+
+            # One-byte varint specifying the number of inputs
+            self.inputs_counter +
+
+            # Inputs
+            self.get_encoded_inputs([position]) +
+
+            # One-byte varint containing the number of outputs in our new transaction
+            self.outputs_counter +
+
+            # Outputs
+            self.get_encoded_outputs() +
+
+            # Four-byte "lock time" field
+            self.lock_time +
+
+            # Four-byte "hash code type"
+            self.hash_type
+        )
+        return data
+
+    def create(self):
+        if self.id:
+            raise Exception('Transaction id {} already created'.format(self.id))
+        for i in range(len(self.inputs)):
+            self.sign_input(i)
+        raw_transaction_data = hexlify(
+            self.version +
+            self.transaction_time +
             self.inputs_counter +
             self.get_encoded_inputs(position=range(len(self.inputs))) +
             self.outputs_counter +

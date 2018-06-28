@@ -7,8 +7,8 @@ from fastecdsa.point import Point
 
 from multicrypto.coins import coins
 from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_EQUALVERIFY, OP_CHECKSIG
-from multicrypto.transaction import Transaction
-from multicrypto.utils import double_sha256_hex, reverse_byte_hex
+from multicrypto.transaction import Transaction, POSTransaction
+from multicrypto.utils import double_sha256_hex, reverse_byte_hex, encode_point
 
 
 def test_verify_one_input():
@@ -26,6 +26,27 @@ def test_verify_one_input():
     funding_script = OP_DUP + OP_HASH160 + OP_PUSH_20 + digest_public_key + OP_EQUALVERIFY + OP_CHECKSIG
     raw_transaction_mod = '020000000169ab945e88fc3d73d052e8c3ce546309a635458fea2c6b3e69981945b0d2a62201000000' + reverse_byte_hex(
         hex(len(funding_script))[2:]) + funding_script.hex() + 'fdffffff025641e52d000000001976a914759d667709c9d1fbd7aa26537b5c441747d88f2588ac80c3c901000000001976a9146928f2f330f57e6916543481ab3af69597ae289d88ac06d70700' + '01000000'
+
+    result = verify((r, s), raw_transaction_mod, public_key, secp256k1, double_sha256_hex)
+
+    assert result
+
+
+def test_verify_one_input_zeit():
+    """ ZEIT transaction:
+     975e4d8a5530ba43dd607c62af925ad20a5347e2fd5873c65364bc4a89b6a829 """
+
+    r = int('5f69442b8ffd4ce39997c27a3f1c134a1ce6d1cdeb6dd39c5191d3e748419577', 16)
+    s = int('67d9c5b4144c80aac91701130686b66dc3da15799de960edb22ee9f90be6f554', 16)
+    x = int('771b0c5df5773a9c3f8da066d6b9e8e577025caeaa15ef1289c9e83050124eca', 16)
+    y = int('c71f2fe45289be22f857d721489e871dce3e7e6a951534f0504c5784c796def9', 16)
+    public_key = Point(x, y, secp256k1)
+    encoded_public_key = encode_point(public_key, compressed=True)
+    hashed_public_key = hashlib.sha256(encoded_public_key).digest()
+    digest_public_key = hashlib.new('ripemd160', hashed_public_key).digest()
+    funding_script = OP_DUP + OP_HASH160 + OP_PUSH_20 + digest_public_key + OP_EQUALVERIFY + OP_CHECKSIG
+    raw_transaction_mod = '010000006bbc345b01ec2636bc0dc4a0fa774a1448b5cd26f90b1ebf6ab7474cb87b003dc15280043a00000000' + \
+                          reverse_byte_hex(hex(len(funding_script))[2:]) + funding_script.hex() + 'ffffffff016e2ae671000000001976a91415cdc3710d179a525dc6011f4588befc5a04ff4488ac00000000' + '01000000'
 
     result = verify((r, s), raw_transaction_mod, public_key, secp256k1, double_sha256_hex)
 
@@ -154,6 +175,42 @@ def test_create_p2pkh_transaction_two_inputs_two_outputs(sign_mock):
 
     assert transaction.raw == raw_transaction
     assert transaction.id == '1e976937f0dadc7c7fac9b7c62291f7843bc781ec44ee65c41b9b9e4f10cf0b3'
+
+
+@patch('multicrypto.transaction.sign')
+def test_create_zeit_p2pkh_transaction_single_input_single_output(sign_mock):
+    """ ZEIT transaction 975e4d8a5530ba43dd607c62af925ad20a5347e2fd5873c65364bc4a89b6a829 """
+
+    raw_transaction = '010000006bbc345b01ec2636bc0dc4a0fa774a1448b5cd26f90b1ebf6ab7474cb87b003dc1' \
+                      '5280043a000000006a47304402205f69442b8ffd4ce39997c27a3f1c134a1ce6d1cdeb6dd3' \
+                      '9c5191d3e748419577022067d9c5b4144c80aac91701130686b66dc3da15799de960edb22e' \
+                      'e9f90be6f554012103771b0c5df5773a9c3f8da066d6b9e8e577025caeaa15ef1289c9e830' \
+                      '50124ecaffffffff016e2ae671000000001976a91415cdc3710d179a525dc6011f4588befc' \
+                      '5a04ff4488ac00000000'
+
+    sign_mock.return_value = (
+        0x5f69442b8ffd4ce39997c27a3f1c134a1ce6d1cdeb6dd39c5191d3e748419577,
+        0x67d9c5b4144c80aac91701130686b66dc3da15799de960edb22ee9f90be6f554
+    )
+    inputs = [{'transaction_id': '3a048052c13d007bb84c47b76abf1e0bf926cdb548144a77faa0c40dbc3626ec',
+               'output_index': 0,
+               'script': '76a9141019136435d702c05d433cb404547e6fbcad085c88ac',
+               # private_key='TaMECDUSKV6tt17Zrwai2Go4HgF6R8xSwDY1UTBeFFY6hMWNyY6n',
+               'private_key': 75008817533290696227105990373334596279639239099625180499796393413953408726677,
+               'satoshis': 1911009550}]
+    outputs = [{'address': 'MZE3uG9NUKDS3ZPC8jgJqpL9MrXRFxRMYL', 'satoshis': 1910909550}]
+
+    transaction = POSTransaction(
+        coin=coins['ZEIT'],
+        inputs=inputs,
+        outputs=outputs,
+        transaction_time=b'\x6b\xbc\x34\x5b'
+    )
+    transaction.create()
+
+    assert transaction.raw == raw_transaction
+    assert transaction.id == '975e4d8a5530ba43dd607c62af925ad20a5347e2fd5873c65364bc4a89b6a829'
+
 
 # @patch('multicrypto.transaction.sign')
 # def test_create_p2pkh_transaction_three_inputs_one_output(sign_mock):
