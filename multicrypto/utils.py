@@ -10,15 +10,17 @@ A = secp256k1.a  # curve coefficient
 B = secp256k1.b  # curve coefficient
 
 
-def decode_point(hex_str):
-    if len(hex_str) == 130:  # uncompressed
-        x = int(hex_str[2:66], 16)
-        y = int(hex_str[66:130], 16)
+def decode_point(encoded_point):
+    if isinstance(encoded_point, bytes):
+        encoded_point = encoded_point.hex()
+    if len(encoded_point) == 130:  # uncompressed
+        x = int(encoded_point[2:66], 16)
+        y = int(encoded_point[66:130], 16)
         return Point(x=x, y=y, curve=secp256k1)
-    elif len(hex_str) == 66:  # compressed
-        x = int(hex_str[2:66], 16)
+    elif len(encoded_point) == 66:  # compressed
+        x = int(encoded_point[2:66], 16)
         beta = pow(x**3 + A * x + B, (P + 1) // 4, P)
-        if (beta + int(hex_str[:2], 16)) % 2:
+        if (beta + int(encoded_point[:2], 16)) % 2:
             y = P - beta
         else:
             y = beta
@@ -27,12 +29,16 @@ def decode_point(hex_str):
         raise Exception('Unrecognized point format')
 
 
-def encode_point(point, compressed):
+def encode_point(point, compressed, output_format='bytes'):
     if compressed:
-        return bytes([2 + (point.y % 2)]) + point.x.to_bytes(32, byteorder='big')
+        encoded_point = bytes([2 + (point.y % 2)]) + point.x.to_bytes(32, byteorder='big')
     else:
-        return b'\x04' + point.x.to_bytes(32, byteorder='big') + \
-               point.y.to_bytes(32, byteorder='big')
+        encoded_point = b'\x04' + point.x.to_bytes(32, byteorder='big') + \
+            point.y.to_bytes(32, byteorder='big')
+    if output_format == 'hex':
+        return encoded_point.hex()
+    else:
+        return encoded_point
 
 
 def int_to_bytes(integer, byteorder):
