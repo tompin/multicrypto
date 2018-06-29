@@ -2,7 +2,8 @@ import hashlib
 
 from fastecdsa.curve import secp256k1
 
-from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58
+from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58, \
+    base58
 from multicrypto.coins import coins
 from multicrypto.utils import double_sha256, encode_point
 
@@ -81,8 +82,8 @@ def validate_pattern(pattern, coin_symbol, is_script):
     else:
         start_address, end_address = get_address_range(coins[coin_symbol]['address_prefix_bytes'])
     if not (start_address[:len(pattern)] <= pattern <= end_address[:len(pattern)]):
-        raise Exception('Impossible prefix! Choose different one from {}-{} range.'.format(
-            start_address, end_address))
+        raise Exception('Impossible prefix! Choose different one from {}-{} range'
+                        '(characters order is {})'.format(start_address, end_address, base58))
     return True
 
 

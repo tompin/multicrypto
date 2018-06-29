@@ -85,13 +85,14 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
   ```
  6. Generating address with given pattern and corresponding private key:
   ```bash
- genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL>
+ genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL> --output_dir=<DIRECTORY TO STORE QR CODES>
  ```
- For example for Hush coin and prefix t1aaaa we enter:
+ For example if we want to create address with prefix t1aaaa for Hush coin and save corresponding
+ QR codes to /home/john directory we enter:
   ```bash
- genaddress -p t1aaaa -s Hush
+ genaddress -p t1aaaa -s Hush -o /home/john
  ```
- For Bitcoin segwit address we put:
+ To generate Bitcoin segwit address starting with 3BTC we enter:
  ```bash
  genaddress -p 3BTC -s BTC -w
  ```

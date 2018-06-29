@@ -2,6 +2,7 @@ import argparse
 import hashlib
 from binascii import unhexlify
 
+import qrcode
 from fastecdsa.curve import secp256k1
 from fastecdsa.point import Point
 
@@ -140,3 +141,19 @@ def check_positive(value):
     if ivalue <= 0:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return ivalue
+
+
+def get_qrcode_image(string, error_correct='low'):
+    if error_correct == 'low':
+        error_correct = qrcode.constants.ERROR_CORRECT_L
+    elif error_correct == 'high':
+        error_correct = qrcode.constants.ERROR_CORRECT_H
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=error_correct,
+        box_size=10,
+        border=4)
+    qr.add_data(string)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    return image
