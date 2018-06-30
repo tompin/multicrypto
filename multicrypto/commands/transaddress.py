@@ -1,8 +1,10 @@
 import argparse
 import logging
+import os
 
 from multicrypto.address import translate_address
 from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.utils import get_qrcode_image
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,8 @@ def get_args():
                         help='Store output in the provided file')
     parser.add_argument('-s', '--script', action='store_true',
                         help='Add this option when translating P2SH (pay to script hash) address')
+    parser.add_argument('-d', '--output_dir', type=str, required=False,
+                        help='Directory where translated address QR code will be stored')
     return parser.parse_args()
 
 
@@ -52,9 +56,14 @@ def translate(args):
 
 def main():
     args = get_args()
+    output_dir = args.output_dir
     translated_address = translate(args)
     print('{} ({}) -> {} ({})'.format(
         args.address, args.input_symbol, translated_address, args.output_symbol))
+    if args.output_dir:
+        address_image = get_qrcode_image(translated_address, error_correct='low')
+        address_image.save(os.path.join(output_dir, translated_address + '.png'))
+        print('QR code was saved in directory {}'.format(args.output_dir))
 
 
 if __name__ == '__main__':

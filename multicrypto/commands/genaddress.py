@@ -66,7 +66,7 @@ def get_args():
                         help='Generate address based on uncompressed wif private key format')
     parser.add_argument('-w', '--segwit', action='store_true',
                         help='Generate segwit (P2SH-P2WPKH) address')
-    parser.add_argument('-o', '--output_dir', type=str, required=False,
+    parser.add_argument('-d', '--output_dir', type=str, required=False,
                         help='Directory where QR codes with address and private key will be stored')
 
     return parser.parse_args()

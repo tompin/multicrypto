@@ -30,7 +30,7 @@ setup(
     ],
     keywords='cryptocurrency, address, transaction',
     packages=find_packages(exclude=['htmlcov', 'tests']),
-    install_requires=['fastecdsa==1.6.1', 'pysha3==1.0.2'],
+    install_requires=['fastecdsa==1.6.1', 'pysha3==1.0.2', 'Pillow==5.1.0', 'qrcode==6.0'],
     entry_points={
         'console_scripts': [
             'transaddress=multicrypto.commands.transaddress:main',

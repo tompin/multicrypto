@@ -90,7 +90,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
  For example if we want to create address with prefix t1aaaa for Hush coin and save corresponding
  QR codes to /home/john directory we enter:
   ```bash
- genaddress -p t1aaaa -s Hush -o /home/john
+ genaddress -p t1aaaa -s Hush -d /home/john
  ```
  To generate Bitcoin segwit address starting with 3BTC we enter:
  ```bash
