@@ -56,14 +56,13 @@ def translate(args):
 
 def main():
     args = get_args()
-    output_dir = args.output_dir
     translated_address = translate(args)
     print('{} ({}) -> {} ({})'.format(
         args.address, args.input_symbol, translated_address, args.output_symbol))
     if args.output_dir:
         address_image = get_qrcode_image(translated_address, error_correct='low')
-        address_image.save(os.path.join(output_dir, translated_address + '.png'))
-        print('QR code was saved in directory {}'.format(args.output_dir))
+        address_image.save(os.path.join(args.output_dir, translated_address + '.png'))
+        print('Address QR code was saved in directory {}'.format(args.output_dir))
 
 
 if __name__ == '__main__':
