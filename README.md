@@ -9,22 +9,16 @@
 Experimental Tool for sending funds (for now only P2PKH transaction type is supported), creating custom look 
 addresses and translating addresses and private keys between various cryptocurrencies.
 
-Address translation produce address for different coin, which will have the same private key as
-translated address. Of course private key is not needed or revealed during translation.
-
-Creating address gives us possibility to generate private key and corresponding address with
-specified prefix.
-
 ## INSTALLATION
 
 If you don't have Python 3 install it by following instructions from python.org. 
 Supported Python versions are 3.5, 3.6, 3.7. Then Run:
 ```bash
-pip3 install multicrypto
+pip install multicrypto
 ```
 The package contains six commands `sweepaddress`, `sendcrypto`, `checkaddress`, `transaddress`,
-`transprivkey`, `genaddress`
-described below.
+`transprivkey`, `genaddress` described below.
+
 ### Additional packages on Ubuntu
 ```bash
 sudo apt-get install build-essential python3-dev libgmp3-dev

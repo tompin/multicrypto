@@ -72,8 +72,8 @@ def main():
         sum_satoshis += utxo['satoshis']
         sum_amount += utxo['amount']
     print('-' * 140)
-    print(' ' * 96, 'satoshis: {:16}, amount: {:9.8f} {}'.format(
-        sum_satoshis, sum_amount, coin_symbol))
+    print('{:9} inputs {} satoshis: {:16}, amount: {:9.8f} {}'.format(
+        len(utxos), ' ' * 79, sum_satoshis, sum_amount, coin_symbol))
 
 
 if __name__ == '__main__':
