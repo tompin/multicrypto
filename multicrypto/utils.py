@@ -143,6 +143,19 @@ def check_positive(value):
     return ivalue
 
 
+def get_integer(string):
+    if {'a', 'b', 'c', 'd', 'e', 'f', 'x'} & set(string):
+        try:
+            return int(string, 16)
+        except ValueError:
+            return None
+    else:
+        try:
+            return int(string)
+        except ValueError:
+            return None
+
+
 def get_qrcode_image(string, error_correct='low'):
     if error_correct == 'low':
         error_correct = qrcode.constants.ERROR_CORRECT_L

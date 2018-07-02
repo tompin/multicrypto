@@ -43,9 +43,9 @@ coins = {
              },
     'KMD': {'name': 'komodo', 'address_prefix_bytes': b'\x3c', 'secret_prefix_bytes': b'\xbc',
             'script_prefix_bytes': b'\x55', 'api': [
-                 {'utxo': 'https://kmd.explorer.supernet.org/api/addr/{}/utxo',
-                  'send': 'https://kmd.explorer.supernet.org/api/tx/send'}]
-             },
+                {'utxo': 'https://kmd.explorer.supernet.org/api/addr/{}/utxo',
+                 'send': 'https://kmd.explorer.supernet.org/api/tx/send'}]
+            },
     'LTC': {'name': 'litecoin', 'address_prefix_bytes': b'\x30', 'secret_prefix_bytes': b'\xb0',
             'script_prefix_bytes': b'\x05', 'api': [
                 {'utxo': 'https://insight.litecore.io/api/addr/{}/utxo',

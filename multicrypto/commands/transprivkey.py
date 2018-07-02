@@ -6,7 +6,7 @@ from multicrypto.address import translate_private_key, validate_base58, \
     get_private_key_from_wif_format, convert_private_key_to_address, \
     convert_private_key_to_wif_format
 from multicrypto.coins import coins, validate_coin_symbol
-from multicrypto.utils import get_qrcode_image
+from multicrypto.utils import get_qrcode_image, get_integer
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +42,15 @@ def translate(args):
 
     try:
         validate_coin_symbol(output_coin_symbol)
-        if private_key.isdigit() and ('0' in private_key or len(private_key) > 52):
-            wif_private_key = convert_private_key_to_wif_format(int(private_key), b'\x80')
+        int_private_key = get_integer(private_key)
+        if len(private_key) > 52 and int_private_key is not None:
+            wif_private_key = convert_private_key_to_wif_format(int_private_key, b'\x80')
         else:
             wif_private_key = private_key
         validate_base58(wif_private_key)
     except Exception as e:
         logger.error(e)
-        return '', ''
+        return '', '', ''
 
     output_private_key_prefix_bytes = coins[output_coin_symbol]['secret_prefix_bytes']
     output_address_prefix_bytes = coins[output_coin_symbol]['address_prefix_bytes']
