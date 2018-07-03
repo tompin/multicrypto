@@ -38,24 +38,15 @@ def check_address(args):
     limit_inputs = args.limit_inputs
     if (minimum_input_threshold and maximum_input_threshold and
             minimum_input_threshold > maximum_input_threshold):
-        logger.error('Minimum input threshold cannot be bigger than maximum input value!')
-        return
-    try:
-        validate_coin_symbol(coin_symbol)
-        validate_address(address, coin_symbol)
-    except Exception as e:
-        logger.error(e)
-        return
-    if not coins[coin_symbol].get('api'):
-        logger.error('No api has been defined for the coin {}'.format(coin_symbol))
-        return
+        raise Exception('Minimum input threshold cannot be bigger than maximum input value!')
 
-    try:
-        utxos = get_utxo_from_address(coins[coin_symbol], address, minimum_input_threshold,
-                                      maximum_input_threshold, limit_inputs)
-    except Exception as e:
-        logger.error(e)
-        return
+    validate_coin_symbol(coin_symbol)
+    validate_address(address, coin_symbol)
+    if not coins[coin_symbol].get('api'):
+        raise Exception('No api has been defined for the coin {}'.format(coin_symbol))
+
+    utxos = get_utxo_from_address(coins[coin_symbol], address, minimum_input_threshold,
+                                  maximum_input_threshold, limit_inputs)
     return utxos
 
 
