@@ -3,7 +3,8 @@ import random
 import pytest
 from fastecdsa.curve import secp256k1
 
-from multicrypto.utils import der_encode_signature, reverse_byte_hex, decode_point, encode_point
+from multicrypto.utils import der_encode_signature, reverse_byte_hex, decode_point, encode_point, \
+    int_to_varint_hex
 
 
 def test_der_encode_signature():
@@ -15,7 +16,9 @@ def test_der_encode_signature():
 
     der_encoded_signature = der_encode_signature(signature)
 
-    assert der_encoded_signature.hex() == '30440220059c71db0d01d284fc4589c03b09947d21b98d7cefae614ac1039b6de0fa28ba02206cde9c0649fe2242b1dd90f40615e1bb247280b8f152c0ae9151b9c4d7abaf87'
+    expected_signature = '30440220059c71db0d01d284fc4589c03b09947d21b98d7cefae614ac1039b6de0fa28b' \
+                         'a02206cde9c0649fe2242b1dd90f40615e1bb247280b8f152c0ae9151b9c4d7abaf87'
+    assert der_encoded_signature.hex() == expected_signature
     assert r_hex in der_encoded_signature.hex()
     assert s_hex in der_encoded_signature.hex()
 
@@ -47,3 +50,14 @@ def test_encode_decode_points():
         assert p == decode_point(encode_point(p, compressed=random.choice([True, False])))
         assert p == decode_point(encode_point(p, compressed=random.choice([True, False])).hex())
         p *= 10
+
+
+integer_data = [(0x12, '12'),
+                (0x3412, 'fd1234'),
+                (0x78563412, 'fe12345678'),
+                (0xefcdab9078563412, 'ff1234567890abcdef')]
+
+
+@pytest.mark.parametrize("integer, varint_hex", integer_data)
+def test_int_to_varint_hex(integer, varint_hex):
+    assert int_to_varint_hex(integer) == varint_hex
