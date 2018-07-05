@@ -31,7 +31,10 @@ coins = {
     'CRAVE': {'name': 'crave', 'address_prefix_bytes': b'\x46', 'secret_prefix_bytes': b'\x99',
               'script_prefix_bytes': b'\x55'},
     'DASH': {'name': 'dash', 'address_prefix_bytes': b'\x4c', 'secret_prefix_bytes': b'\xcc',
-             'script_prefix_bytes': b'\x10'},
+             'script_prefix_bytes': b'\x10', 'api': [
+                 {'utxo': 'https://insight.dash.siampm.com/api/addr/{}/utxo',
+                  'send': 'https://insight.dash.siampm.com/api/tx/send'}]
+             },
     'DOGE': {'name': 'dogecoin', 'address_prefix_bytes': b'\x1e', 'secret_prefix_bytes': b'\x9e',
              'script_prefix_bytes': b'\x16'},
     'DMD': {'name': 'diamond', 'address_prefix_bytes': b'\x5a', 'secret_prefix_bytes': b'\xda',
