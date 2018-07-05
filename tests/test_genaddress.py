@@ -1,3 +1,4 @@
+import os
 import random
 
 import pytest
@@ -42,15 +43,18 @@ random_test_data = [(coin_settings, get_prefix_in_range(coin_settings['address_p
 
 
 @pytest.mark.parametrize("coin_settings,pattern", random_test_data)
-def test_random_generate_address(coin_settings, pattern):
+def test_random_generate_address(tmpdir, coin_settings, pattern):
+    out_dir = tmpdir.strpath
     address, private_key = generate_address(
         worker_num=0,
         coin_settings=coin_settings,
         pattern=pattern,
         compressed=True,
         segwit=False,
-        out_dir=None,
+        out_dir=out_dir,
         found=SetMock(),
         quit=SetMock())
 
     assert address[:len(pattern)] == pattern
+    assert os.path.isfile(os.path.join(out_dir, address + '.png'))
+    assert os.path.isfile(os.path.join(out_dir, address + '_private_key.png'))
