@@ -74,6 +74,11 @@ coins = {
              'script_prefix_bytes': b'\x32'},
     'SMART': {'name': 'smartcash', 'address_prefix_bytes': b'\x3f', 'secret_prefix_bytes': b'\xbf',
               'script_prefix_bytes': b'\x12'},
+    'TBTC': {'name': 'bitcoin testnet', 'address_prefix_bytes': b'\x6f', 'secret_prefix_bytes': b'\xef',
+             'script_prefix_bytes': b'\xc4', 'api': [
+                {'utxo': 'https://test-insight.bitpay.com/api/addr/{}/utxo',
+                 'send': 'https://test-insight.bitpay.com/api/tx/send'}]
+            },
     'UNIFY': {'name': 'unify', 'address_prefix_bytes': b'\x44', 'secret_prefix_bytes': b'\x80',
               'script_prefix_bytes': b'\x05'},
     'UNO': {'name': 'unobtanium', 'address_prefix_bytes': b'\x82', 'secret_prefix_bytes': b'\xe0',
