@@ -1,7 +1,7 @@
 import logging
-import requests
 
 from multicrypto.address import get_private_key_from_wif_format, convert_private_key_to_address
+from multicrypto.apis import api_get_last_block, api_send, api_get_utxo
 from multicrypto.transaction import Transaction
 from multicrypto.utils import reverse_byte_hex
 
@@ -11,12 +11,9 @@ logger = logging.getLogger(__name__)
 
 def get_utxo_from_address(coin, address, minimum_input_threshold=None, maximum_input_threshold=None,
                           limit_inputs=None):
-    api = coin['api'][0]
     utxos = []
     counter_inputs = 0
-    address_url = api['utxo'].format(address)
-    result = requests.get(address_url)
-    unspents = result.json()
+    unspents = api_get_utxo(coin, address)
     for utxo in unspents:
         if limit_inputs and counter_inputs == limit_inputs:
             break
@@ -43,7 +40,6 @@ def get_utxo_from_private_keys(coin, wif_private_keys, minimum_input_threshold=N
 
 def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_input_threshold=None,
          maximum_input_threshold=None, limit_inputs=None):
-    api = coin['api'][0]
     inputs = []
     input_satoshis = 0
     counter_inputs = 0
@@ -66,12 +62,11 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_inp
                 outputs.append({'address': source_address, 'satoshis': change})
             last_block = {}
             if 'check_block_at_height' in coin.get('params', {}):
-                result = requests.get(api['blocks'])
-                last_block = result.json()['blocks'][0]
+                last_block = api_get_last_block(coin)
             transaction = Transaction(coin, inputs, outputs, check_block_at_height=last_block)
             raw_transaction = transaction.create()
-            result = requests.post(api['send'], json={'rawtx': raw_transaction})
-            return result.text
+            result = api_send(coin, raw_transaction)
+            return result
     else:
         raise Exception('Not enough funds in addresses.\nSum of inputs {} < {} + {}(fee)'.format(
             input_satoshis, satoshis, fee))

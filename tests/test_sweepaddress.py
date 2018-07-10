@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import responses
 
+from multicrypto.apis import get_current_api_definition
 from multicrypto.coins import coins
 from multicrypto.commands.sweepaddress import main
 
@@ -71,14 +72,17 @@ data = [{'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
     '', '-c', 'SAFE', '-b', '5', '-p', 'Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'])
 @patch('sys.stdout', new_callable=StringIO)
 def test_sweepaddress_succes(sys_stdout):
-    api = coins['SAFE']['api'][0]
-    responses.add(responses.GET, api['utxo'].format('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM'),
-                  json=data, status=200)
-    responses.add(responses.POST, api['send'], content_type='application/json', status=200,
+    coin = coins['SAFE']
+    api = get_current_api_definition(coin)
+    send_url = '{}/tx/send'.format(api['url'])
+    address_url = '{}/addr/{}/utxo'.format(api['url'], 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+
+    responses.add(responses.GET, address_url, json=data, status=200)
+    responses.add(responses.POST, send_url, content_type='application/json', status=200,
                   json={'txid': '480048710f7443a1fbfe9038e846cd8e30a94dde9b3e9f4507fea923f62c662f'})
-    responses.add(responses.POST, api['send'], content_type='application/json', status=200,
+    responses.add(responses.POST, send_url, content_type='application/json', status=200,
                   json={'txid': '7c8cfe3ceceba3e03457d62fbcbe272012ecafcd8006e3a4b366efdaf726ac98'})
-    responses.add(responses.POST, api['send'], content_type='application/json', status=200,
+    responses.add(responses.POST, send_url, content_type='application/json', status=200,
                   json={'txid': 'a6c82d9295579275cc3b7a4ca80210230a104c159818cfd203b71a6370daff62'})
 
     main()

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def get_args():
     parser = argparse.ArgumentParser(
         description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
-            ','.join(coin['name'].title() for coin in coins.values() if coin.get('api'))))
+            ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))))
     parser.add_argument('-p', '--wif_private_keys', type=str, required=True,
                         help='Comma separated private keys in WIF format which will be used'
                              ' to send funds from')
@@ -59,7 +59,7 @@ def send_crypto(args):
     except Exception as e:
         logger.error(e)
         return
-    if not coins[coin_symbol].get('api'):
+    if not coins[coin_symbol].get('apis'):
         logger.error('No api has been defined for the coin {}'.format(coin_symbol))
         return
 

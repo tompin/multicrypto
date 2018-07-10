@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def get_args():
     parser = argparse.ArgumentParser(
         description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
-            ','.join(coin['name'].title() for coin in coins.values() if coin.get('api'))))
+            ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))))
     parser.add_argument('-a', '--address', type=str, required=True,
                         help='Address to which we want to send')
     parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
@@ -42,7 +42,7 @@ def check_address(args):
 
     validate_coin_symbol(coin_symbol)
     validate_address(address, coin_symbol)
-    if not coins[coin_symbol].get('api'):
+    if not coins[coin_symbol].get('apis'):
         raise Exception('No api has been defined for the coin {}'.format(coin_symbol))
 
     utxos = get_utxo_from_address(coins[coin_symbol], address, minimum_input_threshold,

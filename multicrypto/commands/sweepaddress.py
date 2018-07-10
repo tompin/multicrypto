@@ -20,7 +20,7 @@ def get_args():
                     'For example if address has 1000 inputs which we want to sweep and we use '
                     'default batch_size parameter which is 200, this command should create 5 '
                     'transactions. Supported coins are: {}'.format(
-                        ','.join(coin for coin in coins if coins[coin].get('api'))))
+                        ','.join(coin for coin in coins if coins[coin].get('apis'))))
     parser.add_argument('-p', '--wif_private_key', type=str, required=True,
                         help='Private key in WIF format which will be used to send funds from')
     parser.add_argument('-a', '--address', type=str, required=False,
@@ -66,7 +66,7 @@ def sweep_address(args):
     except Exception as e:
         logger.error(e)
         return
-    if not coin.get('api'):
+    if not coin.get('apis'):
         logger.error('No api has been defined for the coin {}'.format(coin_symbol))
         return
     try:

@@ -1,5 +1,6 @@
 import responses
 
+from multicrypto.apis import get_current_api_definition
 from multicrypto.coins import coins
 from multicrypto.network import send
 
@@ -64,10 +65,12 @@ data = [{'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
 
 @responses.activate
 def test_sendcrypto_succes():
-    api = coins['SAFE']['api'][0]
-    responses.add(responses.GET, api['utxo'].format('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM'),
-                  json=data, status=200)
-    responses.add(responses.POST, api['send'],
+    coin = coins['SAFE']
+    api = get_current_api_definition(coin)
+    send_url = '{}/tx/send'.format(api['url'])
+    address_url = '{}/addr/{}/utxo'.format(api['url'], 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+    responses.add(responses.GET, address_url, json=data, status=200)
+    responses.add(responses.POST, send_url,
                   json={'txid': '904c6c12dcd011b30079c3a8646fa744b4d3da0a27f3e67194287a0d0b3bd689'},
                   content_type='application/json', status=200)
 

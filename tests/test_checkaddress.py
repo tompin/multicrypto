@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 import responses
 
+from multicrypto.apis import get_current_api_definition
 from multicrypto.coins import coins
 from multicrypto.commands.checkaddress import main
 
@@ -14,7 +15,6 @@ from multicrypto.commands.checkaddress import main
     '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'HUSH', '-n', '10000000000'])
 @patch('sys.stdout', new_callable=StringIO)
 def test_checkaddress_success(sys_stdout):
-    api = coins['HUSH']['api'][0]
     response_data = [
         {'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt',
          'txid': 'ff269d70ad429f2f3b8e042cf88f76c2f8a9e10de67f626fce25784fc29adb1e',
@@ -42,8 +42,10 @@ def test_checkaddress_success(sys_stdout):
          'amount': 114.01797238, 'satoshis': 11401797238, 'height': 77734, 'confirmations': 80},
 
     ]
-    responses.add(responses.GET, api['utxo'].format('t1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP'),
-                  json=response_data, status=200)
+    coin = coins['HUSH']
+    api = get_current_api_definition(coin)
+    address_url = '{}/addr/{}/utxo'.format(api['url'], 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
+    responses.add(responses.GET, address_url, json=response_data, status=200)
 
     main()
 
@@ -76,7 +78,7 @@ def test_checkadress_minimum_input_greater_than_maximum_input_failure():
 
 @patch.object(sys, 'argv', ['', '-a', 'ZPgeuuayirrSnBPcpYBKn3bHMFqn71nFB5', '-c', 'ZOIN'])
 def test_checkadress_no_api_failure():
-    coins['ZOIN'].pop('api', None)
+    coins['ZOIN'].pop('apis', None)
 
     with pytest.raises(Exception) as exc_info:
         main()
@@ -89,7 +91,6 @@ def test_checkadress_no_api_failure():
        side_effect=Exception('Connection error'))
 @patch.object(sys, 'argv', ['', '-a', 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt', '-c', 'HUSH'])
 def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
-    api = coins['HUSH']['api'][0]
     response_data = [
         {'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt',
          'txid': '22c66de2660bc913d2d6a2a7013a8762e92374fcb34609eb935d7fa4704f3335', 'vout': 6,
@@ -97,8 +98,10 @@ def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
          'amount': 118.6299918, 'satoshis': 11862999180, 'height': 143434, 'confirmations': 712},
         {'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt'}
     ]
-    responses.add(responses.GET, api['utxo'].format('t1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP'),
-                  json=response_data, status=200)
+    coin = coins['HUSH']
+    api = get_current_api_definition(coin)
+    address_url = '{}/addr/{}/utxo'.format(api['url'], 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
+    responses.add(responses.GET, address_url, json=response_data, status=200)
 
     with pytest.raises(Exception) as exc_info:
         main()
