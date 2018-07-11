@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import responses
 
-from multicrypto.apis import get_current_api_definition
+from multicrypto.apis import API
 from multicrypto.coins import coins
 from multicrypto.commands.sendcrypto import main
 
@@ -17,7 +17,7 @@ from multicrypto.commands.sendcrypto import main
 @patch('sys.stdout', new_callable=StringIO)
 def test_sendcrypto_succes(sys_stdout):
     coin = coins['HUSH']
-    api = get_current_api_definition(coin)
+    api = API.get_current_definition(coin)
     send_url = '{}/tx/send'.format(api['url'])
     address_url1 = '{}/addr/{}/utxo'.format(api['url'], 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt')
     address_url2 = '{}/addr/{}/utxo'.format(api['url'], 't1TJ7cjWWBxozgekVWVKzCCXKhK4F59v4HB')

@@ -1,7 +1,7 @@
 import logging
 
 from multicrypto.address import get_private_key_from_wif_format, convert_private_key_to_address
-from multicrypto.apis import api_get_last_block, api_send, api_get_utxo
+from multicrypto.apis import API
 from multicrypto.transaction import Transaction
 from multicrypto.utils import reverse_byte_hex
 
@@ -13,7 +13,7 @@ def get_utxo_from_address(coin, address, minimum_input_threshold=None, maximum_i
                           limit_inputs=None):
     utxos = []
     counter_inputs = 0
-    unspents = api_get_utxo(coin, address)
+    unspents = API.get_utxo(coin, address)
     for utxo in unspents:
         if limit_inputs and counter_inputs == limit_inputs:
             break
@@ -62,10 +62,10 @@ def send(coin, wif_private_keys, destination_address, satoshis, fee, minimum_inp
                 outputs.append({'address': source_address, 'satoshis': change})
             last_block = {}
             if 'check_block_at_height' in coin.get('params', {}):
-                last_block = api_get_last_block(coin)
+                last_block = API.get_last_block(coin)
             transaction = Transaction(coin, inputs, outputs, check_block_at_height=last_block)
             raw_transaction = transaction.create()
-            result = api_send(coin, raw_transaction)
+            result = API.send_raw_transaction(coin, raw_transaction)
             return result
     else:
         raise Exception('Not enough funds in addresses.\nSum of inputs {} < {} + {}(fee)'.format(
