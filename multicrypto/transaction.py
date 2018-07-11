@@ -5,8 +5,9 @@ from binascii import hexlify
 from fastecdsa.curve import secp256k1
 from fastecdsa.ecdsa import sign
 
-from multicrypto.address import get_public_key_hash, encode_point, calculate_public_key_hash
-from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_CHECKSIG, OP_EQUALVERIFY, OP_0
+from multicrypto.address import decompose_address, encode_point, calculate_public_key_hash
+from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_CHECKSIG, OP_EQUALVERIFY, OP_0, \
+    OP_EQUAL
 from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, double_sha256_hex, \
     reverse_byte_hex
 
@@ -31,10 +32,10 @@ class TransactionInput:
         self.private_key = private_key
         self.public_key = private_key * secp256k1.G
         compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
-        if compressed_public_key_hash.hex() in script:
-            compressed_public_key = True
-        else:
+        if compressed_public_key_hash.hex() not in script:
             compressed_public_key = False
+        else:
+            compressed_public_key = True
         self.encoded_public_key = encode_point(
             self.public_key, compressed=compressed_public_key)
         self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
@@ -49,10 +50,15 @@ class TransactionInput:
 
 
 class TransactionOutput:
-    def __init__(self, address, satoshis, address_prefix_bytes):
+    def __init__(self, address, satoshis, coin):
         self.address = address
-        self.public_key_hash = get_public_key_hash(address, address_prefix_bytes)
+        self.prefix, self.address_digest = decompose_address(address, coin)
         self.satoshis = satoshis
+        if self.prefix == coin['script_prefix_bytes']:
+            self.script = OP_HASH160 + OP_PUSH_20 + self.address_digest + OP_EQUAL
+        else:
+            self.script = OP_DUP + OP_HASH160 + OP_PUSH_20 + self.address_digest + \
+                          OP_EQUALVERIFY + OP_CHECKSIG
 
 
 class Transaction:
@@ -78,7 +84,7 @@ class Transaction:
             TransactionOutput(
                 address=output['address'],
                 satoshis=output['satoshis'],
-                address_prefix_bytes=coin['address_prefix_bytes'])
+                coin=coin)
             for output in outputs]
         self.outputs_counter = int_to_bytes(len(self.outputs), byteorder='little')
 
@@ -95,8 +101,7 @@ class Transaction:
     def get_encoded_outputs(self):
         output_block = b''
         for output in self.outputs:
-            script = OP_DUP + OP_HASH160 + OP_PUSH_20 + output.public_key_hash + \
-                OP_EQUALVERIFY + OP_CHECKSIG
+            script = output.script
             if self.last_block:
                 script += b'\x20' + hex_to_bytes(self.last_block['hash'], byteorder='little')
                 height_bytes = int_to_bytes(self.last_block['height'], byteorder='little')
