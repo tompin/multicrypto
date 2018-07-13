@@ -2,7 +2,7 @@ import responses
 
 from multicrypto.apis import API
 from multicrypto.coins import coins
-from multicrypto.network import send
+from multicrypto.network import send_from_private_keys
 
 data = [{'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
          'txid': '4417d9e022c8f4adf1ef6d9dbad7a1ee0ae44b7eb5cf61e86fd1a0ed22b1c180', 'vout': 0,
@@ -74,7 +74,7 @@ def test_sendcrypto_succes():
                   json={'txid': '904c6c12dcd011b30079c3a8646fa744b4d3da0a27f3e67194287a0d0b3bd689'},
                   content_type='application/json', status=200)
 
-    res = send(
+    res = send_from_private_keys(
         coin=coins['SAFE'],
         wif_private_keys=['Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'],
         destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',

@@ -58,7 +58,7 @@ class TransactionOutput:
             self.script = OP_HASH160 + OP_PUSH_20 + self.address_digest + OP_EQUAL
         else:
             self.script = OP_DUP + OP_HASH160 + OP_PUSH_20 + self.address_digest + \
-                          OP_EQUALVERIFY + OP_CHECKSIG
+                OP_EQUALVERIFY + OP_CHECKSIG
 
 
 class Transaction:

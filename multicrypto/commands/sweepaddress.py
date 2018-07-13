@@ -5,7 +5,7 @@ import sys
 from multicrypto.address import validate_address, validate_wif_private_key, \
     convert_wif_private_key_to_address
 from multicrypto.coins import coins, validate_coin_symbol
-from multicrypto.network import send, get_utxo_from_private_keys
+from multicrypto.network import get_utxo_from_private_keys, send_utxos
 from multicrypto.utils import check_positive
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def get_args():
 def sweep_address(args):
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     coin_symbol = args.coin_symbol.upper()
-    address = args.address
+    destination_address = args.address
     wif_private_key = args.wif_private_key
     fee = args.fee
     minimum_input_threshold = args.minimum_input_threshold
@@ -58,10 +58,10 @@ def sweep_address(args):
         validate_coin_symbol(coin_symbol)
         coin = coins[coin_symbol]
         validate_wif_private_key(wif_private_key, coin_symbol)
-        if address:
-            validate_address(address, coin_symbol)
+        if destination_address:
+            validate_address(destination_address, coin_symbol)
         else:
-            address = convert_wif_private_key_to_address(
+            destination_address = convert_wif_private_key_to_address(
                 wif_private_key, coin['address_prefix_bytes'])
     except Exception as e:
         logger.error(e)
@@ -75,7 +75,7 @@ def sweep_address(args):
             wif_private_keys=[wif_private_key],
             minimum_input_threshold=minimum_input_threshold,
             maximum_input_threshold=maximum_input_threshold)
-        utxos = [utxo for _, _, utxo in utxos]
+        utxos = list(utxos)
         batches_counter = 1 + len(utxos) // batch_size
         for i in range(batches_counter):
             batch_utxos = utxos[batch_size * i: batch_size * (i + 1)]
@@ -83,8 +83,7 @@ def sweep_address(args):
             if satoshis < fee:
                 raise Exception('Fee {} is larger than sum of batch inputs {}'.format(
                     fee, satoshis))
-            result = send(coin, [wif_private_key], address, satoshis - fee, fee,
-                          minimum_input_threshold, maximum_input_threshold)
+            result = send_utxos(coin, utxos, destination_address, satoshis, fee)
             print(result)
     except Exception as e:
         logger.exception(e)

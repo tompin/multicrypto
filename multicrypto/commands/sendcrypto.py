@@ -5,7 +5,7 @@ import sys
 
 from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.coins import coins, validate_coin_symbol
-from multicrypto.network import send
+from multicrypto.network import send_from_private_keys
 from multicrypto.utils import check_positive
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def get_args():
 def send_crypto(args):
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     coin_symbol = args.coin_symbol.upper()
-    address = args.address
+    destination_address = args.address
     wif_private_keys = args.wif_private_keys.split(',')
     satoshis = args.satoshis
     fee = args.fee
@@ -53,7 +53,7 @@ def send_crypto(args):
         return
     try:
         validate_coin_symbol(coin_symbol)
-        validate_address(address, coin_symbol)
+        validate_address(destination_address, coin_symbol)
         for wif_private_key in wif_private_keys:
             validate_wif_private_key(wif_private_key, coin_symbol)
     except Exception as e:
@@ -64,8 +64,15 @@ def send_crypto(args):
         return
 
     try:
-        result = send(coins[coin_symbol], wif_private_keys, address, satoshis, fee,
-                      minimum_input_threshold, maximum_input_threshold, limit_inputs)
+        result = send_from_private_keys(
+            coin=coins[coin_symbol],
+            wif_private_keys=wif_private_keys,
+            destination_address=destination_address,
+            satoshis=satoshis,
+            fee=fee,
+            minimum_input_threshold=minimum_input_threshold,
+            maximum_input_threshold=maximum_input_threshold,
+            limit_inputs=limit_inputs)
     except Exception as e:
         logger.error(e)
         return
