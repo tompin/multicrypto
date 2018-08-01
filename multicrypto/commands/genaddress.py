@@ -55,13 +55,12 @@ def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out
 
 def get_args():
     parser = argparse.ArgumentParser(description='Multi coin vanity generation script')
-    parser.add_argument('-p', '--pattern', type=str, required=True,
+    parser.add_argument('-p', '--pattern', type=str, required=False, default='',
                         help='Pattern which generated address should contain')
     parser.add_argument('-s', '--symbol', type=str, required=True,
                         help='Symbol of the coin i.e. BTC')
-    parser.add_argument('-c', '--cores', type=int, required=False,
-                        default=multiprocessing.cpu_count(),
-                        help='How many cores we would like to use. Default maximum available.')
+    parser.add_argument('-c', '--cores', type=int, required=False, default=1,
+                        help='How many cores we would like to use. Default 1 core.')
     parser.add_argument('-u', '--uncompressed', action='store_true',
                         help='Generate address based on uncompressed wif private key format')
     parser.add_argument('-w', '--segwit', action='store_true',
