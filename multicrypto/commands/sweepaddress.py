@@ -83,7 +83,7 @@ def sweep_address(args):
             if satoshis < fee:
                 raise Exception('Fee {} is larger than sum of batch inputs {}'.format(
                     fee, satoshis))
-            result = send_utxos(coin, utxos, destination_address, satoshis, fee)
+            result = send_utxos(coin, utxos, destination_address, satoshis - fee, fee)
             print(result)
     except Exception as e:
         logger.exception(e)
