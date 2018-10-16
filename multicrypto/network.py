@@ -26,12 +26,16 @@ def get_utxo_from_address(coin, address, minimum_input_threshold=None, maximum_i
     return utxos
 
 
-def get_utxo_from_private_keys(coin, wif_private_keys, minimum_input_threshold=None,
+def get_utxo_from_private_keys(coin, wif_private_keys, is_script=False, minimum_input_threshold=None,
                                maximum_input_threshold=None, limit_inputs=None):
     for wif_private_key in set(wif_private_keys):
         private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+        if is_script:
+            prefix_bytes = coin['script_prefix_bytes']
+        else:
+            prefix_bytes = coin['address_prefix_bytes']
         source_address = convert_private_key_to_address(
-            private_key, coin['address_prefix_bytes'], compressed)
+            private_key, prefix_bytes, compressed, is_script)
         utxos = get_utxo_from_address(
             coin, source_address, minimum_input_threshold, maximum_input_threshold, limit_inputs)
         for utxo in utxos:
@@ -61,7 +65,7 @@ def send_from_private_keys(
     input_satoshis = 0
     counter_inputs = 0
     for utxo in get_utxo_from_private_keys(
-            coin, wif_private_keys, minimum_input_threshold, maximum_input_threshold, limit_inputs):
+            coin, wif_private_keys, False, minimum_input_threshold, maximum_input_threshold, limit_inputs):
         input_satoshis += utxo['satoshis']
         inputs.append(
             {'transaction_id': reverse_byte_hex(utxo['txid']),

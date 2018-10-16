@@ -10,14 +10,14 @@ from multicrypto.utils import double_sha256, encode_point
 G = secp256k1.G  # generator point
 
 
-def convert_private_key_to_address(private_key, address_prefix_bytes, compressed=True):
+def convert_private_key_to_address(private_key, addr_prefix_bytes, compressed=True, segwit=False):
     public_key = G * private_key
-    return convert_public_key_to_address(public_key, address_prefix_bytes, compressed)
+    return convert_public_key_to_address(public_key, addr_prefix_bytes, compressed, segwit)
 
 
-def convert_wif_private_key_to_address(wif_private_key, address_prefix_bytes):
+def convert_wif_private_key_to_address(wif_private_key, address_prefix_bytes, segwit=False):
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
-    address = convert_private_key_to_address(private_key, address_prefix_bytes, compressed)
+    address = convert_private_key_to_address(private_key, address_prefix_bytes, compressed, segwit)
     return address
 
 

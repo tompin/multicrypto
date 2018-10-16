@@ -33,11 +33,11 @@ class TransactionInput:
         self.public_key = private_key * secp256k1.G
         compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
         if compressed_public_key_hash.hex() not in script:
-            compressed_public_key = False
+            is_compressed_public_key = False
         else:
-            compressed_public_key = True
+            is_compressed_public_key = True
         self.encoded_public_key = encode_point(
-            self.public_key, compressed=compressed_public_key)
+            self.public_key, compressed=is_compressed_public_key)
         self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
 
     def get_encoded(self, with_script):

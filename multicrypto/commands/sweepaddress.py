@@ -87,7 +87,6 @@ def sweep_address(args):
             print(result)
     except Exception as e:
         logger.exception(e)
-        return
 
 
 def main():

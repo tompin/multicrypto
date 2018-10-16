@@ -10,8 +10,7 @@ def test_convert_private_key_to_address():
     # wif private key is '5HwoXVkHoRM8sL2KmNRS217n1g8mPPBomrY7yehCuXC1115WWsh'
     private_key = 7719472615821079694904732333912527190217998977709370935963838933860875309329
 
-    address = convert_private_key_to_address(
-        private_key, address_prefix_bytes=coins['BTC']['address_prefix_bytes'])
+    address = convert_private_key_to_address(private_key, coins['BTC']['address_prefix_bytes'])
 
     assert address == '1Q1pE5vPGEEMqRcVRMbtBK842Y6Pzo6nK9'
 
