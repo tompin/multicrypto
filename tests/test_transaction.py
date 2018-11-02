@@ -105,7 +105,7 @@ def test_create_p2pkh_transaction_single_input_two_outputs(sign_mock):
     )
     inputs = [{'transaction_id': '69ab945e88fc3d73d052e8c3ce546309a635458fea2c6b3e69981945b0d2a622',
                'output_index': 1,
-               'script': '76a914759d667709c9d1fbd7aa26537b5c441747d88f2588ac',
+               'locking_script': '76a914759d667709c9d1fbd7aa26537b5c441747d88f2588ac',
                # private_key='5J2S79PkfxFGfknLFWtKTTC1wZ7sxSuhrYSnJVejVUj1LFZybSA',
                'private_key': 12475340246878237482690613272958836260975458135334145710205272338180483502080,
                'satoshis': 800000000}]
@@ -150,13 +150,13 @@ def test_create_p2pkh_transaction_two_inputs_two_outputs(sign_mock):
     inputs = [
         {'transaction_id': '999422d4e2a72c7bd5890922129498b7b0e68141aadb6ec920b6baee57e2586a',
          'output_index': 0,
-         'script': '76a914b1b685a57154a3c3265b8648101ea6fbba8fad7288ac',
+         'locking_script': '76a914b1b685a57154a3c3265b8648101ea6fbba8fad7288ac',
          'private_key': 43265286516710475498079662292151387463063605274999989765271924584279496871562,
          # KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu
          'satoshis': 10892722},
         {'transaction_id': '999422d4e2a72c7bd5890922129498b7b0e68141aadb6ec920b6baee57e2586a',
          'output_index': 1,
-         'script': '76a9148ad42af2b409e228388a446731d8c95da725e26088ac',
+         'locking_script': '76a9148ad42af2b409e228388a446731d8c95da725e26088ac',
          'private_key': 57600979085682226857778837041313156146409772100816702579179860421765513727329,
          # L1VFvRCJs8rr5rZcJkaB67ALC86yG8UECgNgLn22pYaw3iAB9bad
          'satoshis': 30000000}]
@@ -194,7 +194,7 @@ def test_create_zeit_p2pkh_transaction_single_input_single_output(sign_mock):
     )
     inputs = [{'transaction_id': '3a048052c13d007bb84c47b76abf1e0bf926cdb548144a77faa0c40dbc3626ec',
                'output_index': 0,
-               'script': '76a9141019136435d702c05d433cb404547e6fbcad085c88ac',
+               'locking_script': '76a9141019136435d702c05d433cb404547e6fbcad085c88ac',
                # private_key='TaMECDUSKV6tt17Zrwai2Go4HgF6R8xSwDY1UTBeFFY6hMWNyY6n',
                'private_key': 75008817533290696227105990373334596279639239099625180499796393413953408726677,
                'satoshis': 1911009550}]
@@ -210,6 +210,34 @@ def test_create_zeit_p2pkh_transaction_single_input_single_output(sign_mock):
 
     assert transaction.raw == raw_transaction
     assert transaction.id == '975e4d8a5530ba43dd607c62af925ad20a5347e2fd5873c65364bc4a89b6a829'
+
+
+def test_p2sh_transaction_one_input_one_p2pkh_output():
+    """Bitcoin Test transaction 1014dc3e47e2cf20fa75175936f5d9ab60414402ce81fa46450ece9dcd7786bc
+       locking_script OP_15 OP_ADD OP_16 OP_EQUAL
+       unlocking_script OP_1 OP_15 OP_ADD OP_16 OP_EQUAL
+    """
+
+    raw_transaction = '01000000011f79f1a2a5cc07835f74605a3293ed4b0565a2fbd53655c36c544f856a0f6e0d' \
+                      '000000000651045f936087ffffffff01301b0f00000000001976a914fb2b7df28801dad5fd' \
+                      'a686a37ef1dcbaecc5de5a88ac00000000'
+
+    inputs = [{'transaction_id': '1f79f1a2a5cc07835f74605a3293ed4b0565a2fbd53655c36c544f856a0f6e0d',
+               'output_index': 0,
+               'locking_script': 'a914cbe45071aa107bb8e824c54d44b9103301d44dbf87',
+               'unlocking_script': '51045f936087',
+               'satoshis': 1000000}]
+    outputs = [{'address': 'n4R215ZAAR9YSNvcyKm8SeVY4eRvja1EY6', 'satoshis': 990000}]
+
+    transaction = Transaction(
+        coin=coins['TBTC'],
+        inputs=inputs,
+        outputs=outputs
+    )
+    transaction.create()
+
+    assert transaction.raw == raw_transaction
+    assert transaction.id == '1014dc3e47e2cf20fa75175936f5d9ab60414402ce81fa46450ece9dcd7786bc'
 
 
 # @patch('multicrypto.transaction.sign')
@@ -245,18 +273,18 @@ def test_create_zeit_p2pkh_transaction_single_input_single_output(sign_mock):
 #     inputs = [
 #         {'transaction_id': 'b2fcadebe12b9f8ec1820ef22e1e4fafb119876149bb9013a65dbc91c4921549',
 #          'output_index': 0,
-#          'script': '76a914759d667709c9d1fbd7aa26537b5c441747d88f2588ac',
+#          'locking_script': '76a914759d667709c9d1fbd7aa26537b5c441747d88f2588ac',
 #          'private_key': 12475340246878237482690613272958836260975458135334145710205272338180483502080,  # 5J2S79PkfxFGfknLFWtKTTC1wZ7sxSuhrYSnJVejVUj1LFZybSA
 #          'satoshis': 769999190},
 #         {'transaction_id': '900f89d957c166f8d13ed7e9843697d588b546924c6e766de405d59b1bca4a77',
 #          'output_index': 1,
-#          'script': 'a9149c21b1d68fa2fe8c74cef825462813b358f58b9a87',
+#          'locking_script': 'a9149c21b1d68fa2fe8c74cef825462813b358f58b9a87',
 #          'private_key': 34000148492062219691113509907075374683881483977305782540856005451828115038495,  #  Kyjq8Y6oQbyjiF5PHYZ59MwTrJGdjnXojcgmo83RCcVEtqPsQZ8n
 #          'satoshis': 30000000
 #          },
 #         {'transaction_id': '999422d4e2a72c7bd5890922129498b7b0e68141aadb6ec920b6baee57e2586a',
 #          'output_index': 1,
-#          'script': '8e54fde3b625bb637ac3a71604d6a6b0c63883f56dda17719b45717f799238c4',
+#          'locking_script': '8e54fde3b625bb637ac3a71604d6a6b0c63883f56dda17719b45717f799238c4',
 #          'private_key': 12475340246878237482690613272958836260975458135334145710205272338180483502080,  # 5J2S79PkfxFGfknLFWtKTTC1wZ7sxSuhrYSnJVejVUj1LFZybSA
 #          'satoshis': 8619895}
 #     ]

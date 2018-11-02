@@ -66,6 +66,16 @@ def double_sha256_hex(hex_str=b''):
     return double_sha256(input_data)
 
 
+def hash160(input_data):
+    hash_sha256 = hashlib.sha256(input_data).digest()
+    digest = hashlib.new('ripemd160', hash_sha256).digest()
+    return digest
+
+
+def encode_script(script):
+    return int_to_bytes(len(script), byteorder='little') + script
+
+
 def int_to_varint_hex(int_value):
     """
     VARINT

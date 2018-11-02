@@ -6,6 +6,7 @@ import sys
 from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.coins import coins, validate_coin_symbol
 from multicrypto.network import send_from_private_keys
+from multicrypto.scripts import validate_hex_script
 from multicrypto.utils import check_positive
 
 logger = logging.getLogger(__name__)
@@ -15,11 +16,15 @@ def get_args():
     parser = argparse.ArgumentParser(
         description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
             ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))))
-    parser.add_argument('-p', '--wif_private_keys', type=str, required=True,
+    parser.add_argument('-p', '--wif_private_keys', type=str, required=False,
                         help='Comma separated private keys in WIF format which will be used'
                              ' to send funds from')
     parser.add_argument('-a', '--address', type=str, required=True,
-                        help='Address to which we want to send')
+                        help='Address to which we want to send funds')
+    parser.add_argument('-u', '--unlocking_scripts', type=str, required=False, default=None,
+                        help='Unlocking scripts in HEX format, which will be used to spent inputs')
+    parser.add_argument('-i', '--input_addresses', type=str, required=False, default=None,
+                        help='Comma separated list of addresses from which funds will be sent')
     parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
                         for which we want to make money transfer')
     parser.add_argument('-s', '--satoshis', type=check_positive, required=True,
@@ -41,7 +46,9 @@ def send_crypto(args):
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     coin_symbol = args.coin_symbol.upper()
     destination_address = args.address
-    wif_private_keys = args.wif_private_keys.split(',')
+    input_addresses = args.input_addresses.split(',') if args.input_addresses else []
+    unlocking_scripts = args.unlocking_scripts.split(',') if args.unlocking_scripts else []
+    wif_private_keys = args.wif_private_keys.split(',') if args.wif_private_keys else []
     satoshis = args.satoshis
     fee = args.fee
     minimum_input_threshold = args.minimum_input_threshold
@@ -51,11 +58,21 @@ def send_crypto(args):
             minimum_input_threshold > maximum_input_threshold):
         logger.error('Minimum input threshold cannot be bigger than maximum input value!')
         return
+    if not wif_private_keys and not input_addresses:
+        logger.error('You must provide wif_private_keys or input_addresses!')
+        return
+    if len(unlocking_scripts) != len(input_addresses):
+        logger.error('Number of unlocking scripts must match number of input addresses!')
+        return
     try:
         validate_coin_symbol(coin_symbol)
-        validate_address(destination_address, coin_symbol)
+        if destination_address:
+            validate_address(destination_address, coin_symbol)
         for wif_private_key in wif_private_keys:
             validate_wif_private_key(wif_private_key, coin_symbol)
+        if unlocking_scripts:
+            for unlocking_script in unlocking_scripts.split(','):
+                validate_hex_script(unlocking_script)
     except Exception as e:
         logger.error(e)
         return
@@ -63,33 +80,29 @@ def send_crypto(args):
         logger.error('No api has been defined for the coin {}'.format(coin_symbol))
         return
 
-    try:
-        result = send_from_private_keys(
-            coin=coins[coin_symbol],
-            wif_private_keys=wif_private_keys,
-            destination_address=destination_address,
-            satoshis=satoshis,
-            fee=fee,
-            minimum_input_threshold=minimum_input_threshold,
-            maximum_input_threshold=maximum_input_threshold,
-            limit_inputs=limit_inputs)
-    except Exception as e:
-        logger.error(e)
-        return
+    result = send_from_private_keys(
+        coin=coins[coin_symbol],
+        wif_private_keys=wif_private_keys,
+        input_addresses=input_addresses,
+        unlocking_scripts=unlocking_scripts,
+        destination_address=destination_address,
+        satoshis=satoshis,
+        fee=fee,
+        minimum_input_threshold=minimum_input_threshold,
+        maximum_input_threshold=maximum_input_threshold,
+        limit_inputs=limit_inputs)
 
     return result
 
 
 def main():
     args = get_args()
-    result = send_crypto(args)
-    print(result)
     try:
+        result = send_crypto(args)
+        print(result)
         json.loads(result)
     except Exception as e:
-        logger.error('Some error occured. Most likey too many inputs were used. Try to limit number'
-                     ' of inputs by using --minimum_input_threshold, --maximum_input_threshold and '
-                     '--limit_inputs parameters. Check "sendcrypto help" for more information.')
+        logger.error('Error: {}'.format(e))
 
 
 if __name__ == '__main__':

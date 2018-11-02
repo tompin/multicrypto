@@ -1,11 +1,9 @@
-import hashlib
-
 from fastecdsa.curve import secp256k1
 
 from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58, \
     base58
 from multicrypto.coins import coins
-from multicrypto.utils import double_sha256, encode_point
+from multicrypto.utils import double_sha256, encode_point, hash160
 
 G = secp256k1.G  # generator point
 
@@ -29,6 +27,7 @@ def calculate_address(digest, address_prefix_bytes):
 
 
 def decompose_address(address, coin):
+    """ Decompose address to address prefix bytes and address digest """
     address_data = base58_to_bytes(address)
     input_data = address_data[:-4]
     if not input_data.startswith(coin['address_prefix_bytes']) and \
@@ -42,12 +41,10 @@ def decompose_address(address, coin):
 
 def calculate_public_key_hash(public_key, compressed=True, segwit=False):
     encoded_public_key = encode_point(public_key, compressed)
-    hashed_public_key = hashlib.sha256(encoded_public_key).digest()
-    digest = hashlib.new('ripemd160', hashed_public_key).digest()
+    digest = hash160(encoded_public_key)
     if segwit:
         redeem_script = b'\x00\x14' + digest
-        hashed_script = hashlib.sha256(redeem_script).digest()
-        digest = hashlib.new('ripemd160', hashed_script).digest()
+        digest = hash160(redeem_script)
     return digest
 
 

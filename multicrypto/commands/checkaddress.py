@@ -30,7 +30,6 @@ def get_args():
 
 
 def check_address(args):
-    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     coin_symbol = args.coin_symbol.upper()
     address = args.address
     minimum_input_threshold = args.minimum_input_threshold
@@ -52,6 +51,7 @@ def check_address(args):
 
 def main():
     args = get_args()
+    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     utxos = check_address(args)
     coin_symbol = args.coin_symbol.upper()
     print('{} Address {}'.format(coin_symbol, args.address))

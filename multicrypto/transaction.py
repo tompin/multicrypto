@@ -6,8 +6,8 @@ from fastecdsa.curve import secp256k1
 from fastecdsa.ecdsa import sign
 
 from multicrypto.address import decompose_address, encode_point, calculate_public_key_hash
-from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_CHECKSIG, OP_EQUALVERIFY, OP_0, \
-    OP_EQUAL
+from multicrypto.consts import OP_0
+from multicrypto.scripts import P2PKH_SCRIPT, P2SH_SCRIPT, is_p2sh
 from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, double_sha256_hex, \
     reverse_byte_hex
 
@@ -15,30 +15,33 @@ logger = logging.getLogger(__name__)
 
 
 class TransactionInput:
-    def __init__(self, transaction_id, output_index, script, satoshis, private_key):
+    def __init__(self, transaction_id, output_index, locking_script, satoshis, private_key=None,
+                 unlocking_script=None):
         """
         :param transaction_id: Transaction id in hex format
         :param output_index: Number (int) specifying the output of the transaction which
                              becomes new transaction input
-        :param script: Script in hex format
+        :param locking_script: Locking script in hex format
         :param satoshis: Amount in satoshis (int)
         :param private_key: Private key (int) needed to claim the input
         """
         self.transaction_id = hex_to_bytes(transaction_id, byteorder='big')
         self.output_index = output_index.to_bytes(4, byteorder='little')
-        self.script = hex_to_bytes(script, byteorder='big')
+        self.script = hex_to_bytes(locking_script, byteorder='big')
         self.script_length = int_to_bytes(len(self.script), byteorder='little')
         self.satoshis = satoshis.to_bytes(8, byteorder='little')
-        self.private_key = private_key
-        self.public_key = private_key * secp256k1.G
-        compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
-        if compressed_public_key_hash.hex() not in script:
-            is_compressed_public_key = False
-        else:
-            is_compressed_public_key = True
-        self.encoded_public_key = encode_point(
-            self.public_key, compressed=is_compressed_public_key)
-        self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
+        if private_key:
+            self.private_key = private_key
+            self.public_key = private_key * secp256k1.G
+            compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
+            if compressed_public_key_hash.hex() not in locking_script:
+                is_compressed_public_key = False
+            else:
+                is_compressed_public_key = True
+            self.encoded_public_key = encode_point(
+                self.public_key, compressed=is_compressed_public_key)
+            self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
+        self.unlocking_script = hex_to_bytes(unlocking_script, byteorder='big')
 
     def get_encoded(self, with_script):
         input_data = self.transaction_id + self.output_index
@@ -51,14 +54,13 @@ class TransactionInput:
 
 class TransactionOutput:
     def __init__(self, address, satoshis, coin):
+        self.satoshis = satoshis
         self.address = address
         self.prefix, self.address_digest = decompose_address(address, coin)
-        self.satoshis = satoshis
         if self.prefix == coin['script_prefix_bytes']:
-            self.script = OP_HASH160 + OP_PUSH_20 + self.address_digest + OP_EQUAL
+            self.script = P2SH_SCRIPT % self.address_digest
         else:
-            self.script = OP_DUP + OP_HASH160 + OP_PUSH_20 + self.address_digest + \
-                OP_EQUALVERIFY + OP_CHECKSIG
+            self.script = P2PKH_SCRIPT % self.address_digest
 
 
 class Transaction:
@@ -75,9 +77,10 @@ class Transaction:
             TransactionInput(
                 transaction_id=input['transaction_id'],
                 output_index=input['output_index'],
-                script=input['script'],
+                locking_script=input['locking_script'],
                 satoshis=input['satoshis'],
-                private_key=input['private_key'])
+                private_key=input.get('private_key'),
+                unlocking_script=input.get('unlocking_script', ''))
             for input in inputs]
         self.inputs_counter = int_to_bytes(len(self.inputs), byteorder='little')
         self.outputs = [
@@ -138,6 +141,10 @@ class Transaction:
 
     def sign_input(self, position):
         input = self.inputs[position]
+        if is_p2sh(input.script):
+            input.script = input.unlocking_script
+            input.script_length = int_to_bytes(len(input.script), byteorder='little')
+            return
         message = self.get_data_to_sign(position)
         #  ECDSA signing is done as follows:
         #  given a message 'm', a sign-secret 'k', a private key 'x'
@@ -159,7 +166,7 @@ class Transaction:
 
     def create(self):
         if self.id:
-            raise Exception('Transaction id {} already created'.format(self.id))
+            raise Exception('Transaction {} already created'.format(self.id))
         for i in range(len(self.inputs)):
             self.sign_input(i)
         raw_transaction_data = hexlify(

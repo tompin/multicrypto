@@ -5,7 +5,6 @@ from multicrypto.apis import API
 from multicrypto.transaction import Transaction
 from multicrypto.utils import reverse_byte_hex
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +25,19 @@ def get_utxo_from_address(coin, address, minimum_input_threshold=None, maximum_i
     return utxos
 
 
-def get_utxo_from_private_keys(coin, wif_private_keys, is_script=False, minimum_input_threshold=None,
+def get_utxo_from_addresses(coin, addresses, unlocking_scripts, minimum_input_threshold,
+                            maximum_input_threshold, limit_inputs):
+    for address, unlocking_script in zip(addresses, unlocking_scripts):
+        utxos = get_utxo_from_address(
+            coin, address, minimum_input_threshold, maximum_input_threshold, limit_inputs)
+        for utxo in utxos:
+            utxo['source_address'] = address
+            utxo['unlocking_script'] = unlocking_script
+            yield utxo
+
+
+def get_utxo_from_private_keys(coin, wif_private_keys, is_script=False,
+                               minimum_input_threshold=None,
                                maximum_input_threshold=None, limit_inputs=None):
     for wif_private_key in set(wif_private_keys):
         private_key, compressed = get_private_key_from_wif_format(wif_private_key)
@@ -59,29 +70,18 @@ def send_inputs(coin, inputs, destination_address, source_address, input_satoshi
 
 
 def send_from_private_keys(
-        coin, wif_private_keys, destination_address, satoshis, fee, minimum_input_threshold=None,
-        maximum_input_threshold=None, limit_inputs=None):
-    inputs = []
-    input_satoshis = 0
-    counter_inputs = 0
-    for utxo in get_utxo_from_private_keys(
-            coin, wif_private_keys, False, minimum_input_threshold, maximum_input_threshold, limit_inputs):
-        input_satoshis += utxo['satoshis']
-        inputs.append(
-            {'transaction_id': reverse_byte_hex(utxo['txid']),
-             'output_index': utxo['vout'],
-             'script': utxo['scriptPubKey'],
-             'satoshis': utxo['satoshis'],
-             'private_key': utxo['private_key']})
-        counter_inputs += 1
-        logger.info('{}. address: {}, input: {}, satoshis: {}'.format(
-            counter_inputs, utxo['source_address'], utxo['txid'], utxo['satoshis']))
-        if input_satoshis >= satoshis + fee:
-            return send_inputs(
-                coin, inputs, destination_address, utxo['source_address'], input_satoshis, satoshis, fee)
+        coin, wif_private_keys, input_addresses, unlocking_scripts, destination_address, satoshis, fee,
+        minimum_input_threshold=None, maximum_input_threshold=None, limit_inputs=None):
+    if input_addresses:
+        utxos = get_utxo_from_addresses(
+            coin, input_addresses, unlocking_scripts, minimum_input_threshold,
+            maximum_input_threshold, limit_inputs)
+    elif wif_private_keys:
+        utxos = get_utxo_from_private_keys(coin, wif_private_keys, False, minimum_input_threshold,
+                                           maximum_input_threshold, limit_inputs)
     else:
-        raise Exception('Not enough funds in addresses.\nSum of inputs {} < {} + {}(fee)'.format(
-            input_satoshis, satoshis, fee))
+        raise Exception('Missing required parameters input_addresses or wiif_private_keys')
+    return send_utxos(coin, utxos, destination_address, satoshis, fee)
 
 
 def send_utxos(coin, utxos, destination_address, satoshis, fee):
@@ -90,18 +90,21 @@ def send_utxos(coin, utxos, destination_address, satoshis, fee):
     counter_inputs = 0
     for utxo in utxos:
         input_satoshis += utxo['satoshis']
-        inputs.append(
-            {'transaction_id': reverse_byte_hex(utxo['txid']),
-             'output_index': utxo['vout'],
-             'script': utxo['scriptPubKey'],
-             'satoshis': utxo['satoshis'],
-             'private_key': utxo['private_key']})
+        inputs.append({
+            'transaction_id': reverse_byte_hex(utxo['txid']),
+            'output_index': utxo['vout'],
+            'locking_script': utxo['scriptPubKey'],
+            'satoshis': utxo['satoshis'],
+            'private_key': utxo.get('private_key'),
+            'unlocking_script': utxo.get('unlocking_script', '')})
         counter_inputs += 1
-        logger.info('{}. address: {}, input: {}, satoshis: {}'.format(
+        logger.debug('{}. address: {}, input: {}, satoshis: {}'.format(
             counter_inputs, utxo['source_address'], utxo['txid'], utxo['satoshis']))
         if input_satoshis >= satoshis + fee:
-            return send_inputs(
-                coin, inputs, destination_address, utxo['source_address'], input_satoshis, satoshis, fee)
+            return send_inputs(coin, inputs, destination_address, utxo['source_address'],
+                               input_satoshis, satoshis, fee)
     else:
-        raise Exception('Not enough funds in addresses.\nSum of inputs {} < {} + {}(fee)'.format(
-            input_satoshis, satoshis, fee))
+        raise Exception(
+            'Not enough funds in addresses.\nSum of inputs is {} which is less than {} ({} + {})'.
+            format(input_satoshis, satoshis + fee, satoshis, fee)
+        )

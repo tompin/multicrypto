@@ -64,7 +64,7 @@ data = [{'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
 
 
 @responses.activate
-def test_sendcrypto_succes():
+def test_sendcrypto_success():
     coin = coins['SAFE']
     api = API.get_current_definition(coin)
     send_url = '{}/tx/send'.format(api['url'])
@@ -77,6 +77,8 @@ def test_sendcrypto_succes():
     res = send_from_private_keys(
         coin=coins['SAFE'],
         wif_private_keys=['Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'],
+        input_addresses=None,
+        unlocking_scripts=None,
         destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
         satoshis=100000000000,
         fee=10000,
