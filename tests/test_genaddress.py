@@ -1,12 +1,16 @@
 import os
 import random
+import sys
+from io import StringIO
+from unittest.mock import patch
 
 import pytest
 
 from multicrypto.address import get_address_range
 from multicrypto.base58 import base58
 from multicrypto.coins import coins
-from multicrypto.commands.genaddress import generate_address
+from multicrypto.commands.genaddress import generate_address, main
+from multicrypto.consts import OP_EQUAL, OP_16, OP_ADD, OP_15
 
 
 class SetMock:
@@ -58,3 +62,13 @@ def test_random_generate_address(tmpdir, coin_settings, pattern):
     assert address[:len(pattern)] == pattern
     assert os.path.isfile(os.path.join(out_dir, address + '.png'))
     assert os.path.isfile(os.path.join(out_dir, address + '_private_key.png'))
+
+
+@patch.object(sys, 'argv', ['', '-s', 'TBTC', '-i', (OP_15 + OP_ADD + OP_16 + OP_EQUAL).hex()])
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_succes(sys_stdout):
+    main()
+
+    res = '2NBqJfmzsEbbT1YFyCjdU4KYXQajLffLBLM\n'
+
+    assert sys_stdout.getvalue() == res
