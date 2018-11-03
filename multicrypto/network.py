@@ -1,3 +1,4 @@
+import itertools
 import logging
 
 from multicrypto.address import get_private_key_from_wif_format, convert_private_key_to_address
@@ -69,16 +70,23 @@ def send_inputs(coin, inputs, destination_address, source_address, input_satoshi
     return result
 
 
+# TODO: refactor
 def send_from_private_keys(
         coin, wif_private_keys, input_addresses, unlocking_scripts, destination_address, satoshis, fee,
         minimum_input_threshold=None, maximum_input_threshold=None, limit_inputs=None):
+    utxos = None
     if input_addresses:
         utxos = get_utxo_from_addresses(
             coin, input_addresses, unlocking_scripts, minimum_input_threshold,
             maximum_input_threshold, limit_inputs)
-    elif wif_private_keys:
-        utxos = get_utxo_from_private_keys(coin, wif_private_keys, False, minimum_input_threshold,
-                                           maximum_input_threshold, limit_inputs)
+    if wif_private_keys:
+        wif_private_keys_utxos = get_utxo_from_private_keys(
+            coin, wif_private_keys, False, minimum_input_threshold, maximum_input_threshold,
+            limit_inputs)
+        if utxos:
+            utxos = itertools.chain(utxos, wif_private_keys_utxos)
+        else:
+            utxos = wif_private_keys_utxos
     else:
         raise Exception('Missing required parameters input_addresses or wiif_private_keys')
     return send_utxos(coin, utxos, destination_address, satoshis, fee)
@@ -89,6 +97,8 @@ def send_utxos(coin, utxos, destination_address, satoshis, fee):
     input_satoshis = 0
     counter_inputs = 0
     for utxo in utxos:
+        if not utxo:
+            continue
         input_satoshis += utxo['satoshis']
         inputs.append({
             'transaction_id': reverse_byte_hex(utxo['txid']),
