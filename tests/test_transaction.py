@@ -214,8 +214,8 @@ def test_create_zeit_p2pkh_transaction_single_input_single_output(sign_mock):
 
 def test_p2sh_transaction_one_input_one_p2pkh_output():
     """Bitcoin Test transaction 1014dc3e47e2cf20fa75175936f5d9ab60414402ce81fa46450ece9dcd7786bc
-       locking_script OP_15 OP_ADD OP_16 OP_EQUAL
-       unlocking_script OP_1 OP_15 OP_ADD OP_16 OP_EQUAL
+       locking script OP_15 OP_ADD OP_16 OP_EQUAL
+       redeem script OP_1
     """
 
     raw_transaction = '01000000011f79f1a2a5cc07835f74605a3293ed4b0565a2fbd53655c36c544f856a0f6e0d' \
@@ -238,6 +238,95 @@ def test_p2sh_transaction_one_input_one_p2pkh_output():
 
     assert transaction.raw == raw_transaction
     assert transaction.id == '1014dc3e47e2cf20fa75175936f5d9ab60414402ce81fa46450ece9dcd7786bc'
+
+
+def test_p2sh_transaction_two_inputs_one_p2sh_output():
+    """Bitcoin Test transaction 3cea520f927772019bc011df7804aebf5826ece7d78ca3f92bbb798c72e13e30
+       locking script OP_1 OP_ADD OP_1 OP_ADD OP_3 OP_EQUAL
+       redeem script OP_1
+       destination script OP_1 OP_ADD OP_1 OP_ADD OP_4 OP_EQUAL
+    """
+
+    raw_transaction = '010000000219161f0bccd38deb20594857c3c57c3cc06237e3c1d24cbe94cd0c7e2c5963fa' \
+                      '00000000085106519351935387ffffffff43ae5824c4c1a335ee762464383edef9122980e7' \
+                      '919f292b4c3473838357d6c600000000085106519351935387ffffffff0130e60200000000' \
+                      '0017a914dcadff2b534a0d8762a78bd9c641bea640a90c058700000000'
+
+    inputs = [{'transaction_id': '19161f0bccd38deb20594857c3c57c3cc06237e3c1d24cbe94cd0c7e2c5963fa',
+               'output_index': 0,
+               'locking_script': 'a914bbbd4e13a0274c3900bf02f8efe2161c2f6ee24487',
+               'unlocking_script': '5106519351935387',
+               'satoshis': 100000},
+              {'transaction_id': '43ae5824c4c1a335ee762464383edef9122980e7919f292b4c3473838357d6c6',
+               'output_index': 0,
+               'locking_script': 'a914bbbd4e13a0274c3900bf02f8efe2161c2f6ee24487',
+               'unlocking_script': '5106519351935387',
+               'satoshis': 100000}]
+    outputs = [{'address': '2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h', 'satoshis': 190000}]
+
+    transaction = Transaction(
+        coin=coins['TBTC'],
+        inputs=inputs,
+        outputs=outputs
+    )
+    transaction.create()
+
+    assert transaction.raw == raw_transaction
+    assert transaction.id == '3cea520f927772019bc011df7804aebf5826ece7d78ca3f92bbb798c72e13e30'
+
+
+def test_p2sh_transaction_two_p2sh_and_two_pk2sh_inputs__one_p2sh_output():
+    """Bitcoin Test transaction 137aa91ff8e7de97cbdb2839580c726c2e11d17a8c204d6c049a178ee122e53d
+       locking script OP_1 OP_ADD OP_1 OP_ADD OP_4 OP_EQUAL
+       redeem script OP_2
+    """
+
+    raw_transaction = '01000000040fae1a76282cc135fad92581bdfd5eafec548c13ea15d21d2b894defe0757ba9' \
+                      '01000000085206519351935487ffffffff303ee1728c79bb2bf9a38cd7e7ec2658bfae0478' \
+                      'df11c09b017277920f52ea3c00000000085206519351935487ffffffff7820292d29c4327f' \
+                      '5677643487bc8e7c8c0de5175c5c2240a44e0b6c899ef216010000006b483045022100de62' \
+                      '19be95a549f1f0e69fa26c0c3b0ba8237b056aaa5023af403d9c5525606c02202ec0f82369' \
+                      '1e6b513048cd0c7e33d2a012f37c11f1f25df7359f606701495aa7012102ab4f55bb38d5e0' \
+                      '5e34d0e4723ec175fb1f151de1d1c6ae1905f3bf148b4d0d26fffffffff6075e89d5b31d77' \
+                      '11e7aeabd67838dc97a72c6b97a13d87059529e72c56f223000000006a47304402200a5d1a' \
+                      '80da18b65eace18646543351b5ef8169d0a5bc94ce86c5741d33d6ebaa022007e1a44c304d' \
+                      '646c8c6f28c48e751b176fd137a3d29c98f64a6474177a344a19012103bb007a3b91da8ac9' \
+                      'ea8b2225ed72eff27b365d4f89b70e133dbe4be9027b0c14ffffffff010053070000000000' \
+                      '17a914cb01ada2ed7bb90bb60008f7a583dbbe31f9a0498700000000'
+
+    inputs = [
+        {'transaction_id': '0fae1a76282cc135fad92581bdfd5eafec548c13ea15d21d2b894defe0757ba9',
+         'output_index': 1,
+         'locking_script': 'a914bbbd4e13a0274c3900bf02f8efe2161c2f6ee24487',
+         'unlocking_script': '5206519351935487',
+         'satoshis': 100000},
+        {'transaction_id': '303ee1728c79bb2bf9a38cd7e7ec2658bfae0478df11c09b017277920f52ea3c',
+         'output_index': 0,
+         'locking_script': 'a914bbbd4e13a0274c3900bf02f8efe2161c2f6ee24487',
+         'unlocking_script': '5206519351935487',
+         'satoshis': 190000},
+        {'transaction_id': '7820292d29c4327f5677643487bc8e7c8c0de5175c5c2240a44e0b6c899ef216',
+         'output_index': 1,
+         'locking_script': '76a91445cec18a3441bd435bcb4af0772559d4a6eaeab688ac',
+         'private_key': 1194504131881927878182030211940566824171556351471046505494545953332298491334,
+         'satoshis': 100000},
+        {'transaction_id': 'f6075e89d5b31d7711e7aeabd67838dc97a72c6b97a13d87059529e72c56f223',
+         'output_index': 0,
+         'locking_script': '76a9148195f546c36f0ccdb1dd04f813890f451d6bf50988ac',
+         'private_key': 700996953834400088059868539774171620312876117792483716835604179788046641531,
+         'satoshis': 100000}
+    ]
+    outputs = [{'address': '2NBkdAqJSFQR5SzHmiekWVRLxzfLsSYiFZ2', 'satoshis': 480000}]
+
+    transaction = Transaction(
+        coin=coins['TBTC'],
+        inputs=inputs,
+        outputs=outputs
+    )
+    transaction.create()
+
+    assert transaction.raw == raw_transaction
+    assert transaction.id == '137aa91ff8e7de97cbdb2839580c726c2e11d17a8c204d6c049a178ee122e53d'
 
 
 # @patch('multicrypto.transaction.sign')

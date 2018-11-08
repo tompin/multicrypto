@@ -70,9 +70,8 @@ def send_crypto(args):
             validate_address(destination_address, coin_symbol)
         for wif_private_key in wif_private_keys:
             validate_wif_private_key(wif_private_key, coin_symbol)
-        if unlocking_scripts:
-            for unlocking_script in unlocking_scripts.split(','):
-                validate_hex_script(unlocking_script)
+        for unlocking_script in unlocking_scripts:
+            validate_hex_script(unlocking_script)
     except Exception as e:
         logger.error(e)
         return
@@ -102,7 +101,7 @@ def main():
         print(result)
         json.loads(result)
     except Exception as e:
-        logger.error('Error: {}'.format(e))
+        logger.exception('Error: {}'.format(e))
 
 
 if __name__ == '__main__':
