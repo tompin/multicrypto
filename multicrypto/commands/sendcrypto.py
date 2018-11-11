@@ -7,7 +7,7 @@ from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.coins import coins, validate_coin_symbol
 from multicrypto.network import send_from_private_keys
 from multicrypto.scripts import validate_hex_script
-from multicrypto.utils import check_positive
+from multicrypto.utils import check_positive, check_non_negative
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def get_args():
                         for which we want to make money transfer')
     parser.add_argument('-s', '--satoshis', type=check_positive, required=True,
                         help='How many satoshis you want to send')
-    parser.add_argument('-f', '--fee', type=check_positive, required=False, default=10000,
+    parser.add_argument('-f', '--fee', type=check_non_negative, required=False, default=10000,
                         help='Transaction fee')
     parser.add_argument('-n', '--minimum_input_threshold', type=check_positive, required=False,
                         default=None, help='Use only inputs containing satoshis equal or above the '
