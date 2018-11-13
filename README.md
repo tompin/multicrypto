@@ -6,23 +6,31 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Experimental Tool for sending funds (for now only P2PKH transaction type is supported), creating custom look 
-addresses and translating addresses and private keys between various cryptocurrencies.
+Experimental Tool for sending funds (for now only P2PKH and P2PSH transaction types are supported). 
+Using different commands it is also possible to create custom look addresses, translating addresses
+ and private keys between various cryptocurrencies or check your address balance.
 
 ## INSTALLATION
 
-If you don't have Python 3 install it by following instructions from python.org. 
+### Additional packages needed on Ubuntu
+```bash
+sudo apt-get install build-essential python3-setuptools python3-wheel python3-dev python3-pip libgmp3-dev
+```
+
+If you don't have Python 3, install it by following instructions from python.org. 
 Supported Python versions are 3.5, 3.6, 3.7. Then Run:
 ```bash
-pip install multicrypto
+pip3 install multicrypto
 ```
-The package contains six commands `sweepaddress`, `sendcrypto`, `checkaddress`, `transaddress`,
-`transprivkey`, `genaddress` described below.
 
-### Additional packages on Ubuntu
-```bash
-sudo apt-get install build-essential python3-dev libgmp3-dev
-```
+The package contains below commands:
+ 1. `sweepaddress`
+ 2. `sendcrypto`
+ 3. `checkaddress`
+ 4. `transaddress`
+ 5. `transprivkey`
+ 6. `genaddress`
+
 ## USAGE
 
 ### Run
@@ -43,14 +51,21 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
  transaction fee will be set to default 0.00001 ZEN (you can override it using --fee parameter) and the
  funds will be sent back to original address (you can override the output address using --address parameter).
 
- 2. Sending funds (P2PKH):
+ 2. Sending funds:
  ```bash
  sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
  ```
- Sending 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 10000 satoshis
+ Sending (P2PKH) 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 10000 satoshis
  and only using inputs containing not more than 100000 satoshis:
  ```bash
  sendcrypto -c BTC -s 25000000 -x 100000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
+ ```
+
+ Sending (P2PSH) 0.0019 BTC on testnet to address 2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h with fee 5000 satoshis
+ (notice that both input address 2NAMu8JCTLXtTv2LRQktByt1EoKaJaVmDAj and unlocking script 5106519351935387
+ must be provided):
+ ```bash
+ sendcrypto -a 2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h -c TBTC -i 2NAMu8JCTLXtTv2LRQktByt1EoKaJaVmDAj -u 5106519351935387 -s 190000 -f 5000
  ```
  3. Listing address inputs with total amount:
  ```bash
@@ -92,7 +107,7 @@ sudo apt-get install build-essential python3-dev libgmp3-dev
  ```
 ### Import
 Created private key should be imported using bitcoin-cli program 
-or corresponding tool (importing in Qt wallet doesn't always work)
+or corresponding tool (importing in Qt wallet doesn't always work
 ```bash
   bitcoin-cli importprivkey <GENERATED_PRIV_KEY>
 ```
@@ -102,41 +117,42 @@ To verify the key was imported successfully:
 ```
 
 ### Supported coins
-* Bitcoin (BTC)
-* Bitcoin Gold (BTG)
-* Bitcoin Hush (BTCH)
-* Bitcoin Private (BTCP)
-* BitcoinZ (BTCZ)
-* Bitstar (BITS)
-* Buck (BUCK)
-* Crave (CRAVE)
-* Dash (DASH)
-* Diamond (DMD)
-* Dogecoin (DOGE)
-* Elite (1337)
-* Hush (HUSH)
-* Komodo (KMD)
-* Litecoin (LTC)
-* Mooncoin (MOON)
-* Qtum (QTUM)
-* Safecoin (SAFE)
-* Snow Gem (SNG)
-* Sirius (SIRX)
-* Smartcash (SMART)
-* Unify (UNIFY)
-* Unobtanium (UNO)
-* Vertcoin (VTC)
-* Zcash (ZEC)
-* Zclassic (ZCL)
-* Zeitcoin (ZEIT)
-* ZenCash (ZEN)
-* Zero (ZERO)
-* Zoin (ZOIN)
+| Coin | Symbol | Address generation | P2PKH transactions | P2SH transactions |
+| --- | --- | --- | --- | --- |
+| Bitcoin | BTC | Yes | Yes | Yes |
+| Bitcoin Gold | BTG | Yes | No | No |
+| Bitcoin Hush | BTCH | Yes | No | No |
+| Bitcoin Private | BTCP | Yes | Yes | Yes |
+| BitcoinZ | BTCZ | Yes | Yes | Yes |
+| Bitstar | BITS | Yes | No | No |
+| Buck | BUCK | Yes | No | No |
+| Crave | CRAVE | Yes | No | No |
+| Dash | DASH | Yes | Yes | Yes |
+| Diamond | DMD | Yes | No | No |
+| Dogecoin | DOGE | Yes | No | No |
+| Elite | 1337 | Yes | No | No |
+| Hush | HUSH | Yes | Yes | Yes |
+| Komodo | KMD | Yes | Yes | Yes |
+| Litecoin | LTC | Yes | Yes | Yes |
+| Mooncoin | MOON | Yes | No | No |
+| Qtum | QTUM | Yes | No | No |
+| Safecoin | SAFE | Yes | Yes | Yes |
+| Snow Gem | SNG | Yes | Yes | Yes |
+| Sirius | SIRX | Yes | No | No |
+| Smartcash | SMART | Yes | No | No |
+| Unify | UNIFY | Yes | No | No |
+| Unobtanium | UNO | Yes | No | No |
+| Vertcoin | VTC | Yes | No | No |
+| Zcash | ZEC | Yes | Yes | Yes |
+| Zclassic | ZCL | Yes | Yes | Yes |
+| Zeitcoin | ZEIT | Yes | No | No |
+| ZenCash | ZEN | Yes | Yes | Yes |
+| Zero | ZERO | Yes | Yes | Yes |
 
 If you find this tool useful please donate to BTC address: 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG
 
 ## Tests
-Install pytest ,pytest-cov and tox packages:
+Install pytest, pytest-cov and tox packages:
 ```bash
  pip3 install -r requirements_dev.txt
 ```
