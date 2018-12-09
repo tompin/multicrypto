@@ -6,15 +6,14 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Experimental Tool for sending funds (for now only P2PKH and P2PSH transaction types are supported). 
-Using different commands it is also possible to create custom look addresses, translating addresses
- and private keys between various cryptocurrencies or check your address balance.
+Experimental, pure python, tool for sending cryptocurrency, creating custom look addresses, 
+translating addresses and private keys between different coins or check address balance.
 
 ## INSTALLATION
 
 ### Additional packages needed on Ubuntu
 ```bash
-sudo apt-get install build-essential python3-setuptools python3-wheel python3-dev python3-pip libgmp3-dev
+sudo apt-get install build-essential python3-setuptools python3-wheel python3-dev python3-pip
 ```
 
 If you don't have Python 3, install it by following instructions from python.org. 
@@ -148,6 +147,7 @@ To verify the key was imported successfully:
 | Zeitcoin | ZEIT | Yes | No | No |
 | ZenCash | ZEN | Yes | Yes | Yes |
 | Zero | ZERO | Yes | Yes | Yes |
+| Zoin | ZOIN | Yes | No | No |
 
 If you find this tool useful please donate to BTC address: 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG
 

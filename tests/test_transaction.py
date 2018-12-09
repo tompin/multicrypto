@@ -1,14 +1,11 @@
 import hashlib
 from unittest.mock import patch
 
-from fastecdsa.curve import secp256k1
-from fastecdsa.ecdsa import verify
-from fastecdsa.point import Point
-
 from multicrypto.coins import coins
 from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_EQUALVERIFY, OP_CHECKSIG
+from multicrypto.ellipticcurve import secp256k1, verify, Point
 from multicrypto.transaction import Transaction, POSTransaction
-from multicrypto.utils import double_sha256_hex, reverse_byte_hex, encode_point
+from multicrypto.utils import double_sha256, reverse_byte_hex, encode_point
 
 
 def test_verify_one_input():
@@ -19,7 +16,7 @@ def test_verify_one_input():
     s = int('6cde9c0649fe2242b1dd90f40615e1bb247280b8f152c0ae9151b9c4d7abaf87', 16)
     x = int('8cc516ad062ac55d5ed980c4f743a366621fa409060188df3c39e289720090ae', 16)
     y = int('bba61faf69a3f2a39fac2745a565e5b2a4a9a5c90a71c9ee770135695231832c', 16)
-    public_key = Point(x, y, secp256k1)
+    public_key = Point(secp256k1, x, y)
     encoded_public_key = b'\x04' + x.to_bytes(32, byteorder='big') + y.to_bytes(32, byteorder='big')
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
     digest_public_key = hashlib.new('ripemd160', hashed_public_key).digest()
@@ -27,7 +24,7 @@ def test_verify_one_input():
     raw_transaction_mod = '020000000169ab945e88fc3d73d052e8c3ce546309a635458fea2c6b3e69981945b0d2a62201000000' + reverse_byte_hex(
         hex(len(funding_script))[2:]) + funding_script.hex() + 'fdffffff025641e52d000000001976a914759d667709c9d1fbd7aa26537b5c441747d88f2588ac80c3c901000000001976a9146928f2f330f57e6916543481ab3af69597ae289d88ac06d70700' + '01000000'
 
-    result = verify((r, s), raw_transaction_mod, public_key, secp256k1, double_sha256_hex)
+    result = verify(bytes.fromhex(raw_transaction_mod), (r, s), public_key, secp256k1, double_sha256)
 
     assert result
 
@@ -40,7 +37,7 @@ def test_verify_one_input_zeit():
     s = int('67d9c5b4144c80aac91701130686b66dc3da15799de960edb22ee9f90be6f554', 16)
     x = int('771b0c5df5773a9c3f8da066d6b9e8e577025caeaa15ef1289c9e83050124eca', 16)
     y = int('c71f2fe45289be22f857d721489e871dce3e7e6a951534f0504c5784c796def9', 16)
-    public_key = Point(x, y, secp256k1)
+    public_key = Point(secp256k1, x, y)
     encoded_public_key = encode_point(public_key, compressed=True)
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
     digest_public_key = hashlib.new('ripemd160', hashed_public_key).digest()
@@ -48,7 +45,7 @@ def test_verify_one_input_zeit():
     raw_transaction_mod = '010000006bbc345b01ec2636bc0dc4a0fa774a1448b5cd26f90b1ebf6ab7474cb87b003dc15280043a00000000' + \
                           reverse_byte_hex(hex(len(funding_script))[2:]) + funding_script.hex() + 'ffffffff016e2ae671000000001976a91415cdc3710d179a525dc6011f4588befc5a04ff4488ac00000000' + '01000000'
 
-    result = verify((r, s), raw_transaction_mod, public_key, secp256k1, double_sha256_hex)
+    result = verify(bytes.fromhex(raw_transaction_mod), (r, s), public_key, secp256k1, double_sha256)
 
     assert result
 
@@ -61,7 +58,7 @@ def test_verify_two_inputs():
     s1 = int('7bf41875ef112a731835875e187086a322226759d410a2e8ee2fb91813340d43', 16)
     x1 = int('c0dae3dc13a30b6fc4fbe361a943680148cc028d96d91d6997cbbb572258b308', 16)
     y1 = int('17defc0d8dde6f62da3e4256ddb164b5847ef0112907e4d9e99c74035efe46c2', 16)
-    public_key1 = Point(x1, y1, secp256k1)
+    public_key1 = Point(secp256k1, x1, y1)
     encoded_public_key1 = b'\x02' + x1.to_bytes(32, byteorder='big')
     hashed_public_key1 = hashlib.sha256(encoded_public_key1).digest()
     digest_public_key1 = hashlib.new('ripemd160', hashed_public_key1).digest()
@@ -72,7 +69,7 @@ def test_verify_two_inputs():
     s2 = int('4a12501fd9704ae713ba2cd1500bca3e9cb34bb0bae145921c91ddce9c32017f', 16)
     x2 = int('7940f42f1dbfc7af95ce0b8c9bc2565cc1b0b1e39924941dd07833a01e4f6d05', 16)
     y2 = int('9c29c8439dc9e60b3d3809f7e9b648f3a78229801d691b581bd6492112154625', 16)
-    public_key2 = Point(x2, y2, secp256k1)
+    public_key2 = Point(secp256k1, x2, y2)
     encoded_public_key2 = b'\x03' + x2.to_bytes(32, byteorder='big')
     hashed_public_key2 = hashlib.sha256(encoded_public_key2).digest()
     digest_public_key2 = hashlib.new('ripemd160', hashed_public_key2).digest()
@@ -81,8 +78,8 @@ def test_verify_two_inputs():
     raw_transaction_mod2 = '0200000002999422d4e2a72c7bd5890922129498b7b0e68141aadb6ec920b6baee57e2586a00000000' + '00' + 'feffffff999422d4e2a72c7bd5890922129498b7b0e68141aadb6ec920b6baee57e2586a01000000' + reverse_byte_hex(
         hex(len(funding_script2))[2:]) + funding_script2.hex() + 'feffffff0286e75900000000001976a914f640fe9c961287aeceefe8499754aa4516c9a31c88acc00e1602000000001976a9140272b913f2755541abcdeeea8cb9845d615daa2b88acd9080800' + '01000000'
 
-    result1 = verify((r1, s1), raw_transaction_mod1, public_key1, secp256k1, double_sha256_hex)
-    result2 = verify((r2, s2), raw_transaction_mod2, public_key2, secp256k1, double_sha256_hex)
+    result1 = verify(bytes.fromhex(raw_transaction_mod1), (r1, s1), public_key1, secp256k1, double_sha256)
+    result2 = verify(bytes.fromhex(raw_transaction_mod2), (r2, s2), public_key2, secp256k1, double_sha256)
 
     assert result1
     assert result2

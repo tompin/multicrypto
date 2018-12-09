@@ -14,7 +14,7 @@ from multicrypto.consts import OP_EQUAL, OP_16, OP_ADD, OP_15
 
 
 class SetMock:
-    def __init__(self, iterations=50000000):
+    def __init__(self, iterations=5000000):
         self.current = 0
         self.iterations = iterations
 
@@ -31,7 +31,7 @@ class SetMock:
 def get_prefix_in_range(address_prefix_bytes):
     start_address, end_address = get_address_range(address_prefix_bytes)
     prefix = start_address[:1]
-    length = 3
+    length = 2
     for i in range(length):
         while True:
             new_prefix = prefix + random.choice(base58)

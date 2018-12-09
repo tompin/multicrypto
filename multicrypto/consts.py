@@ -16,7 +16,6 @@ OP_14 = b'\x5e'  # The number 14 is pushed onto the stack.
 OP_15 = b'\x5f'  # The number 15 is pushed onto the stack.
 OP_16 = b'\x60'  # The number 16 is pushed onto the stack.
 
-
 OP_1ADD = b'\x8b'  # 1 is added to the input.
 OP_1SUB = b'\x8c'  # 1 is subtracted from the input.
 OP_NEGATE = b'\x8f'  # The sign of the input is flipped.
@@ -37,7 +36,6 @@ OP_GREATERTHANOREQUAL = b'\xa2'  # Returns 1 if a is greater than or equal to b,
 OP_MIN = b'\xa3'  # Returns the smaller of a and b.
 OP_MAX = b'\xa4'  # Returns the larger of a and b.
 OP_WITHIN = b'\xa5'  # Returns 1 if x is within the specified range (left-inclusive), 0 otherwise.
-
 
 OP_RIPEMD160 = b'\xa6'  # The input is hashed using RIPEMD-160.
 OP_SHA1 = b'\xa7'  # The input is hashed using SHA-1.
@@ -69,7 +67,6 @@ OP_CHECKMULTISIG = b'\xae'
 
 OP_CHECKMULTISIGVERIFY = b'\xaf'  # Same as OP_CHECKMULTISIG, but OP_VERIFY is executed afterward.
 
-
 # Marks transaction as invalid if the top stack item is greater than the transaction's nLockTime
 # field, otherwise script evaluation continues as though an OP_NOP was executed. Transaction is
 # also invalid if 1. the stack is empty; or 2. the top stack item is negative; or 3. the top stack
@@ -81,7 +78,6 @@ OP_CHECKLOCKTIMEVERIFY = b'\xb1'
 # scripting system to address reissuing transactions when the coins they spend have been
 # conflicted/double-spent.
 OP_CHECKBLOCKATHEIGHT = b'\xb4'
-
 
 OP_DUP = b'\x76'  # Duplicates the top stack item.
 

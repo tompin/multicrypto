@@ -1,15 +1,12 @@
 import logging
 import time
-from binascii import hexlify
-
-from fastecdsa.curve import secp256k1
-from fastecdsa.ecdsa import sign
 
 from multicrypto.address import decompose_address, encode_point, calculate_public_key_hash
 from multicrypto.consts import OP_0
+from multicrypto.ellipticcurve import secp256k1, sign
 from multicrypto.scripts import P2PKH_SCRIPT, P2SH_SCRIPT, is_p2sh
-from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, double_sha256_hex, \
-    reverse_byte_hex
+from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, \
+    reverse_byte_hex, double_sha256
 
 logger = logging.getLogger(__name__)
 
@@ -146,13 +143,7 @@ class Transaction:
             input.script_length = int_to_bytes(len(input.script), byteorder='little')
             return
         message = self.get_data_to_sign(position)
-        #  ECDSA signing is done as follows:
-        #  given a message 'm', a sign-secret 'k', a private key 'x'
-        #  calculate point R = G * k
-        #  r = xcoordinate(R)
-        #  s = (m + x * r) / k (mod q)
-        #  q is the group order of secp256k1 = 2**256 - 432420386565659656852420866394968145599
-        sig = sign(message.hex(), input.private_key, curve=secp256k1, hashfunc=double_sha256_hex)
+        sig = sign(message, input.private_key, secp256k1, double_sha256)  # ECDSA signing
         encoded_signature = der_encode_signature(sig)
         signature = encoded_signature + self.coin.get('sig_hash', b'\x01')
         script_sig = (
@@ -169,7 +160,7 @@ class Transaction:
             raise Exception('Transaction {} already created'.format(self.id))
         for i in range(len(self.inputs)):
             self.sign_input(i)
-        raw_transaction_data = hexlify(
+        raw_transaction_data = (
             self.version +
             self.inputs_counter +
             self.get_encoded_inputs(position=range(len(self.inputs))) +
@@ -177,8 +168,8 @@ class Transaction:
             self.get_encoded_outputs() +
             self.lock_time
         )
-        self.id = reverse_byte_hex(double_sha256_hex(raw_transaction_data).hexdigest())
-        self.raw = raw_transaction_data.decode()
+        self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
+        self.raw = raw_transaction_data.hex()
         logger.info('Created transaction with id: {}\nRaw data: {}'.format(
             self.id, self.raw))
         return self.raw
@@ -227,7 +218,7 @@ class POSTransaction(Transaction):
             raise Exception('Transaction id {} already created'.format(self.id))
         for i in range(len(self.inputs)):
             self.sign_input(i)
-        raw_transaction_data = hexlify(
+        raw_transaction_data = (
             self.version +
             self.transaction_time +
             self.inputs_counter +
@@ -236,8 +227,8 @@ class POSTransaction(Transaction):
             self.get_encoded_outputs() +
             self.lock_time
         )
-        self.id = reverse_byte_hex(double_sha256_hex(raw_transaction_data).hexdigest())
-        self.raw = raw_transaction_data.decode()
+        self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
+        self.raw = raw_transaction_data.hex()
         logger.info('Created transaction with id: {}\nRaw data: {}'.format(
             self.id, self.raw))
         return self.raw

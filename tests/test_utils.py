@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from fastecdsa.curve import secp256k1
+from multicrypto.ellipticcurve import secp256k1
 
 from multicrypto.utils import der_encode_signature, reverse_byte_hex, decode_point, encode_point, \
     int_to_varint_hex
@@ -44,12 +44,16 @@ def test_reverse_byte_hex(hex_str, reversed_hex_str):
 
 def test_encode_decode_points():
     G = secp256k1.G
-    N = secp256k1.q
-    p = G * random.randint(1, N)
+    N = secp256k1.n
+    random_point = G * random.randint(1, N)
     for i in range(100):
-        assert p == decode_point(encode_point(p, compressed=random.choice([True, False])))
-        assert p == decode_point(encode_point(p, compressed=random.choice([True, False])).hex())
-        p *= 10
+        assert random_point == decode_point(encode_point(
+            random_point, compressed=random.choice([True, False]))
+        )
+        assert random_point == decode_point(encode_point(
+            random_point, compressed=random.choice([True, False])).hex()
+        )
+        random_point *= 10
 
 
 integer_data = [(0x12, '12'),

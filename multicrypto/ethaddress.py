@@ -1,7 +1,6 @@
 from sha3 import keccak_256
 
-from fastecdsa.curve import secp256k1
-from fastecdsa.keys import gen_keypair
+from multicrypto.ellipticcurve import secp256k1
 
 
 def convert_public_key_to_address(public_key, with_check_sum=False):
@@ -13,7 +12,8 @@ def convert_public_key_to_address(public_key, with_check_sum=False):
 
 
 def generate_address(with_check_sum=False):
-    private_key, public_key = gen_keypair(secp256k1)
+    private_key = secp256k1.gen_private_key()
+    public_key = secp256k1.G * private_key
     return convert_public_key_to_address(public_key, with_check_sum)
 
 

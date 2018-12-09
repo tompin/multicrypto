@@ -3,29 +3,24 @@ import hashlib
 from binascii import unhexlify
 
 import qrcode
-from fastecdsa.curve import secp256k1
-from fastecdsa.point import Point
-
-P = secp256k1.p  # curve prime value
-A = secp256k1.a  # curve coefficient
-B = secp256k1.b  # curve coefficient
+from multicrypto.ellipticcurve import Point, secp256k1
 
 
-def decode_point(encoded_point):
+def decode_point(encoded_point, curve=secp256k1):
     if isinstance(encoded_point, bytes):
         encoded_point = encoded_point.hex()
     if len(encoded_point) == 130:  # uncompressed
         x = int(encoded_point[2:66], 16)
         y = int(encoded_point[66:130], 16)
-        return Point(x=x, y=y, curve=secp256k1)
+        return Point(curve=curve, x=x, y=y)
     elif len(encoded_point) == 66:  # compressed
         x = int(encoded_point[2:66], 16)
-        beta = pow(x**3 + A * x + B, (P + 1) // 4, P)
+        beta = pow(x**3 + curve.a * x + curve.b, (curve.p + 1) // 4, curve.p)
         if (beta + int(encoded_point[:2], 16)) % 2:
-            y = P - beta
+            y = curve.p - beta
         else:
             y = beta
-        return Point(x=x, y=y, curve=secp256k1)
+        return Point(curve=curve, x=x, y=y)
     else:
         raise Exception('Unrecognized point format')
 
@@ -56,14 +51,8 @@ def hex_to_bytes(hex_value, byteorder):
         return bytes_value
 
 
-def double_sha256(input_data):
+def double_sha256(input_data=b''):
     return hashlib.sha256(hashlib.sha256(input_data).digest())
-
-
-def double_sha256_hex(hex_str=b''):
-    hex_str = hex_str.decode()
-    input_data = hex_to_bytes(hex_str, byteorder='big')
-    return double_sha256(input_data)
 
 
 def hash160(input_data):
@@ -106,8 +95,8 @@ def der_encode_signature(signature):
     """
     Serializing EC signature using DER.
 
-    :param signature: Tuple (r, s) containing integers returned from fastecdsa.ecdsa.sign
-    which signs message using elliptic curve digital signature algorithm
+    :param signature: Tuple (r, s) containing integers returned from ECDSA sign
+    function, which signs message, using elliptic curve digital signature algorithm
     :return: DER encoded signature
     """
     der_sequence = b'\x30'
@@ -115,8 +104,8 @@ def der_encode_signature(signature):
     r, s = signature
 
     # BIP 66 additional rules
-    if s > secp256k1.q / 2:
-        s = secp256k1.q - s
+    if s > secp256k1.n / 2:
+        s = secp256k1.n - s
     r_bytes = int_to_bytes(r, byteorder='big')
     s_bytes = int_to_bytes(s, byteorder='big')
     if r_bytes[0] & 0x80:

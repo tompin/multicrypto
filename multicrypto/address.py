@@ -1,4 +1,4 @@
-from fastecdsa.curve import secp256k1
+from multicrypto.ellipticcurve import secp256k1
 
 from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58, \
     base58
