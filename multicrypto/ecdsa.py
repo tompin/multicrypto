@@ -3,14 +3,11 @@ from hashlib import sha256
 from struct import pack
 import hmac
 
-from ecdsa.numbertheory import inverse_mod
-
-from multicrypto.utils import double_sha256
-
 from multicrypto.address import get_private_key_from_wif_format, \
     convert_wif_private_key_to_address, convert_public_key_to_address
 from multicrypto.ellipticcurve import secp256k1, Point
 from multicrypto.numbertheory import modular_inverse, modular_sqrt
+from multicrypto.utils import double_sha256
 
 
 def sign(message, private_key, curve=secp256k1, hash_function=sha256):
@@ -62,7 +59,7 @@ def verify_message(
     R = Point(curve, x, y)
     h = hash_function(message).digest()
     e = int.from_bytes(h, byteorder='big')
-    Q = inverse_mod(r, curve.n) * (s * R - e * curve.G)
+    Q = modular_inverse(r, curve.n) * (s * R - e * curve.G)
     public_key = Q
     calculated_address = convert_public_key_to_address(
         public_key, coin['address_prefix_bytes'], compressed)
