@@ -75,6 +75,26 @@ def get_private_key_from_wif_format(wif_private_key):
     return int.from_bytes(private_key_bytes, byteorder='big'), was_compressed
 
 
+def translate_address(address, input_address_prefix_bytes, output_address_prefix_bytes):
+    bytes_address = base58_to_bytes(address)
+    digest = bytes_address[len(input_address_prefix_bytes):-4]
+    return calculate_address(digest, output_address_prefix_bytes)
+
+
+def translate_private_key(private_key_wif_format, output_private_key_prefix_bytes):
+    private_key, is_compressed = get_private_key_from_wif_format(private_key_wif_format)
+    return convert_private_key_to_wif_format(
+        private_key, output_private_key_prefix_bytes, is_compressed)
+
+
+def get_address_range(address_prefix_bytes):
+    low_threshold = address_prefix_bytes + b'\x00' * 24
+    high_threshold = address_prefix_bytes + b'\xff' * 24
+    start_address = bytes_to_base58(low_threshold)
+    end_address = bytes_to_base58(high_threshold)
+    return start_address, end_address
+
+
 def validate_pattern(pattern, coin_symbol, is_script):
     validate_base58(pattern)
     if is_script:
@@ -116,23 +136,3 @@ def validate_wif_private_key(wif_private_key, coin_symbol):
         raise Exception('Incorrect secret prefix 0x{} in wif private key for coin {}'.format(
             secret_prefix_bytes.hex(), coin_symbol))
     return True
-
-
-def translate_address(address, input_address_prefix_bytes, output_address_prefix_bytes):
-    bytes_address = base58_to_bytes(address)
-    digest = bytes_address[len(input_address_prefix_bytes):-4]
-    return calculate_address(digest, output_address_prefix_bytes)
-
-
-def translate_private_key(private_key_wif_format, output_private_key_prefix_bytes):
-    private_key, is_compressed = get_private_key_from_wif_format(private_key_wif_format)
-    return convert_private_key_to_wif_format(
-        private_key, output_private_key_prefix_bytes, is_compressed)
-
-
-def get_address_range(address_prefix_bytes):
-    low_threshold = address_prefix_bytes + b'\x00' * 24
-    high_threshold = address_prefix_bytes + b'\xff' * 24
-    start_address = bytes_to_base58(low_threshold)
-    end_address = bytes_to_base58(high_threshold)
-    return start_address, end_address

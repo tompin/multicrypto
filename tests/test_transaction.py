@@ -2,10 +2,11 @@ import hashlib
 from unittest.mock import patch
 
 from multicrypto.coins import coins
-from multicrypto.consts import OP_DUP, OP_HASH160, OP_PUSH_20, OP_EQUALVERIFY, OP_CHECKSIG
-from multicrypto.ellipticcurve import secp256k1, verify, Point
+from multicrypto.consts import OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSH_20
+from multicrypto.ecdsa import verify
+from multicrypto.ellipticcurve import Point, secp256k1
 from multicrypto.transaction import Transaction, POSTransaction
-from multicrypto.utils import double_sha256, reverse_byte_hex, encode_point
+from multicrypto.utils import double_sha256, encode_point, reverse_byte_hex
 
 
 def test_verify_one_input():

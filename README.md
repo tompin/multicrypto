@@ -5,7 +5,8 @@
 [![Latest Version](https://pypip.in/version/multicrypto/badge.svg)](https://pypi.python.org/pypi/multicrypto/)
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
+[![Bitcoin donation](https://img.balancebadge.io/btc/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG.svg?label=Donations&color=ffb121)](https://blockchain.info/address/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG)
+   
 Experimental, pure python, tool for sending cryptocurrency, creating custom look addresses, 
 translating addresses and private keys between different coins or check address balance.
 
@@ -29,9 +30,14 @@ The package contains below commands:
  4. `transaddress`
  5. `transprivkey`
  6. `genaddress`
+ 7. `signmessage`
+ 8. `verifymessage`
 
 ## USAGE
-
+Before running any commands it is advised to disable shell history. For example on linux it should be enough to run:
+```bash
+unset HISTFILE
+```
 ### Run
 
  1. Combining many small inputs to larger ones.
@@ -104,6 +110,24 @@ The package contains below commands:
  ```bash
  genaddress -p 3BTC -s BTC -w
  ```
+7. Signing message proving ownership of an address:
+  ```bash
+ signmessage --coin_symbol=<COIN SYMBOL> --private_key=<PRIVATE_KEY> --message='Interesting message'
+ ```
+ For example proving ownership of BTC address 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi:
+ ```bash
+ signmessage -c BTC -p KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu -m "Hello World!"
+ ```
+ will return: `H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=` 
+ 8. Verifying if signed message was created using private key of given address:
+  ```bash
+ verifymessage --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --message=<MESSAGE> --signed_message=<SIGNED MESSAGE>
+ ```
+ For example verifying if `H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=`
+  is signed `Hello World!` message by owner of BTC address 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi we run:
+ ```bash
+ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=
+ ``` 
 ### Import
 Created private key should be imported using bitcoin-cli program 
 or corresponding tool (importing in Qt wallet doesn't always work
@@ -148,8 +172,6 @@ To verify the key was imported successfully:
 | ZenCash | ZEN | Yes | Yes | Yes |
 | Zero | ZERO | Yes | Yes | Yes |
 | Zoin | ZOIN | Yes | No | No |
-
-If you find this tool useful please donate to BTC address: 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG
 
 ## Tests
 Install pytest, pytest-cov and tox packages:

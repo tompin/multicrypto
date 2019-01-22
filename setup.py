@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='multicrypto',
-    version='0.1.11',
+    version='0.1.12',
     description='Tool for translating and creating custom addresses for various cryptocurrencies',
     long_description=long_description,
     author='tompin',
@@ -33,12 +33,14 @@ setup(
     install_requires=['pysha3==1.0.2', 'Pillow==5.1.0', 'qrcode==6.0'],
     entry_points={
         'console_scripts': [
-            'transaddress=multicrypto.commands.transaddress:main',
-            'transprivkey=multicrypto.commands.transprivkey:main',
+            'checkaddress=multicrypto.commands.checkaddress:main',
             'genaddress=multicrypto.commands.genaddress:main',
             'sendcrypto=multicrypto.commands.sendcrypto:main',
-            'checkaddress=multicrypto.commands.checkaddress:main',
+            'signmessage=multicrypto.commands.signmessage:main',
             'sweepaddress=multicrypto.commands.sweepaddress:main',
+            'transaddress=multicrypto.commands.transaddress:main',
+            'transprivkey=multicrypto.commands.transprivkey:main',
+            'verifymessage=multicrypto.commands.verifymessage:main',
         ],
     },
 )

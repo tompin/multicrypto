@@ -3,7 +3,8 @@ import time
 
 from multicrypto.address import decompose_address, encode_point, calculate_public_key_hash
 from multicrypto.consts import OP_0
-from multicrypto.ellipticcurve import secp256k1, sign
+from multicrypto.ecdsa import sign
+from multicrypto.ellipticcurve import secp256k1
 from multicrypto.scripts import P2PKH_SCRIPT, P2SH_SCRIPT, is_p2sh
 from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, \
     reverse_byte_hex, double_sha256

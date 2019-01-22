@@ -4,10 +4,10 @@ import logging
 import sys
 
 from multicrypto.address import validate_address, validate_wif_private_key
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 from multicrypto.network import send_from_private_keys
 from multicrypto.scripts import validate_hex_script
-from multicrypto.utils import check_positive, check_non_negative
+from multicrypto.validators import check_coin_symbol, check_non_negative, check_positive
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ def get_args():
                         help='Unlocking scripts in HEX format, which will be used to spent inputs')
     parser.add_argument('-i', '--input_addresses', type=str, required=False, default=None,
                         help='Comma separated list of addresses from which funds will be sent')
-    parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
-                        for which we want to make money transfer')
+    parser.add_argument('-c', '--coin_symbol', type=check_coin_symbol, required=True,
+                        help='Symbol of the coin for which we want to make money transfer')
     parser.add_argument('-s', '--satoshis', type=check_positive, required=True,
                         help='How many satoshis you want to send')
     parser.add_argument('-f', '--fee', type=check_non_negative, required=False, default=10000,
@@ -65,7 +65,6 @@ def send_crypto(args):
         logger.error('Number of unlocking scripts must match number of input addresses!')
         return
     try:
-        validate_coin_symbol(coin_symbol)
         if destination_address:
             validate_address(destination_address, coin_symbol)
         for wif_private_key in wif_private_keys:

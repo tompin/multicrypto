@@ -1,9 +1,10 @@
-import argparse
 import hashlib
 from binascii import unhexlify
 
 import qrcode
+
 from multicrypto.ellipticcurve import Point, secp256k1
+from multicrypto.numbertheory import modular_sqrt
 
 
 def decode_point(encoded_point, curve=secp256k1):
@@ -15,7 +16,7 @@ def decode_point(encoded_point, curve=secp256k1):
         return Point(curve=curve, x=x, y=y)
     elif len(encoded_point) == 66:  # compressed
         x = int(encoded_point[2:66], 16)
-        beta = pow(x**3 + curve.a * x + curve.b, (curve.p + 1) // 4, curve.p)
+        beta = modular_sqrt(x**3 + curve.a * x + curve.b, curve.p)
         if (beta + int(encoded_point[:2], 16)) % 2:
             y = curve.p - beta
         else:
@@ -133,20 +134,6 @@ def reverse_byte_hex(hex_str):
     reversed_byte_str = byte_str[::-1]
     reversed_hex_str = reversed_byte_str.hex()
     return reversed_hex_str
-
-
-def check_positive(value):
-    ivalue = int(value)
-    if ivalue <= 0:
-        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
-    return ivalue
-
-
-def check_non_negative(value):
-    ivalue = int(value)
-    if ivalue < 0:
-        raise argparse.ArgumentTypeError("%s is an invalid non negative int value" % value)
-    return ivalue
 
 
 def get_integer(string):

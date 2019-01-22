@@ -5,8 +5,9 @@ import os
 from multicrypto.address import translate_private_key, validate_base58, \
     get_private_key_from_wif_format, convert_private_key_to_address, \
     convert_private_key_to_wif_format
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 from multicrypto.utils import get_qrcode_image, get_integer
+from multicrypto.validators import check_coin_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def get_args():
                                                  'value of the private key')
     parser.add_argument('-p', '--private_key', type=str, required=True,
                         help='Private key which we want to translate')
-    parser.add_argument('-o', '--output_symbol', type=str, required=False, default='',
+    parser.add_argument('-o', '--output_symbol', type=check_coin_symbol, required=False, default='',
                         help='Symbol of the coin for which we want to know corresponding '
                              'translated private key')
     parser.add_argument('-f', '--file', type=str, required=False, default=None,
@@ -41,7 +42,6 @@ def translate(args):
         return translated_private_key, compressed, ''
 
     try:
-        validate_coin_symbol(output_coin_symbol)
         int_private_key = get_integer(private_key)
         if len(private_key) > 52 and int_private_key is not None:
             wif_private_key = convert_private_key_to_wif_format(int_private_key, b'\x80')

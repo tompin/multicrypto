@@ -4,9 +4,9 @@ import sys
 
 from multicrypto.address import validate_address, validate_wif_private_key, \
     convert_wif_private_key_to_address
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 from multicrypto.network import get_utxo_from_private_keys, send_utxos
-from multicrypto.utils import check_positive
+from multicrypto.validators import check_positive, check_coin_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,8 @@ def get_args():
     parser.add_argument('-a', '--address', type=str, required=False,
                         help='Address to which we want to send. By default it is sending to itself'
                              ' (destination address is the same as source address)')
-    parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
-                        for which we want to make money transfer')
+    parser.add_argument('-c', '--coin_symbol', type=check_coin_symbol, required=True,
+                        help='Symbol of the coin for which we want to make money transfer')
     parser.add_argument('-f', '--fee', type=check_positive, required=False, default=10000,
                         help='Transaction fee which will be used in each transaction')
     parser.add_argument('-n', '--minimum_input_threshold', type=check_positive, required=False,
@@ -43,7 +43,7 @@ def get_args():
 
 def sweep_address(args):
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
-    coin_symbol = args.coin_symbol.upper()
+    coin_symbol = args.coin_symbol
     destination_address = args.address
     wif_private_key = args.wif_private_key
     fee = args.fee
@@ -55,7 +55,6 @@ def sweep_address(args):
         logger.error('Minimum input threshold cannot be bigger than maximum input value!')
         return
     try:
-        validate_coin_symbol(coin_symbol)
         coin = coins[coin_symbol]
         validate_wif_private_key(wif_private_key, coin_symbol)
         if destination_address:
@@ -83,7 +82,7 @@ def sweep_address(args):
             if satoshis < fee:
                 raise Exception('Fee {} is larger than sum of batch inputs {}'.format(
                     fee, satoshis))
-            result = send_utxos(coin, utxos, destination_address, satoshis - fee, fee)
+            result = send_utxos(coin, batch_utxos, destination_address, satoshis - fee, fee)
             print(result)
     except Exception as e:
         logger.exception(e)

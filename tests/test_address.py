@@ -3,7 +3,7 @@ import pytest
 from multicrypto.address import get_private_key_from_wif_format, \
     convert_private_key_to_address, translate_address, validate_pattern, validate_wif_private_key
 from multicrypto.base58 import base58
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 
 
 def test_convert_private_key_to_address():
@@ -49,14 +49,6 @@ def test_validate_pattern_raise_no_base58_characters():
     with pytest.raises(Exception) as exc_info:
         validate_pattern(pattern, coin_symbol, False)
     assert str(exc_info.value) == 'pattern containIO contains not allowed characters: IO'
-
-
-def test_validate_coin_raise_unsupported_coin():
-    coin_symbol = 'XYZ'
-
-    with pytest.raises(Exception) as exc_info:
-        validate_coin_symbol(coin_symbol)
-    assert str(exc_info.value) == 'Coin XYZ is not supported'
 
 
 def test_validate_pattern_raise_impossible_prefix():

@@ -70,7 +70,6 @@ def send_inputs(coin, inputs, destination_address, source_address, input_satoshi
     return result
 
 
-# TODO: refactor
 def send_from_private_keys(
         coin, wif_private_keys, input_addresses, unlocking_scripts, destination_address, satoshis, fee,
         minimum_input_threshold=None, maximum_input_threshold=None, limit_inputs=None):

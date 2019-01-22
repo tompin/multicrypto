@@ -9,9 +9,10 @@ from multicrypto.ellipticcurve import secp256k1
 
 from multicrypto.address import convert_public_key_to_address, convert_private_key_to_wif_format, \
     validate_pattern
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 from multicrypto.scripts import validate_hex_script, convert_script_to_p2sh_address
 from multicrypto.utils import get_qrcode_image
+from multicrypto.validators import check_coin_symbol
 
 logger = logging.getLogger(__name__)
 N = secp256k1.n  # order of the curve
@@ -63,7 +64,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Multi coin vanity generation script')
     parser.add_argument('-p', '--pattern', type=str, required=False, default='',
                         help='Pattern which generated address should contain')
-    parser.add_argument('-s', '--symbol', type=str, required=True,
+    parser.add_argument('-s', '--symbol', type=check_coin_symbol, required=True,
                         help='Symbol of the coin i.e. BTC')
     parser.add_argument('-i', '--input_script', type=str, required=False,
                         help='Generate address based on input script for P2SH transactions')
@@ -80,7 +81,7 @@ def get_args():
 
 
 def start_workers(args):
-    coin_symbol = args.symbol.upper()
+    coin_symbol = args.symbol
     pattern = args.pattern
     workers = args.cores
     compressed = not args.uncompressed
@@ -91,7 +92,6 @@ def start_workers(args):
         raise Exception('Segwit addresses must used compressed public key representation')
     jobs = []
     try:
-        validate_coin_symbol(coin_symbol)
         validate_pattern(pattern, coin_symbol, segwit)
         if input_script:
             validate_hex_script(input_script)

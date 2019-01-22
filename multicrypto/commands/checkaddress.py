@@ -3,9 +3,9 @@ import logging
 import sys
 
 from multicrypto.address import validate_address
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 from multicrypto.network import get_utxo_from_address
-from multicrypto.utils import check_positive
+from multicrypto.validators import check_positive, check_coin_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ def get_args():
             ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))))
     parser.add_argument('-a', '--address', type=str, required=True,
                         help='Address to which we want to send')
-    parser.add_argument('-c', '--coin_symbol', type=str, required=True, help='Symbol of the coin \
-                        for which we want to make money transfer')
+    parser.add_argument('-c', '--coin_symbol', type=check_coin_symbol, required=True,
+                        help='Symbol of the coin for which we want to make money transfer')
     parser.add_argument('-n', '--minimum_input_threshold', type=check_positive, required=False,
                         default=None, help='Use only inputs containing satoshis equal or above the '
                                            'specified threshold')
@@ -30,7 +30,7 @@ def get_args():
 
 
 def check_address(args):
-    coin_symbol = args.coin_symbol.upper()
+    coin_symbol = args.coin_symbol
     address = args.address
     minimum_input_threshold = args.minimum_input_threshold
     maximum_input_threshold = args.maximum_input_threshold
@@ -39,7 +39,6 @@ def check_address(args):
             minimum_input_threshold > maximum_input_threshold):
         raise Exception('Minimum input threshold cannot be bigger than maximum input value!')
 
-    validate_coin_symbol(coin_symbol)
     validate_address(address, coin_symbol)
     if not coins[coin_symbol].get('apis'):
         raise Exception('No api has been defined for the coin {}'.format(coin_symbol))

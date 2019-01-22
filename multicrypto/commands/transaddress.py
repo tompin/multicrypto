@@ -3,8 +3,9 @@ import logging
 import os
 
 from multicrypto.address import translate_address
-from multicrypto.coins import coins, validate_coin_symbol
+from multicrypto.coins import coins
 from multicrypto.utils import get_qrcode_image
+from multicrypto.validators import check_coin_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,11 @@ def get_args():
     parser = argparse.ArgumentParser(description='Translates addresses between different coins')
     parser.add_argument('-a', '--address', type=str, required=True,
                         help='Address which we want to translate')
-    parser.add_argument('-i', '--input_symbol', type=str, required=True,
+    parser.add_argument('-i', '--input_symbol', type=check_coin_symbol, required=True,
                         help='Symbol of the coin for which address we want to translate')
-    parser.add_argument('-o', '--output_symbol', type=str, required=True, help='Symbol of the coin \
-                        for which we want to know translated corresponding address')
+    parser.add_argument('-o', '--output_symbol', type=check_coin_symbol, required=True,
+                        help='Symbol of the coin for which we want to know translated '
+                             'corresponding address')
     parser.add_argument('-f', '--file', type=str, required=False, default=None,
                         help='Store output in the provided file')
     parser.add_argument('-s', '--script', action='store_true',
@@ -36,12 +38,6 @@ def translate(args):
     if file_name:
         file_handler = logging.FileHandler(file_name)
         logger.addHandler(file_handler)
-    try:
-        validate_coin_symbol(input_coin_symbol)
-        validate_coin_symbol(output_coin_symbol)
-    except Exception as e:
-        logger.error(e)
-        return
 
     if is_script_address:
         input_address_prefix_bytes = coins[input_coin_symbol]['script_prefix_bytes']
