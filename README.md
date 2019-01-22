@@ -7,8 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bitcoin donation](https://img.balancebadge.io/btc/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG.svg?label=Donations&color=ffb121)](https://blockchain.info/address/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG)
    
-Experimental, pure python, tool for sending cryptocurrency, creating custom look addresses, 
-translating addresses and private keys between different coins or check address balance.
+Highly experimental, pure python, tool for cryptocurrencies.
 
 ## INSTALLATION
 
@@ -24,17 +23,18 @@ pip3 install multicrypto
 ```
 
 The package contains below commands:
- 1. `sweepaddress`
- 2. `sendcrypto`
- 3. `checkaddress`
- 4. `transaddress`
- 5. `transprivkey`
- 6. `genaddress`
- 7. `signmessage`
- 8. `verifymessage`
+ 1. `sweepaddress` - combines many imputs into one 
+ 2. `sendcrypto` - creates raw transaction and send it to insight explorer
+ 3. `checkaddress` - checks address balance using explorer
+ 4. `transaddress` - translates address to different coin format (resulting address will have the same private key) 
+ 5. `transprivkey` - translates WIF private key to different coin format
+ 6. `genaddress` - generates vanity address for given coin
+ 7. `signmessage`- signes message using ECDSA
+ 8. `verifymessage` - verify ECDSA signed message  
 
 ## USAGE
-Before running any commands it is advised to disable shell history. For example on linux it should be enough to run:
+Before running any commands it is advised to disable shell history. For example on linux it should 
+be enough to run:
 ```bash
 unset HISTFILE
 ```
@@ -127,7 +127,8 @@ unset HISTFILE
   is signed `Hello World!` message by owner of BTC address 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi we run:
  ```bash
  verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=
- ``` 
+ ```
+ 
 ### Import
 Created private key should be imported using bitcoin-cli program 
 or corresponding tool (importing in Qt wallet doesn't always work
@@ -194,5 +195,5 @@ base58.h files.
 ```bash
 'ZEN': {'name': 'zen cash', 'address_prefix_bytes': b'\x20\x89', 'secret_prefix_bytes': b'\x80'}
 ```
-2. Update this readme with new supported coin
+2. Update this readme with new supported coin and add appropriate tests
 3. Create pull request
