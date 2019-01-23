@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='multicrypto',
-    version='0.1.12',
+    version='0.1.13',
     description='Tool for translating and creating custom addresses for various cryptocurrencies',
     long_description=long_description,
     author='tompin',
