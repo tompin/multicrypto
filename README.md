@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bitcoin donation](https://img.balancebadge.io/btc/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG.svg?label=Donations&color=ffb121)](https://blockchain.info/address/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG)
    
-Highly experimental, pure python, tool for cryptocurrencies.
+Highly experimental, pure python tool for cryptocurrencies.
 
 ## INSTALLATION
 
@@ -23,13 +23,13 @@ pip3 install multicrypto
 ```
 
 The package contains below commands:
- 1. `sweepaddress` - combines many imputs into one 
- 2. `sendcrypto` - creates raw transaction and send it to insight explorer
- 3. `checkaddress` - checks address balance using explorer
+ 1. `sweepaddress` - combines many inputs into one
+ 2. `sendcrypto` - creates raw transaction and send it to insight explorer api
+ 3. `checkaddress` - checks address balance using insight explorer api
  4. `transaddress` - translates address to different coin format (resulting address will have the same private key) 
  5. `transprivkey` - translates WIF private key to different coin format
  6. `genaddress` - generates vanity address for given coin
- 7. `signmessage`- signes message using ECDSA
+ 7. `signmessage`- signs message using ECDSA
  8. `verifymessage` - verify ECDSA signed message  
 
 ## USAGE
@@ -42,7 +42,7 @@ unset HISTFILE
 
  1. Combining many small inputs to larger ones.
  ```bash
- sweepaddress --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
+ sweepaddress --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --private_key=<PRIVATE KEY> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
  ```
  After mining some currency for longer period we could end up with address having a lot of small inputs. 
  In such case it is very likely it will be not possible to send the funds in one transaction and it could
@@ -74,7 +74,7 @@ unset HISTFILE
  ```
  3. Listing address inputs with total amount:
  ```bash
- checkaddress --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
+ checkaddress --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
  ``` 
  For example:
  ```bash
@@ -112,33 +112,23 @@ unset HISTFILE
  ```
 7. Signing message proving ownership of an address:
   ```bash
- signmessage --coin_symbol=<COIN SYMBOL> --private_key=<PRIVATE_KEY> --message='Interesting message'
+ signmessage --coin_symbol=<COIN SYMBOL> --private_key=<PRIVATE KEY> --message=<MESSAGE TO SIGN>
  ```
  For example proving ownership of BTC address 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi:
  ```bash
  signmessage -c BTC -p KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu -m "Hello World!"
  ```
- will return: `H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=` 
- 8. Verifying if signed message was created using private key of given address:
+ will return: `H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=`
+
+8. Verifying if signed message was created using private key of given address:
   ```bash
- verifymessage --coin_symbol=<COIN_SYMBOL> --address=<ADDRESS> --message=<MESSAGE> --signed_message=<SIGNED MESSAGE>
+ verifymessage --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --message=<MESSAGE> --signed_message=<SIGNED MESSAGE>
  ```
  For example verifying if `H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=`
   is signed `Hello World!` message by owner of BTC address 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi we run:
  ```bash
  verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=
  ```
- 
-### Import
-Created private key should be imported using bitcoin-cli program 
-or corresponding tool (importing in Qt wallet doesn't always work
-```bash
-  bitcoin-cli importprivkey <GENERATED_PRIV_KEY>
-```
-To verify the key was imported successfully:
-```bash
- bitcoin-cli dumpprivkey <GENERATED_ADDRESS>
-```
 
 ### Supported coins
 | Coin | Symbol | Address generation | P2PKH transactions | P2SH transactions |
