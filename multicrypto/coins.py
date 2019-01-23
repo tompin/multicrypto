@@ -250,9 +250,3 @@ coins = {
         'script_prefix_bytes': b'\x07'
     },
 }
-
-
-def validate_coin_symbol(coin_symbol):
-    if coin_symbol not in coins:
-        raise Exception('Coin {} is not supported'.format(coin_symbol))
-    return True

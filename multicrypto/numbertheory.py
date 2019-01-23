@@ -7,7 +7,7 @@ def modular_inverse(a, n):
     :param n: Mod for division
     :return: Value which fulfill equation `(value * a) % n == 1`
     """
-    a = a % n
+    a %= n
     if a == 0:
         return 0
     lm, hm = 1, 0
@@ -41,7 +41,7 @@ def modular_sqrt(a, p):
     :return: Value which fulfill equation `(value * value) % p == a` or
     0 when no square root exists.
     """
-
+    a %= p
     # Simple cases handling
     if legendre_symbol(a, p) != 1:
         return 0
