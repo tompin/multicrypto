@@ -34,8 +34,14 @@ def verify(message, signature, public_key, curve=secp256k1, hash_function=sha256
 
 
 def add_magic_prefix(message, coin):
-    return '\x18{coin_name} Signed Message:\n{message_length}{message}'.format(
-        coin_name=coin['name'].capitalize(), message_length=chr(len(message)), message=message)
+    coin_name = coin['name'].capitalize()
+    prefix = '{} Signed Message:\n'.format(coin_name)
+    return '{prefix_length}{prefix}{message_length}{message}'.format(
+        prefix_length=chr(len(prefix)),
+        prefix=prefix,
+        message_length=chr(len(message)),
+        message=message
+    )
 
 
 def verify_message(

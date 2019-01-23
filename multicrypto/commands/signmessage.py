@@ -27,6 +27,10 @@ def main():
     args = get_args()
     coin = coins[args.coin_symbol]
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
+    message_limit = 238 - len(coin['name'])
+    if len(args.message) > message_limit:
+        logger.error('Message to long!')
+        return
     print(sign_message(coin, args.message, args.wif_private_key).decode())
 
 
