@@ -30,7 +30,7 @@ setup(
     ],
     keywords='cryptocurrency, address, transaction',
     packages=find_packages(exclude=['htmlcov', 'tests']),
-    install_requires=['pysha3==1.0.2', 'Pillow==5.1.0', 'qrcode==6.0'],
+    install_requires=['pysha3==1.0.2', 'Pillow==6.2.0', 'qrcode==6.0'],
     entry_points={
         'console_scripts': [
             'checkaddress=multicrypto.commands.checkaddress:main',
