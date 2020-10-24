@@ -8,6 +8,7 @@
 [![Bitcoin donation](https://img.balancebadge.io/btc/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG.svg?label=Donations&color=ffb121)](https://blockchain.info/address/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG)
    
 Highly experimental, pure python tool for cryptocurrencies.
+Please notice that coins changed their protocol so make sure the coin parameters are not outdated. 
 
 ## INSTALLATION
 
@@ -17,9 +18,9 @@ sudo apt-get install build-essential python3-setuptools python3-wheel python3-de
 ```
 
 If you don't have Python 3, install it by following instructions from python.org. 
-Supported Python versions are 3.5, 3.6, 3.7. Then Run:
+Supported Python versions are 3.5, 3.6, 3.7, 3.8, 3.9. Then run (using pip for python 3) :
 ```bash
-pip3 install multicrypto
+pip install multicrypto
 ```
 
 The package contains below commands:
@@ -84,27 +85,27 @@ unset HISTFILE
   ```bash
   transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL>
   ```
-  For example to translate Bitcoin address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG to Hush address we enter:
+  For example to translate Bitcoin address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG to Zcash address we enter:
   ```bash
-  transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o HUSH
+  transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o ZEC
   ```
  5. Translating private key in wif format between coins
   ```bash
   transprivkey --private_key=<PRIVATE_KEY> --output_symbol=<COIN SYMBOL>
   ```
   For example to translate Bitcoin private key KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
-   to Hush private key we enter:
+   to Zcash private key we enter:
   ```bash
-  transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o HUSH
+  transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o ZEC
   ```
  6. Generating address with given pattern and corresponding private key:
   ```bash
  genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL> --output_dir=<DIRECTORY TO STORE QR CODES>
  ```
- For example if we want to create address with prefix t1aaaa for Hush coin and save corresponding
+ For example if we want to create address with prefix t1aaaa for Zcash coin and save corresponding
  QR codes to /home/john directory we enter:
   ```bash
- genaddress -p t1aaaa -s Hush -d /home/john
+ genaddress -p t1aaaa -s ZEC -d /home/john
  ```
  To generate Bitcoin segwit address starting with 3BTC we enter:
  ```bash
@@ -145,7 +146,6 @@ unset HISTFILE
 | Diamond | DMD | Yes | No | No |
 | Dogecoin | DOGE | Yes | No | No |
 | Elite | 1337 | Yes | No | No |
-| Hush | HUSH | Yes | Yes | Yes |
 | Komodo | KMD | Yes | Yes | Yes |
 | Litecoin | LTC | Yes | Yes | Yes |
 | Mooncoin | MOON | Yes | No | No |
@@ -162,16 +162,15 @@ unset HISTFILE
 | Zeitcoin | ZEIT | Yes | No | No |
 | ZenCash | ZEN | Yes | Yes | Yes |
 | Zero | ZERO | Yes | Yes | Yes |
-| Zoin | ZOIN | Yes | No | No |
 
 ## Tests
 Install pytest, pytest-cov and tox packages:
 ```bash
- pip3 install -r requirements_dev.txt
+ pip install -r requirements_dev.txt
 ```
 Run tests and check report htmlcov/index.html:
 ```bash
- python3 -m pytest --cov=./ --cov-report=html
+ python -m pytest --cov=./ --cov-report=html
 ```
 To run tests on various python versions run:
 ```bash

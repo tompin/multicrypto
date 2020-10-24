@@ -64,11 +64,11 @@ def test_validate_pattern_raise_impossible_prefix():
 
 
 def test_translate_address():
-    hush_address = 't1VhzEoupqVVJoYaMaSZ534hD77L3MFFAXr'
+    zcash_address = 't1VhzEoupqVVJoYaMaSZ534hD77L3MFFAXr'
     kmd_address = 'RM7aJzNyTzWHGutf7Bj4zmvVcibZCnvXKS'
 
     translated_address = translate_address(
-        hush_address, coins['HUSH']['address_prefix_bytes'], coins['KMD']['address_prefix_bytes'])
+        zcash_address, coins['ZEC']['address_prefix_bytes'], coins['KMD']['address_prefix_bytes'])
 
     assert translated_address == kmd_address
 

@@ -25,6 +25,8 @@ def get_args():
                         help='Store script output in the provided file')
     parser.add_argument('-d', '--output_dir', type=str, required=False,
                         help='Directory where translated private key will be stored')
+    parser.add_argument('-i', '--integer', action='store_true',
+                        help='Private key will be treated as integer')
     return parser.parse_args()
 
 
@@ -42,8 +44,8 @@ def translate(args):
         return translated_private_key, compressed, ''
 
     try:
-        int_private_key = get_integer(private_key)
-        if len(private_key) > 52 and int_private_key is not None:
+        if args.integer:
+            int_private_key = get_integer(private_key)
             wif_private_key = convert_private_key_to_wif_format(int_private_key, b'\x80')
         else:
             wif_private_key = private_key

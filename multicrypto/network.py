@@ -71,8 +71,8 @@ def send_inputs(coin, inputs, destination_address, source_address, input_satoshi
 
 
 def send_from_private_keys(
-        coin, wif_private_keys, input_addresses, unlocking_scripts, destination_address, satoshis, fee,
-        minimum_input_threshold=None, maximum_input_threshold=None, limit_inputs=None):
+        coin, wif_private_keys, input_addresses, unlocking_scripts, destination_address, satoshis,
+        fee, minimum_input_threshold=None, maximum_input_threshold=None, limit_inputs=None):
     if not input_addresses and not wif_private_keys:
         raise Exception('Missing required parameters input_addresses or wif_private_keys')
     utxos = None

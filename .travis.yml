@@ -2,7 +2,9 @@ language: python
 python:
   - "3.5"
   - "3.6"
-  - "3.7-dev"
+  - "3.7"
+  - "3.8"
+  - "3.9"
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y libgmp3-dev

@@ -11,12 +11,12 @@ from multicrypto.commands.sendcrypto import main
 
 @responses.activate
 @patch.object(sys, 'argv', [
-    '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'HUSH', '-s', '50900000', '-p',
+    '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'ZEC', '-s', '50900000', '-p',
     'L262yBzq3JRNwBGsTRSGRjNDQNvjXVhG7z2cwLGwDAGkUaFoKkwc,'
     'L3DrZ29vdnLDFNsoDTgz1J79B8QCzU6vrfTacHoYUk6NQYmSoeur'])
 @patch('sys.stdout', new_callable=StringIO)
 def test_sendcrypto_success(sys_stdout):
-    coin = coins['HUSH']
+    coin = coins['ZEC']
     api = API.get_current_definition(coin)
     send_url = '{}/tx/send'.format(api['url'])
     address_url1 = '{}/addr/{}/utxo'.format(api['url'], 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt')

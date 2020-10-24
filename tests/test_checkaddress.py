@@ -12,7 +12,7 @@ from multicrypto.commands.checkaddress import main
 
 @responses.activate
 @patch.object(sys, 'argv', [
-    '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'HUSH', '-n', '10000000000'])
+    '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'ZEC', '-n', '10000000000'])
 @patch('sys.stdout', new_callable=StringIO)
 def test_checkaddress_success(sys_stdout):
     response_data = [
@@ -42,33 +42,33 @@ def test_checkaddress_success(sys_stdout):
          'amount': 114.01797238, 'satoshis': 11401797238, 'height': 77734, 'confirmations': 80},
 
     ]
-    coin = coins['HUSH']
+    coin = coins['ZEC']
     api = API.get_current_definition(coin)
     address_url = '{}/addr/{}/utxo'.format(api['url'], 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
     responses.add(responses.GET, address_url, json=response_data, status=200)
 
     main()
 
-    res = ('HUSH Address t1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP\n'
+    res = ('ZEC Address t1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP\n'
            'txid: 4417d9e022c8f4adf1ef6d9dbad7a1ee0ae44b7eb5cf61e86fd1a0ed22b1c180, confirmations: '
-           '   41130, satoshis:      52637874459, amount: 526.37874459 HUSH\n'
+           '   41130, satoshis:      52637874459, amount: 526.37874459 ZEC\n'
            'txid: da08e8e2e3ba55f9b45ba7f0ca14f96683c3547419fcfe10e6c8ae9f3eebe4cf, confirmations: '
-           '       2, satoshis:      25097513558, amount: 250.97513558 HUSH\n'
+           '       2, satoshis:      25097513558, amount: 250.97513558 ZEC\n'
            'txid: 7c25ea822bbce5916a331f5851eacbc88d50c0f5a3be8a0dcea772f1baa43965, confirmations: '
-           '      16, satoshis:      25252259867, amount: 252.52259867 HUSH\n'
+           '      16, satoshis:      25252259867, amount: 252.52259867 ZEC\n'
            'txid: 22c66de2660bc913d2d6a2a7013a8762e92374fcb34609eb935d7fa4704f3335, confirmations: '
-           '     712, satoshis:      11862999180, amount: 118.62999180 HUSH\n'
+           '     712, satoshis:      11862999180, amount: 118.62999180 ZEC\n'
            'txid: aea9cdf0a8210238749cc4257ea05db91ea79f33691d691a859c4036ad529f85, confirmations: '
-           '      80, satoshis:      11401797238, amount: 114.01797238 HUSH\n'
+           '      80, satoshis:      11401797238, amount: 114.01797238 ZEC\n'
            '---------------------------------------------------------------------------------------'
            '-----------------------------------------------------\n'
            '        5 inputs                                                                       '
-           '          satoshis:     126252444302, amount: 1262.52444302 HUSH\n')
+           '          satoshis:     126252444302, amount: 1262.52444302 ZEC\n')
     assert sys_stdout.getvalue() == res
 
 
 @patch.object(sys, 'argv', [
-    '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'HUSH', '-n', '10000000000', '-x', '10'])
+    '', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'ZEC', '-n', '10000000000', '-x', '10'])
 def test_checkadress_minimum_input_greater_than_maximum_input_failure():
     with pytest.raises(Exception) as exc_info:
         main()
@@ -76,20 +76,19 @@ def test_checkadress_minimum_input_greater_than_maximum_input_failure():
     assert str(exc_info.value) == exception_message
 
 
-@patch.object(sys, 'argv', ['', '-a', 'ZPgeuuayirrSnBPcpYBKn3bHMFqn71nFB5', '-c', 'ZOIN'])
+@patch.object(sys, 'argv', ['', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'BUCK'])
 def test_checkadress_no_api_failure():
-    coins['ZOIN'].pop('apis', None)
 
     with pytest.raises(Exception) as exc_info:
         main()
 
-    assert str(exc_info.value) == 'No api has been defined for the coin ZOIN'
+    assert str(exc_info.value) == 'No api has been defined for the coin BUCK'
 
 
 @responses.activate
 @patch('multicrypto.commands.checkaddress.get_utxo_from_address',
        side_effect=Exception('Connection error'))
-@patch.object(sys, 'argv', ['', '-a', 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt', '-c', 'HUSH'])
+@patch.object(sys, 'argv', ['', '-a', 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt', '-c', 'ZEC'])
 def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
     response_data = [
         {'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt',
@@ -98,7 +97,7 @@ def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
          'amount': 118.6299918, 'satoshis': 11862999180, 'height': 143434, 'confirmations': 712},
         {'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt'}
     ]
-    coin = coins['HUSH']
+    coin = coins['ZEC']
     api = API.get_current_definition(coin)
     address_url = '{}/addr/{}/utxo'.format(api['url'], 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
     responses.add(responses.GET, address_url, json=response_data, status=200)

@@ -16,6 +16,18 @@ coins = {
         'address_prefix_bytes': b'\x00',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x05',
+        'bech32_hrp': 'bc',
+        'witness_version': 1,
+        'apis': [
+            {'url': 'https://insight.bitpay.com/api'}
+        ]
+    },
+    'BCH': {
+        'name': 'bitcoin cash',
+        'address_prefix_bytes': b'\x00',
+        'secret_prefix_bytes': b'\x80',
+        'script_prefix_bytes': b'\x05',
+        'bech32_hrp': 'pp',
         'apis': [
             {'url': 'https://insight.bitpay.com/api'}
         ]
@@ -42,9 +54,12 @@ coins = {
     },
     'BTCH': {
         'name': 'bitcoin hush',
-        'address_prefix_bytes': b'\x3c',
+        'address_prefix_bytes': b'\x00',
         'secret_prefix_bytes': b'\xbc',
-        'script_prefix_bytes': b'\x55'
+        'script_prefix_bytes': b'\x05',
+        'apis': [
+            {'url': 'https://btch.explorer.dexstats.info/api'}
+        ]
     },
     'BTCZ': {
         'name': 'bitcoinz',
@@ -87,15 +102,6 @@ coins = {
         'address_prefix_bytes': b'\x5a',
         'secret_prefix_bytes': b'\xda',
         'script_prefix_bytes': b'\x08'
-    },
-    'HUSH': {
-        'name': 'hush',
-        'address_prefix_bytes': b'\x1c\xb8',
-        'secret_prefix_bytes': b'\x80',
-        'script_prefix_bytes': b'\x1c\xbd',
-        'apis': [
-            {'url': 'https://explorer.myhush.org/api'}
-        ]
     },
     'KMD': {
         'name': 'komodo',
@@ -168,6 +174,16 @@ coins = {
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
+        'bech32_hrp': 'tb',
+        'apis': [
+            {'url': 'https://test-insight.bitpay.com/api'}
+        ]
+    },
+    'TBCH': {
+        'name': 'bitcoin cash testnet',
+        'address_prefix_bytes': b'\x6f',
+        'secret_prefix_bytes': b'\xef',
+        'script_prefix_bytes': b'\xc4',
         'apis': [
             {'url': 'https://test-insight.bitpay.com/api'}
         ]
@@ -220,7 +236,7 @@ coins = {
     'ZEIT': {
         'name': 'zeit',
         'address_prefix_bytes': b'\x33',
-        'secret_prefix_bytes': b'\x80',
+        'secret_prefix_bytes': b'\x80',  # Fix me: resulting WIF should be starting with T
         'script_prefix_bytes': b'\x08'
     },
     'ZEN': {
@@ -242,11 +258,5 @@ coins = {
             {'url': 'https://zero-insight.mining4.co.uk/insight-api-zcash'},
             {'url': 'https://zeroapi.cryptonode.cloud'}
         ]
-    },
-    'ZOIN': {
-        'name': 'zoin',
-        'address_prefix_bytes': b'\x50',
-        'secret_prefix_bytes': b'\xd0',
-        'script_prefix_bytes': b'\x07'
     },
 }

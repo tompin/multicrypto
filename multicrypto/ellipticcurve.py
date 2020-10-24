@@ -108,22 +108,24 @@ class Point:
         self.y = result.y
         return self
 
-    def __mul__(self, m):
+    def __mul__(self, multiplier):
         result_point = self.curve.identity_point
         double_point = self
-        while m != 0:  # binary multiply loop
-            if m & 1:  # bit is set
+        if multiplier < 0:
+            multiplier %= self.curve.n
+        while multiplier != 0:  # binary multiply loop
+            if multiplier & 1:  # bit is set
                 result_point = result_point + double_point
-            m >>= 1
-            if m != 0:
+            multiplier >>= 1
+            if multiplier != 0:
                 double_point = double_point.double()
         return result_point
 
-    def __rmul__(self, other):
-        return self.__mul__(other)
+    def __rmul__(self, multiplier):
+        return self.__mul__(multiplier)
 
-    def __imul__(self, other):
-        result = self.__mul__(other)
+    def __imul__(self, multiplier):
+        result = self.__mul__(multiplier)
         self.x = result.x
         self.y = result.y
         return self
@@ -150,7 +152,7 @@ class Point:
             return self
         return self.line_intersect(self, self.tangent())
 
-    def __str__(self):
+    def __repr__(self):
         return '({}, {}) on {}'.format(self.x, self.y, self.curve)
 
 
