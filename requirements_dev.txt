@@ -1,7 +1,7 @@
 pytest==3.10.0
 pytest-cov==2.6.0
 coveralls==1.5.1
-flake8==3.6.0
+flake8==3.8.4
 tox==3.5.3
 twine==1.12.1
 pyscrypt==1.6.2
