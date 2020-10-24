@@ -236,7 +236,7 @@ coins = {
     'ZEIT': {
         'name': 'zeit',
         'address_prefix_bytes': b'\x33',
-        'secret_prefix_bytes': b'\x80',  # Fix me: resulting WIF should be starting with T
+        'secret_prefix_bytes': b'\xb3',
         'script_prefix_bytes': b'\x08'
     },
     'ZEN': {
