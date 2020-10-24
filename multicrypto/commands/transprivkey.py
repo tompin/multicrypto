@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 def get_args():
     parser = argparse.ArgumentParser(description='Translates private key between different coins. '
-                                                 'Without specifying output symbol it will return integer '
-                                                 'value of the private key')
+                                                 'Without specifying output symbol it will return '
+                                                 'integer value of the private key')
     parser.add_argument('-p', '--private_key', type=str, required=True,
                         help='Private key which we want to translate')
     parser.add_argument('-o', '--output_symbol', type=check_coin_symbol, required=False, default='',

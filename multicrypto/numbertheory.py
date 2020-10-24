@@ -33,7 +33,7 @@ def legendre_symbol(a, p):
     return ls
 
 
-def modular_sqrt(a, p):
+def modular_sqrt(a, p):  # noqa: C901
     """
     Tonelli-Shanks algorithm finding quadratic residue of `a` modulo `p`.
     :param a: number
