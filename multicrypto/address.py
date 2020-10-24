@@ -2,6 +2,7 @@ from multicrypto.ellipticcurve import secp256k1
 
 from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58, \
     base58
+from multicrypto.bech32 import encode
 from multicrypto.coins import coins
 from multicrypto.utils import double_sha256, encode_point, hash160
 
@@ -79,6 +80,18 @@ def translate_address(address, input_address_prefix_bytes, output_address_prefix
     bytes_address = base58_to_bytes(address)
     digest = bytes_address[len(input_address_prefix_bytes):-4]
     return calculate_address(digest, output_address_prefix_bytes)
+
+
+def bech32_address(coin_symbol, legacy_address):
+    coin = coins[coin_symbol]
+    bytes_address = base58_to_bytes(legacy_address)
+    digest = bytes_address[len(coin['address_prefix_bytes']):-4]
+    return encode(coin['bech32_hrp'], coin.get('witness_version', 0), digest)
+
+
+def segwit_scriptpubkey(witver, witprog):
+    """Create a segwit locking script for a given witness program (P2WPKH and P2WSH)."""
+    return bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
 
 
 def translate_private_key(private_key_wif_format, output_private_key_prefix_bytes):
