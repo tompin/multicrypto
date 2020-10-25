@@ -18,7 +18,7 @@ sudo apt-get install build-essential python3-setuptools python3-wheel python3-de
 ```
 
 If you don't have Python 3, install it by following instructions from python.org. 
-Supported Python versions are 3.5, 3.6, 3.7, 3.8, 3.9. Then run (using pip for python 3) :
+Supported Python versions are 3.6, 3.7, 3.8, 3.9. Then run (using pip for python 3) :
 ```bash
 pip install multicrypto
 ```
