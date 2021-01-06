@@ -135,32 +135,17 @@ unset HISTFILE
 | Coin | Symbol | Address generation | P2PKH transactions | P2SH transactions |
 | --- | --- | --- | --- | --- |
 | Bitcoin | BTC | Yes | Yes | Yes |
-| Bitcoin Gold | BTG | Yes | No | No |
-| Bitcoin Hush | BTCH | Yes | No | No |
-| Bitcoin Private | BTCP | Yes | Yes | Yes |
 | BitcoinZ | BTCZ | Yes | Yes | Yes |
-| Bitstar | BITS | Yes | No | No |
-| Buck | BUCK | Yes | No | No |
-| Crave | CRAVE | Yes | No | No |
 | Dash | DASH | Yes | Yes | Yes |
-| Diamond | DMD | Yes | No | No |
 | Dogecoin | DOGE | Yes | No | No |
-| Elite | 1337 | Yes | No | No |
-| Komodo | KMD | Yes | Yes | Yes |
 | Litecoin | LTC | Yes | Yes | Yes |
-| Mooncoin | MOON | Yes | No | No |
-| Qtum | QTUM | Yes | No | No |
 | Safecoin | SAFE | Yes | Yes | Yes |
-| Snow Gem | SNG | Yes | Yes | Yes |
-| Sirius | SIRX | Yes | No | No |
+| TENT | TENT | Yes | Yes | Yes |
 | Smartcash | SMART | Yes | No | No |
-| Unify | UNIFY | Yes | No | No |
-| Unobtanium | UNO | Yes | No | No |
-| Vertcoin | VTC | Yes | No | No |
 | Zcash | ZEC | Yes | Yes | Yes |
 | Zclassic | ZCL | Yes | Yes | Yes |
 | Zeitcoin | ZEIT | Yes | No | No |
-| ZenCash | ZEN | Yes | Yes | Yes |
+| Horizen | ZEN | Yes | Yes | Yes |
 | Zero | ZERO | Yes | Yes | Yes |
 
 ## Tests

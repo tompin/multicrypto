@@ -76,13 +76,13 @@ def test_checkadress_minimum_input_greater_than_maximum_input_failure():
     assert str(exc_info.value) == exception_message
 
 
-@patch.object(sys, 'argv', ['', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'BUCK'])
+@patch.object(sys, 'argv', ['', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'ZCL'])
 def test_checkadress_no_api_failure():
 
     with pytest.raises(Exception) as exc_info:
         main()
 
-    assert str(exc_info.value) == 'No api has been defined for the coin BUCK'
+    assert str(exc_info.value) == 'No api has been defined for the coin ZCL'
 
 
 @responses.activate

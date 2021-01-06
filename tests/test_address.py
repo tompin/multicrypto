@@ -65,12 +65,12 @@ def test_validate_pattern_raise_impossible_prefix():
 
 def test_translate_address():
     zcash_address = 't1VhzEoupqVVJoYaMaSZ534hD77L3MFFAXr'
-    kmd_address = 'RM7aJzNyTzWHGutf7Bj4zmvVcibZCnvXKS'
+    ltc_address = 'LX4LVgoWwpwmTiDcp9jFBGf44fWEe5mEae'
 
     translated_address = translate_address(
-        zcash_address, coins['ZEC']['address_prefix_bytes'], coins['KMD']['address_prefix_bytes'])
+        zcash_address, coins['ZEC']['address_prefix_bytes'], coins['LTC']['address_prefix_bytes'])
 
-    assert translated_address == kmd_address
+    assert translated_address == ltc_address
 
 
 def test_validate_wif_private_key_compressed_success():
@@ -93,13 +93,13 @@ def test_validate_wif_private_key_compressd_failure():
     btc_wif_private_key_compressed = 'KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp'
 
     with pytest.raises(Exception) as exc_info:
-        validate_wif_private_key(btc_wif_private_key_compressed, 'KMD')
-    assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin KMD'
+        validate_wif_private_key(btc_wif_private_key_compressed, 'LTC')
+    assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin LTC'
 
 
 def test_validate_wif_private_key_uncompressed_failure():
     btc_wif_private_key_uncompressed = '5HwoXVkHoRM8sL2KmNRS217n1g8mPPBomrY7yehCuXC1115WWsh'
 
     with pytest.raises(Exception) as exc_info:
-        validate_wif_private_key(btc_wif_private_key_uncompressed, 'KMD')
-    assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin KMD'
+        validate_wif_private_key(btc_wif_private_key_uncompressed, 'LTC')
+    assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin LTC'
