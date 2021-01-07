@@ -109,7 +109,9 @@ coins = {
         'address_prefix_bytes': b'\x1c\xb8',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
-        'apis': []
+        'apis': [
+            {'url': 'https://explorer.zcashfr.io/api'}
+        ]
     },
     'ZCL': {
         'name': 'zclassic',
