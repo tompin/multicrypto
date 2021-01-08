@@ -6,9 +6,9 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bitcoin donation](https://img.balancebadge.io/btc/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG.svg?label=Donations&color=ffb121)](https://blockchain.info/address/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG)
-   
+
 Highly experimental, pure python tool for cryptocurrencies.
-Please notice that coins changed their protocol so make sure the coin parameters are not outdated. 
+Please notice that coins could change their protocols so make sure the coin parameters are not outdated. 
 
 ## INSTALLATION
 
@@ -165,7 +165,16 @@ base58.h files.
 
 Exemplary for Zen we have:
 ```bash
-'ZEN': {'name': 'zen cash', 'address_prefix_bytes': b'\x20\x89', 'secret_prefix_bytes': b'\x80'}
+'ZEN': {
+    'name': 'zen cash',
+    'address_prefix_bytes': b'\x20\x89',
+    'secret_prefix_bytes': b'\x80',
+    'script_prefix_bytes': b'\x1c\xbd',
+    'params': {'check_block_at_height': True},
+    'apis': [
+        {'url': 'https://explorer.zensystem.io/insight-api-zen'}
+    ]
+}
 ```
 2. Update this readme with new supported coin and add appropriate tests
 3. Create pull request
