@@ -13,6 +13,7 @@ setup(
     version='0.1.14',
     description='Tool for translating and creating custom addresses for various cryptocurrencies',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     author='tompin',
     author_email='tompin@tuta.io',
     url='https://github.com/tompin/multicrypto',

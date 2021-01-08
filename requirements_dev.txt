@@ -7,3 +7,4 @@ twine==1.12.1
 pyscrypt==1.6.2
 responses==0.10.2
 validators==0.18.1
+twine
