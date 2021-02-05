@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import requests
 
 
@@ -23,9 +25,12 @@ class API:
         return result.json()
 
     @classmethod
-    def get_last_block(cls, coin):
+    def get_history_block(cls, coin):
         api = cls.get_current_definition(coin)
-        blocks_url = '{}/blocks?limit=1'.format(api['url'])
+        yesterday = date.today() - timedelta(days=1)
+        blocks_url = '{}/blocks?limit=1&blockDate={}'.format(
+            api['url'], yesterday.strftime('%Y-%m-%d')
+        )
         result = requests.get(blocks_url)
-        last_block = result.json()['blocks'][0]
-        return last_block
+        history_block = result.json()['blocks'][0]
+        return history_block

@@ -6,8 +6,9 @@ from multicrypto.consts import OP_0
 from multicrypto.ecdsa import sign
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.scripts import P2PKH_SCRIPT, P2SH_SCRIPT, is_p2sh
-from multicrypto.utils import int_to_bytes, hex_to_bytes, der_encode_signature, \
-    reverse_byte_hex, double_sha256
+from multicrypto.utils import (
+    int_to_bytes, hex_to_bytes, der_encode_signature, reverse_byte_hex, double_sha256
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class Transaction:
         self.sequence = params.get('sequence') or coin.get('sequence') or b'\xff\xff\xff\xff'
         self.lock_time = params.get('lock_time') or coin.get('lock_time') or b'\x00\x00\x00\x00'
         self.hash_type = params.get('hash_type') or coin.get('hash_type') or b'\x01\x00\x00\x00'
-        self.last_block = params.get('check_block_at_height')
+        self.history_block = params.get('check_block_at_height')
         self.inputs = [
             TransactionInput(
                 transaction_id=input['transaction_id'],
@@ -103,9 +104,9 @@ class Transaction:
         output_block = b''
         for output in self.outputs:
             script = output.script
-            if self.last_block:
-                script += b'\x20' + hex_to_bytes(self.last_block['hash'], byteorder='little')
-                height_bytes = int_to_bytes(self.last_block['height'], byteorder='little')
+            if self.history_block:
+                script += b'\x20' + hex_to_bytes(self.history_block['hash'], byteorder='little')
+                height_bytes = int_to_bytes(self.history_block['height'], byteorder='little')
                 script += len(height_bytes).to_bytes(1, byteorder='big') + height_bytes + b'\xb4'
             output_block += output.satoshis.to_bytes(8, byteorder='little')
             output_block += int_to_bytes(len(script), byteorder='little')

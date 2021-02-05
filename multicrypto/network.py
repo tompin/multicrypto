@@ -61,10 +61,10 @@ def send_inputs(coin, inputs, destination_address, source_address, input_satoshi
     change = input_satoshis - satoshis - fee
     if change > 0:
         outputs.append({'address': source_address, 'satoshis': change})
-    last_block = {}
+    history_block = {}
     if 'check_block_at_height' in coin.get('params', {}):
-        last_block = API.get_last_block(coin)
-    transaction = Transaction(coin, inputs, outputs, check_block_at_height=last_block)
+        history_block = API.get_history_block(coin)
+    transaction = Transaction(coin, inputs, outputs, check_block_at_height=history_block)
     raw_transaction = transaction.create()
     result = API.send_raw_transaction(coin, raw_transaction)
     return result
