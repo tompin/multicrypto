@@ -31,8 +31,8 @@ def get_args():
     parser.add_argument('-c', '--coin_symbol', type=check_coin_symbol, required=True,
                         help='Symbol of the coin for which we want to make money transfer')
     parser.add_argument('-f', '--fee', type=check_positive, required=False, default=DEFAULT_TX_FEE,
-                        help=f'Transaction fee which will be used in each transaction. '
-                             'Default {DEFAULT_TX_FEE} satoshi.')
+                        help='Transaction fee which will be used in each transaction. '
+                             f'Default {DEFAULT_TX_FEE} satoshi.')
     parser.add_argument('-n', '--minimum_input_threshold', type=check_positive, required=False,
                         default=None, help='Use only inputs containing satoshis equal or above the '
                                            'specified threshold')
