@@ -10,6 +10,8 @@ from multicrypto.validators import check_positive, check_coin_symbol
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_TX_FEE = 10000  # in satoshis
+
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -28,16 +30,18 @@ def get_args():
                              ' (destination address is the same as source address)')
     parser.add_argument('-c', '--coin_symbol', type=check_coin_symbol, required=True,
                         help='Symbol of the coin for which we want to make money transfer')
-    parser.add_argument('-f', '--fee', type=check_positive, required=False, default=10000,
-                        help='Transaction fee which will be used in each transaction')
+    parser.add_argument('-f', '--fee', type=check_positive, required=False, default=DEFAULT_TX_FEE,
+                        help=f'Transaction fee which will be used in each transaction. '
+                             'Default {DEFAULT_TX_FEE} satoshi.')
     parser.add_argument('-n', '--minimum_input_threshold', type=check_positive, required=False,
                         default=None, help='Use only inputs containing satoshis equal or above the '
                                            'specified threshold')
     parser.add_argument('-x', '--maximum_input_threshold', type=check_positive, required=False,
                         default=None, help='Use only inputs containing satoshis below or equal to '
                                            'the specified threshold')
-    parser.add_argument('-b', '--batch_size', type=check_positive, required=False, default=200,
-                        help='Specify limit for number of inputs that will be used in transaction')
+    parser.add_argument('-b', '--batch_size', type=check_positive, required=False, default=50,
+                        help='Specify limit for number of inputs that will be used in transaction. '
+                             'Default is 50 inputs per transaction.')
     return parser.parse_args()
 
 
