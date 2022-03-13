@@ -127,7 +127,7 @@ coins = {
         'script_prefix_bytes': b'\x08'
     },
     'ZEN': {
-        'name': 'zen cash',
+        'name': 'horizen',
         'address_prefix_bytes': b'\x20\x89',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
