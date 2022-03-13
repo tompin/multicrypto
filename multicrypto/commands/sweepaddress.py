@@ -11,6 +11,7 @@ from multicrypto.validators import check_positive, check_coin_symbol
 logger = logging.getLogger(__name__)
 
 DEFAULT_TX_FEE = 10000  # in satoshis
+DEFAULT_BATCH_SIZE = 50
 
 
 def get_args():
@@ -39,9 +40,10 @@ def get_args():
     parser.add_argument('-x', '--maximum_input_threshold', type=check_positive, required=False,
                         default=None, help='Use only inputs containing satoshis below or equal to '
                                            'the specified threshold')
-    parser.add_argument('-b', '--batch_size', type=check_positive, required=False, default=50,
+    parser.add_argument('-b', '--batch_size', type=check_positive, required=False,
+                        default=DEFAULT_BATCH_SIZE,
                         help='Specify limit for number of inputs that will be used in transaction. '
-                             'Default is 50 inputs per transaction.')
+                             f'Default is {DEFAULT_BATCH_SIZE} inputs per transaction.')
     return parser.parse_args()
 
 
