@@ -2,9 +2,13 @@ import argparse
 import logging
 import os
 
-from multicrypto.address import translate_private_key, validate_base58, \
-    get_private_key_from_wif_format, convert_private_key_to_address, \
-    convert_private_key_to_wif_format
+from multicrypto.address import (
+    translate_private_key,
+    validate_base58,
+    get_private_key_from_wif_format,
+    convert_private_key_to_address,
+    convert_private_key_to_wif_format,
+)
 from multicrypto.coins import coins
 from multicrypto.utils import get_qrcode_image, get_integer
 from multicrypto.validators import check_coin_symbol
@@ -13,20 +17,45 @@ logger = logging.getLogger(__name__)
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description='Translates private key between different coins. '
-                                                 'Without specifying output symbol it will return '
-                                                 'integer value of the private key')
-    parser.add_argument('-p', '--private_key', type=str, required=True,
-                        help='Private key which we want to translate')
-    parser.add_argument('-o', '--output_symbol', type=check_coin_symbol, required=False, default='',
-                        help='Symbol of the coin for which we want to know corresponding '
-                             'translated private key')
-    parser.add_argument('-f', '--file', type=str, required=False, default=None,
-                        help='Store script output in the provided file')
-    parser.add_argument('-d', '--output_dir', type=str, required=False,
-                        help='Directory where translated private key will be stored')
-    parser.add_argument('-i', '--integer', action='store_true',
-                        help='Private key will be treated as integer')
+    parser = argparse.ArgumentParser(
+        description='Translates private key between different coins. '
+        'Without specifying output symbol it will return '
+        'integer value of the private key'
+    )
+    parser.add_argument(
+        '-p',
+        '--private_key',
+        type=str,
+        required=True,
+        help='Private key which we want to translate',
+    )
+    parser.add_argument(
+        '-o',
+        '--output_symbol',
+        type=check_coin_symbol,
+        required=False,
+        default='',
+        help='Symbol of the coin for which we want to know corresponding '
+        'translated private key',
+    )
+    parser.add_argument(
+        '-f',
+        '--file',
+        type=str,
+        required=False,
+        default=None,
+        help='Store script output in the provided file',
+    )
+    parser.add_argument(
+        '-d',
+        '--output_dir',
+        type=str,
+        required=False,
+        help='Directory where translated private key will be stored',
+    )
+    parser.add_argument(
+        '-i', '--integer', action='store_true', help='Private key will be treated as integer'
+    )
     return parser.parse_args()
 
 
@@ -56,7 +85,9 @@ def translate(args):
 
     output_private_key_prefix_bytes = coins[output_coin_symbol]['secret_prefix_bytes']
     output_address_prefix_bytes = coins[output_coin_symbol]['address_prefix_bytes']
-    translated_private_key = translate_private_key(wif_private_key, output_private_key_prefix_bytes)
+    translated_private_key = translate_private_key(
+        wif_private_key, output_private_key_prefix_bytes
+    )
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
     address = convert_private_key_to_address(private_key, output_address_prefix_bytes, compressed)
     return translated_private_key, compressed, address
@@ -65,8 +96,11 @@ def translate(args):
 def main():
     args = get_args()
     translated_private_key, compressed, address = translate(args)
-    print('Private key: {}, compressed: {}, address: {}, coin symbol: {}'.format(
-        translated_private_key, compressed, address, args.output_symbol or None))
+    print(
+        'Private key: {}, compressed: {}, address: {}, coin symbol: {}'.format(
+            translated_private_key, compressed, address, args.output_symbol or None
+        )
+    )
     if args.output_dir:
         address_image = get_qrcode_image(address, error_correct='low')
         address_image.save(os.path.join(args.output_dir, address + '.png'))

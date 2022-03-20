@@ -1,5 +1,3 @@
-
-
 def modular_inverse(a, n):
     """
     Extended Euclidean Algorithm. It's the 'division' in elliptic curves

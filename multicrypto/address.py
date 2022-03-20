@@ -1,7 +1,12 @@
 from multicrypto.ellipticcurve import secp256k1
 
-from multicrypto.base58 import bytes_to_base58, base58_to_int, base58_to_bytes, validate_base58, \
-    base58
+from multicrypto.base58 import (
+    bytes_to_base58,
+    base58_to_int,
+    base58_to_bytes,
+    validate_base58,
+    base58,
+)
 from multicrypto.bech32 import encode
 from multicrypto.coins import coins
 from multicrypto.utils import double_sha256, encode_point, hash160
@@ -28,15 +33,15 @@ def calculate_address(digest, address_prefix_bytes):
 
 
 def decompose_address(address, coin):
-    """ Decompose address to address prefix bytes and address digest """
+    """Decompose address to address prefix bytes and address digest"""
     address_data = base58_to_bytes(address)
     input_data = address_data[:-4]
-    if not input_data.startswith(coin['address_prefix_bytes']) and \
-            not input_data.startswith(coin['script_prefix_bytes']):
+    address_prefix = coin['address_prefix_bytes']
+    script_prefix = coin['script_prefix_bytes']
+    if not input_data.startswith(address_prefix) and not input_data.startswith(script_prefix):
         raise Exception('Incorrect address prefix')
-    prefix_length = len(coin['address_prefix_bytes'])
-    prefix = input_data[:prefix_length]
-    digest = input_data[prefix_length:]
+    prefix = input_data[: len(address_prefix)]
+    digest = input_data[len(address_prefix) :]
     return prefix, digest
 
 
@@ -78,14 +83,14 @@ def get_private_key_from_wif_format(wif_private_key):
 
 def translate_address(address, input_address_prefix_bytes, output_address_prefix_bytes):
     bytes_address = base58_to_bytes(address)
-    digest = bytes_address[len(input_address_prefix_bytes):-4]
+    digest = bytes_address[len(input_address_prefix_bytes) : -4]
     return calculate_address(digest, output_address_prefix_bytes)
 
 
 def bech32_address(coin_symbol, legacy_address):
     coin = coins[coin_symbol]
     bytes_address = base58_to_bytes(legacy_address)
-    digest = bytes_address[len(coin['address_prefix_bytes']):-4]
+    digest = bytes_address[len(coin['address_prefix_bytes']) : -4]
     return encode(coin['bech32_hrp'], coin.get('witness_version', 0), digest)
 
 
@@ -97,7 +102,8 @@ def segwit_scriptpubkey(witver, witprog):
 def translate_private_key(private_key_wif_format, output_private_key_prefix_bytes):
     private_key, is_compressed = get_private_key_from_wif_format(private_key_wif_format)
     return convert_private_key_to_wif_format(
-        private_key, output_private_key_prefix_bytes, is_compressed)
+        private_key, output_private_key_prefix_bytes, is_compressed
+    )
 
 
 def get_address_range(address_prefix_bytes):
@@ -114,9 +120,11 @@ def validate_pattern(pattern, coin_symbol, is_script):
         start_address, end_address = get_address_range(coins[coin_symbol]['script_prefix_bytes'])
     else:
         start_address, end_address = get_address_range(coins[coin_symbol]['address_prefix_bytes'])
-    if not (start_address[:len(pattern)] <= pattern <= end_address[:len(pattern)]):
-        raise Exception('Impossible prefix! Choose different one from {}-{} range'
-                        '(characters order is {})'.format(start_address, end_address, base58))
+    if not (start_address[: len(pattern)] <= pattern <= end_address[: len(pattern)]):
+        raise Exception(
+            'Impossible prefix! Choose different one from {}-{} range'
+            '(characters order is {})'.format(start_address, end_address, base58)
+        )
     return True
 
 
@@ -146,6 +154,9 @@ def validate_wif_private_key(wif_private_key, coin_symbol):
     else:
         secret_prefix_bytes = private_key_bytes[1:2]
     if secret_prefix_bytes != coins[coin_symbol]['secret_prefix_bytes']:
-        raise Exception('Incorrect secret prefix 0x{} in wif private key for coin {}'.format(
-            secret_prefix_bytes.hex(), coin_symbol))
+        raise Exception(
+            'Incorrect secret prefix 0x{} in wif private key for coin {}'.format(
+                secret_prefix_bytes.hex(), coin_symbol
+            )
+        )
     return True

@@ -7,15 +7,26 @@ from multicrypto.ecdsa import sign
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.scripts import P2PKH_SCRIPT, P2SH_SCRIPT, is_p2sh
 from multicrypto.utils import (
-    int_to_bytes, hex_to_bytes, der_encode_signature, reverse_byte_hex, double_sha256
+    int_to_bytes,
+    hex_to_bytes,
+    der_encode_signature,
+    reverse_byte_hex,
+    double_sha256,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class TransactionInput:
-    def __init__(self, transaction_id, output_index, locking_script, satoshis, private_key=None,
-                 unlocking_script=None):
+    def __init__(
+        self,
+        transaction_id,
+        output_index,
+        locking_script,
+        satoshis,
+        private_key=None,
+        unlocking_script=None,
+    ):
         """
         :param transaction_id: Transaction id in hex format
         :param output_index: Number (int) specifying the output of the transaction which
@@ -32,13 +43,16 @@ class TransactionInput:
         if private_key:
             self.private_key = private_key
             self.public_key = private_key * secp256k1.G
-            compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
+            compressed_public_key_hash = calculate_public_key_hash(
+                self.public_key, compressed=True
+            )
             if compressed_public_key_hash.hex() not in locking_script:
                 is_compressed_public_key = False
             else:
                 is_compressed_public_key = True
             self.encoded_public_key = encode_point(
-                self.public_key, compressed=is_compressed_public_key)
+                self.public_key, compressed=is_compressed_public_key
+            )
             self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
         self.unlocking_script = hex_to_bytes(unlocking_script, byteorder='big')
 
@@ -79,15 +93,15 @@ class Transaction:
                 locking_script=input['locking_script'],
                 satoshis=input['satoshis'],
                 private_key=input.get('private_key'),
-                unlocking_script=input.get('unlocking_script', ''))
-            for input in inputs]
+                unlocking_script=input.get('unlocking_script', ''),
+            )
+            for input in inputs
+        ]
         self.inputs_counter = int_to_bytes(len(self.inputs), byteorder='little')
         self.outputs = [
-            TransactionOutput(
-                address=output['address'],
-                satoshis=output['satoshis'],
-                coin=coin)
-            for output in outputs]
+            TransactionOutput(address=output['address'], satoshis=output['satoshis'], coin=coin)
+            for output in outputs
+        ]
         self.outputs_counter = int_to_bytes(len(self.outputs), byteorder='little')
 
     def get_encoded_inputs(self, position):
@@ -116,23 +130,23 @@ class Transaction:
     def get_data_to_sign(self, position):
         data = (
             # Four-byte version field
-            self.version +
-
+            self.version
+            +
             # One-byte varint specifying the number of inputs
-            self.inputs_counter +
-
+            self.inputs_counter
+            +
             # Inputs
-            self.get_encoded_inputs([position]) +
-
+            self.get_encoded_inputs([position])
+            +
             # One-byte varint containing the number of outputs in our new transaction
-            self.outputs_counter +
-
+            self.outputs_counter
+            +
             # Outputs
-            self.get_encoded_outputs() +
-
+            self.get_encoded_outputs()
+            +
             # Four-byte "lock time" field
-            self.lock_time +
-
+            self.lock_time
+            +
             # Four-byte "hash code type"
             self.hash_type
         )
@@ -149,10 +163,10 @@ class Transaction:
         encoded_signature = der_encode_signature(sig)
         signature = encoded_signature + self.coin.get('sig_hash', b'\x01')
         script_sig = (
-            len(signature).to_bytes(1, byteorder='little') +
-            signature +
-            input.public_key_len +
-            input.encoded_public_key
+            len(signature).to_bytes(1, byteorder='little')
+            + signature
+            + input.public_key_len
+            + input.encoded_public_key
         )
         input.script = script_sig
         input.script_length = int_to_bytes(len(script_sig), byteorder='little')
@@ -163,17 +177,16 @@ class Transaction:
         for i in range(len(self.inputs)):
             self.sign_input(i)
         raw_transaction_data = (
-            self.version +
-            self.inputs_counter +
-            self.get_encoded_inputs(position=range(len(self.inputs))) +
-            self.outputs_counter +
-            self.get_encoded_outputs() +
-            self.lock_time
+            self.version
+            + self.inputs_counter
+            + self.get_encoded_inputs(position=range(len(self.inputs)))
+            + self.outputs_counter
+            + self.get_encoded_outputs()
+            + self.lock_time
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
         self.raw = raw_transaction_data.hex()
-        logger.info('Created transaction with id: {}\nRaw data: {}'.format(
-            self.id, self.raw))
+        logger.info('Created transaction with id: {}\nRaw data: {}'.format(self.id, self.raw))
         return self.raw
 
 
@@ -190,28 +203,21 @@ class POSTransaction(Transaction):
     def get_data_to_sign(self, position):
         data = (
             # Four-byte version field
-            self.version +
-
+            self.version
             # Transaction creation time
-            self.transaction_time +
-
+            + self.transaction_time
             # One-byte varint specifying the number of inputs
-            self.inputs_counter +
-
+            + self.inputs_counter
             # Inputs
-            self.get_encoded_inputs([position]) +
-
+            + self.get_encoded_inputs([position])
             # One-byte varint containing the number of outputs in our new transaction
-            self.outputs_counter +
-
+            + self.outputs_counter
             # Outputs
-            self.get_encoded_outputs() +
-
+            + self.get_encoded_outputs()
             # Four-byte "lock time" field
-            self.lock_time +
-
+            + self.lock_time
             # Four-byte "hash code type"
-            self.hash_type
+            + self.hash_type
         )
         return data
 
@@ -221,16 +227,15 @@ class POSTransaction(Transaction):
         for i in range(len(self.inputs)):
             self.sign_input(i)
         raw_transaction_data = (
-            self.version +
-            self.transaction_time +
-            self.inputs_counter +
-            self.get_encoded_inputs(position=range(len(self.inputs))) +
-            self.outputs_counter +
-            self.get_encoded_outputs() +
-            self.lock_time
+            self.version
+            + self.transaction_time
+            + self.inputs_counter
+            + self.get_encoded_inputs(position=range(len(self.inputs)))
+            + self.outputs_counter
+            + self.get_encoded_outputs()
+            + self.lock_time
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
         self.raw = raw_transaction_data.hex()
-        logger.info('Created transaction with id: {}\nRaw data: {}'.format(
-            self.id, self.raw))
+        logger.info('Created transaction with id: {}\nRaw data: {}'.format(self.id, self.raw))
         return self.raw

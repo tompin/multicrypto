@@ -12,19 +12,44 @@ logger = logging.getLogger(__name__)
 
 def get_args():
     parser = argparse.ArgumentParser(description='Translates addresses between different coins')
-    parser.add_argument('-a', '--address', type=str, required=True,
-                        help='Address which we want to translate')
-    parser.add_argument('-i', '--input_symbol', type=check_coin_symbol, required=True,
-                        help='Symbol of the coin for which address we want to translate')
-    parser.add_argument('-o', '--output_symbol', type=check_coin_symbol, required=True,
-                        help='Symbol of the coin for which we want to know translated '
-                             'corresponding address')
-    parser.add_argument('-f', '--file', type=str, required=False, default=None,
-                        help='Store output in the provided file')
-    parser.add_argument('-s', '--script', action='store_true',
-                        help='Add this option when translating P2SH (pay to script hash) address')
-    parser.add_argument('-d', '--output_dir', type=str, required=False,
-                        help='Directory where translated address QR code will be stored')
+    parser.add_argument(
+        '-a', '--address', type=str, required=True, help='Address which we want to translate'
+    )
+    parser.add_argument(
+        '-i',
+        '--input_symbol',
+        type=check_coin_symbol,
+        required=True,
+        help='Symbol of the coin for which address we want to translate',
+    )
+    parser.add_argument(
+        '-o',
+        '--output_symbol',
+        type=check_coin_symbol,
+        required=True,
+        help='Symbol of the coin for which we want to know translated ' 'corresponding address',
+    )
+    parser.add_argument(
+        '-f',
+        '--file',
+        type=str,
+        required=False,
+        default=None,
+        help='Store output in the provided file',
+    )
+    parser.add_argument(
+        '-s',
+        '--script',
+        action='store_true',
+        help='Add this option when translating P2SH (pay to script hash) address',
+    )
+    parser.add_argument(
+        '-d',
+        '--output_dir',
+        type=str,
+        required=False,
+        help='Directory where translated address QR code will be stored',
+    )
     return parser.parse_args()
 
 
@@ -47,15 +72,19 @@ def translate(args):
         output_address_prefix_bytes = coins[output_coin_symbol]['address_prefix_bytes']
     validate_address(address, input_coin_symbol)
     translated_address = translate_address(
-        address, input_address_prefix_bytes, output_address_prefix_bytes)
+        address, input_address_prefix_bytes, output_address_prefix_bytes
+    )
     return translated_address
 
 
 def main():
     args = get_args()
     translated_address = translate(args)
-    print('{} ({}) -> {} ({})'.format(
-        args.address, args.input_symbol, translated_address, args.output_symbol))
+    print(
+        '{} ({}) -> {} ({})'.format(
+            args.address, args.input_symbol, translated_address, args.output_symbol
+        )
+    )
     if args.output_dir:
         address_image = get_qrcode_image(translated_address, error_correct='low')
         address_image.save(os.path.join(args.output_dir, translated_address + '.png'))

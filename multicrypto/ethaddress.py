@@ -22,7 +22,8 @@ def to_checksum_address(address):
     address_hash = keccak_256(address_data.encode()).hexdigest()
     address_data = ''.join(
         address_data[i].upper() if int(address_hash[i], 16) > 7 else address_data[i]
-        for i in range(40))
+        for i in range(40)
+    )
     return '0x' + address_data
 
 

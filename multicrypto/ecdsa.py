@@ -3,8 +3,11 @@ from hashlib import sha256
 from struct import pack
 import hmac
 
-from multicrypto.address import get_private_key_from_wif_format, \
-    convert_wif_private_key_to_address, convert_public_key_to_address
+from multicrypto.address import (
+    get_private_key_from_wif_format,
+    convert_wif_private_key_to_address,
+    convert_public_key_to_address,
+)
 from multicrypto.ellipticcurve import secp256k1, Point
 from multicrypto.numbertheory import modular_inverse, modular_sqrt
 from multicrypto.utils import double_sha256
@@ -40,12 +43,13 @@ def add_magic_prefix(message, coin):
         prefix_length=chr(len(prefix)),
         prefix=prefix,
         message_length=chr(len(message)),
-        message=message
+        message=message,
     )
 
 
 def verify_message(
-        coin, message, v, signature, address, curve=secp256k1, hash_function=double_sha256):
+    coin, message, v, signature, address, curve=secp256k1, hash_function=double_sha256
+):
     r, s = signature
     if v < 27 or v >= 35:
         return False
@@ -59,7 +63,7 @@ def verify_message(
     # Calculation is based on http://www.secg.org/sec1-v2.pdf
     # chapter 4.1.6 'Public Key Recovery Operation'.
     x = r + (recid // 2) * curve.n
-    alpha = (x ** 3 + curve.a * x + curve.b) % curve.p
+    alpha = (x**3 + curve.a * x + curve.b) % curve.p
     beta = modular_sqrt(alpha, curve.p)
     y = beta if (beta - recid) % 2 == 0 else curve.p - beta
     R = Point(curve, x, y)
@@ -68,7 +72,8 @@ def verify_message(
     Q = modular_inverse(r, curve.n) * (s * R - e * curve.G)
     public_key = Q
     calculated_address = convert_public_key_to_address(
-        public_key, coin['address_prefix_bytes'], compressed)
+        public_key, coin['address_prefix_bytes'], compressed
+    )
     if calculated_address == address:
         return True
     else:
@@ -76,24 +81,28 @@ def verify_message(
 
 
 def sign_message(
-        coin, message, wif_private_key, segwit=False, curve=secp256k1, hash_function=double_sha256):
+    coin, message, wif_private_key, segwit=False, curve=secp256k1, hash_function=double_sha256
+):
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
     address = convert_wif_private_key_to_address(
-        wif_private_key, coin['address_prefix_bytes'], segwit=segwit)
+        wif_private_key, coin['address_prefix_bytes'], segwit=segwit
+    )
     message_with_magic_prefix = add_magic_prefix(message, coin).encode()
     r, s = sign(message_with_magic_prefix, private_key, curve, hash_function)
-    bytes_signature = (r.to_bytes(byteorder='big', length=curve.bytes_size) +
-                       s.to_bytes(byteorder='big', length=curve.bytes_size))
+    bytes_signature = r.to_bytes(byteorder='big', length=curve.bytes_size) + s.to_bytes(
+        byteorder='big', length=curve.bytes_size
+    )
     v = 27
     if compressed:
         v += 4
     for i in range(4):
         v += i
         if verify_message(
-                coin, message_with_magic_prefix, v, (r, s), address, curve, hash_function):
+            coin, message_with_magic_prefix, v, (r, s), address, curve, hash_function
+        ):
             return b64encode(v.to_bytes(byteorder='big', length=1) + bytes_signature)
     else:
-        raise BaseException("error: cannot sign message")
+        raise Exception("error: cannot sign message")
 
 
 class RFC6979:
@@ -120,30 +129,30 @@ class RFC6979:
         self.hash_function = hash_function
 
     def bits2int(self, b):
-        """ http://tools.ietf.org/html/rfc6979#section-2.3.2 """
+        """http://tools.ietf.org/html/rfc6979#section-2.3.2"""
         b_int_value = int.from_bytes(b, byteorder='big')
         b_bit_length = len(b) * 8
         if b_bit_length > self.n_bit_length:
-            b_int_value >>= (b_bit_length - self.n_bit_length)
+            b_int_value >>= b_bit_length - self.n_bit_length
         return b_int_value
 
     def int2octets(self, x):
-        """ http://tools.ietf.org/html/rfc6979#section-2.3.3 """
+        """http://tools.ietf.org/html/rfc6979#section-2.3.3"""
         octets = b''
         while x > 0:
-            octets = pack('=B', (0xff & x)) + octets
+            octets = pack('=B', (0xFF & x)) + octets
             x >>= 8
         padding = b'\x00' * (self.n_byte_length - len(octets))
         return padding + octets
 
     def bits2octets(self, b):
-        """ http://tools.ietf.org/html/rfc6979#section-2.3.4 """
+        """http://tools.ietf.org/html/rfc6979#section-2.3.4"""
         z1 = self.bits2int(b)
         z2 = z1 % self.n
         return self.int2octets(z2)
 
     def gen_nonce(self):
-        """ http://tools.ietf.org/html/rfc6979#section-3.2 """
+        """http://tools.ietf.org/html/rfc6979#section-3.2"""
         h1 = self.hash_function(self.message)
         hash_size = h1.digest_size
         h1 = h1.digest()

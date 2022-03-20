@@ -36,7 +36,9 @@ def base58_to_int(base58_data):
 def validate_base58(string):
     invalid_characters = set(string) - set(base58)
     if invalid_characters:
-        raise Exception('pattern {} contains not allowed characters: {}'.format(
-            string, ''.join(sorted(invalid_characters))
-        ))
+        raise Exception(
+            'pattern {} contains not allowed characters: {}'.format(
+                string, ''.join(sorted(invalid_characters))
+            )
+        )
     return True

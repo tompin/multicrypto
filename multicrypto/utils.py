@@ -30,8 +30,9 @@ def encode_point(point, compressed, output_format='bytes'):
     if compressed:
         encoded_point = bytes([2 + (point.y % 2)]) + point.x.to_bytes(32, byteorder='big')
     else:
-        encoded_point = b'\x04' + point.x.to_bytes(32, byteorder='big') + \
-            point.y.to_bytes(32, byteorder='big')
+        encoded_point = (
+            b'\x04' + point.x.to_bytes(32, byteorder='big') + point.y.to_bytes(32, byteorder='big')
+        )
     if output_format == 'hex':
         return encoded_point.hex()
     else:
@@ -80,13 +81,13 @@ def int_to_varint_hex(int_value):
     :param int_value: integer value which we want to convert to hex format varint
     :return: varint hex string in little-endian
     """
-    if int_value <= 0xfc:
+    if int_value <= 0xFC:
         return hex(int_value)[2:]
-    elif int_value <= 0xffff:
+    elif int_value <= 0xFFFF:
         return 'fd' + int_value.to_bytes(2, byteorder='little').hex()
-    elif int_value <= 0xffffffff:
+    elif int_value <= 0xFFFFFFFF:
         return 'fe' + int_value.to_bytes(4, byteorder='little').hex()
-    elif int_value <= 0xffffffffffffffff:
+    elif int_value <= 0xFFFFFFFFFFFFFFFF:
         return 'ff' + int_value.to_bytes(8, byteorder='little').hex()
     else:
         raise Exception('Too big varint: {}'.format(int_value))
@@ -154,11 +155,7 @@ def get_qrcode_image(string, error_correct='low'):
         error_correct = qrcode.constants.ERROR_CORRECT_L
     elif error_correct == 'high':
         error_correct = qrcode.constants.ERROR_CORRECT_H
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=error_correct,
-        box_size=10,
-        border=4)
+    qr = qrcode.QRCode(version=1, error_correction=error_correct, box_size=10, border=4)
     qr.add_data(string)
     qr.make(fit=True)
     image = qr.make_image(fill_color="black", back_color="white")

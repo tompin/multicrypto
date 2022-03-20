@@ -37,11 +37,9 @@ modular_sqrt_exists_data = [
     (1030, 10009),
     (44402, 100049),
     (665820697, 1000000009),
-    (881398088036, 1000000000039)
+    (881398088036, 1000000000039),
 ]
-no_modula_sqrt_solution_data = [
-    (1032, 10009)
-]
+no_modula_sqrt_solution_data = [(1032, 10009)]
 
 
 @pytest.mark.parametrize("a,p", modular_sqrt_exists_data)

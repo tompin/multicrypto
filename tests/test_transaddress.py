@@ -9,8 +9,17 @@ from multicrypto.commands.transaddress import main
 @patch('sys.stdout', new_callable=StringIO)
 def test_transaddress_succes(sys_stdout, tmpdir):
     output_dir = tmpdir.strpath
-    sys.argv = ['', '-a', '1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG', '-i', 'BTC', '-o', 'ZEC', '-d',
-                output_dir]
+    sys.argv = [
+        '',
+        '-a',
+        '1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG',
+        '-i',
+        'BTC',
+        '-o',
+        'ZEC',
+        '-d',
+        output_dir,
+    ]
 
     main()
 

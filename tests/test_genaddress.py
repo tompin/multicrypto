@@ -35,15 +35,18 @@ def get_prefix_in_range(address_prefix_bytes):
     for i in range(length):
         while True:
             new_prefix = prefix + random.choice(base58)
-            if (start_address <= new_prefix or start_address[:i + 2] == new_prefix) \
-                    and new_prefix <= end_address:
+            if (
+                start_address <= new_prefix or start_address[: i + 2] == new_prefix
+            ) and new_prefix <= end_address:
                 prefix = new_prefix
                 break
     return prefix
 
 
-random_test_data = [(coin_settings, get_prefix_in_range(coin_settings['address_prefix_bytes']))
-                    for coin_settings in coins.values()]
+random_test_data = [
+    (coin_settings, get_prefix_in_range(coin_settings['address_prefix_bytes']))
+    for coin_settings in coins.values()
+]
 
 
 @pytest.mark.parametrize("coin_settings,pattern", random_test_data)
@@ -57,9 +60,10 @@ def test_random_generate_address(tmpdir, coin_settings, pattern):
         segwit=False,
         out_dir=out_dir,
         found=SetMock(),
-        quit=SetMock())
+        quit=SetMock(),
+    )
 
-    assert address[:len(pattern)] == pattern
+    assert address[: len(pattern)] == pattern
     assert os.path.isfile(os.path.join(out_dir, address + '.png'))
     assert os.path.isfile(os.path.join(out_dir, address + '_private_key.png'))
 

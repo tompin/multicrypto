@@ -1,7 +1,12 @@
 import pytest
 
-from multicrypto.address import get_private_key_from_wif_format, \
-    convert_private_key_to_address, translate_address, validate_pattern, validate_wif_private_key
+from multicrypto.address import (
+    get_private_key_from_wif_format,
+    convert_private_key_to_address,
+    translate_address,
+    validate_pattern,
+    validate_wif_private_key,
+)
 from multicrypto.base58 import base58
 from multicrypto.coins import coins
 
@@ -55,8 +60,10 @@ def test_validate_pattern_raise_impossible_prefix():
     pattern = '211'
     coin_symbol = 'BTC'
     btc_range = '1111111111111111111111111-1QLbz7JHiBTspS962RLKV8GndWFwiEaqKL'
-    error_message = 'Impossible prefix! Choose different one from {} range' \
-                    '(characters order is {})'.format(btc_range, base58)
+    error_message = (
+        'Impossible prefix! Choose different one from {} range'
+        '(characters order is {})'.format(btc_range, base58)
+    )
 
     with pytest.raises(Exception) as exc_info:
         validate_pattern(pattern, coin_symbol, False)
@@ -68,7 +75,8 @@ def test_translate_address():
     ltc_address = 'LX4LVgoWwpwmTiDcp9jFBGf44fWEe5mEae'
 
     translated_address = translate_address(
-        zcash_address, coins['ZEC']['address_prefix_bytes'], coins['LTC']['address_prefix_bytes'])
+        zcash_address, coins['ZEC']['address_prefix_bytes'], coins['LTC']['address_prefix_bytes']
+    )
 
     assert translated_address == ltc_address
 
