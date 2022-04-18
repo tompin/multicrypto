@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 
 from multicrypto.address import (
     translate_private_key,
@@ -10,7 +9,7 @@ from multicrypto.address import (
     convert_private_key_to_wif_format,
 )
 from multicrypto.coins import coins
-from multicrypto.utils import get_qrcode_image, get_integer
+from multicrypto.utils import save_qrcode, get_integer
 from multicrypto.validators import check_coin_symbol
 
 logger = logging.getLogger(__name__)
@@ -102,10 +101,8 @@ def main():
         )
     )
     if args.output_dir:
-        address_image = get_qrcode_image(address, error_correct='low')
-        address_image.save(os.path.join(args.output_dir, address + '.png'))
-        private_key_image = get_qrcode_image(translated_private_key, error_correct='high')
-        private_key_image.save(os.path.join(args.output_dir, address + '_private_key.png'))
+        save_qrcode(address, args.output_dir, error_correct='L')
+        save_qrcode(translated_private_key, args.output_dir, f'{address}_private_key.png')
         print('QR codes were saved in directory {}'.format(args.output_dir))
 
 

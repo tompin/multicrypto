@@ -4,7 +4,7 @@ import os
 
 from multicrypto.address import translate_address, validate_address
 from multicrypto.coins import coins
-from multicrypto.utils import get_qrcode_image
+from multicrypto.utils import save_qrcode
 from multicrypto.validators import check_coin_symbol
 
 logger = logging.getLogger(__name__)
@@ -86,8 +86,7 @@ def main():
         )
     )
     if args.output_dir:
-        address_image = get_qrcode_image(translated_address, error_correct='low')
-        address_image.save(os.path.join(args.output_dir, translated_address + '.png'))
+        save_qrcode(translated_address, args.output_dir, error_correct='L')
         print('Address QR code was saved in directory {}'.format(args.output_dir))
 
 

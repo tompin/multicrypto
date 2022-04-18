@@ -1,7 +1,8 @@
 import hashlib
 from binascii import unhexlify
+from pathlib import Path
 
-import qrcode
+from pyqrcode import QRCode
 
 from multicrypto.ellipticcurve import Point, secp256k1
 from multicrypto.numbertheory import modular_sqrt
@@ -150,13 +151,10 @@ def get_integer(string):
             return None
 
 
-def get_qrcode_image(string, error_correct='low'):
-    if error_correct == 'low':
-        error_correct = qrcode.constants.ERROR_CORRECT_L
-    elif error_correct == 'high':
-        error_correct = qrcode.constants.ERROR_CORRECT_H
-    qr = qrcode.QRCode(version=1, error_correction=error_correct, box_size=10, border=4)
-    qr.add_data(string)
-    qr.make(fit=True)
-    image = qr.make_image(fill_color="black", back_color="white")
-    return image
+def save_qrcode(string, outdir, file_name=None, error_correct='H'):
+    qrcode = QRCode(string, error=error_correct)
+    outdir = Path(outdir)
+    if file_name is None:
+        file_name = f'{string}.png'
+    file_path = outdir / file_name
+    qrcode.png(file_path, scale=8)

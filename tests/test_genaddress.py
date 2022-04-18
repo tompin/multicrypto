@@ -70,7 +70,7 @@ def test_random_generate_address(tmpdir, coin_settings, pattern):
 
 @patch.object(sys, 'argv', ['', '-s', 'TBTC', '-i', (OP_15 + OP_ADD + OP_16 + OP_EQUAL).hex()])
 @patch('sys.stdout', new_callable=StringIO)
-def test_sweepaddress_succes(sys_stdout):
+def test_custom_p2sh_address_success(sys_stdout):
     main()
 
     res = '2NBqJfmzsEbbT1YFyCjdU4KYXQajLffLBLM\n'

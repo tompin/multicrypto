@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='multicrypto',
-    version='0.1.15',
+    version='0.1.16',
     description='Tool for translating and creating custom addresses for various cryptocurrencies',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -33,7 +33,7 @@ setup(
     ],
     keywords='cryptocurrency, address, transaction',
     packages=find_packages(exclude=['htmlcov', 'tests']),
-    install_requires=['Pillow==9.0.1', 'pysha3==1.0.2', 'qrcode==7.3.1', 'requests==2.27.1'],
+    install_requires=['pypng==0.0.21', 'PyQRCode==1.2.1', 'pysha3==1.0.2', 'requests==2.27.1'],
     entry_points={
         'console_scripts': [
             'checkaddress=multicrypto.commands.checkaddress:main',
