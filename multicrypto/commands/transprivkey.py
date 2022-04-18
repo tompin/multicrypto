@@ -96,14 +96,13 @@ def main():
     args = get_args()
     translated_private_key, compressed, address = translate(args)
     print(
-        'Private key: {}, compressed: {}, address: {}, coin symbol: {}'.format(
-            translated_private_key, compressed, address, args.output_symbol or None
-        )
+        f'Private key: {translated_private_key}, compressed: {compressed}, '
+        f'address: {address}, coin symbol: {args.output_symbol or None}'
     )
     if args.output_dir:
         save_qrcode(address, args.output_dir, error_correct='L')
         save_qrcode(translated_private_key, args.output_dir, f'{address}_private_key.png')
-        print('QR codes were saved in directory {}'.format(args.output_dir))
+        print(f'QR codes were saved in directory {args.output_dir}')
 
 
 if __name__ == '__main__':

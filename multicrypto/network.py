@@ -145,9 +145,8 @@ def send_utxos(coin, utxos, destination_address, satoshis, fee):
         )
         counter_inputs += 1
         logger.debug(
-            '{}. address: {}, input: {}, satoshis: {}'.format(
-                counter_inputs, utxo['source_address'], utxo['txid'], utxo['satoshis']
-            )
+            f'{counter_inputs}. address: {utxo["source_address"]}, '
+            f'input: {utxo["txid"]}, satoshis: {utxo["satoshis"]}'
         )
         if input_satoshis >= satoshis + fee:
             return send_inputs(
@@ -161,8 +160,7 @@ def send_utxos(coin, utxos, destination_address, satoshis, fee):
             )
     else:
         raise Exception(
-            'Not enough funds in address(es).\n'
-            'Sum of inputs is {} which is less than {} ({} + {})'.format(
-                input_satoshis, satoshis + fee, satoshis, fee
-            )
+            f'Not enough funds in address(es).\n'
+            f'Sum of inputs is {input_satoshis} which is less than '
+            f'{satoshis + fee} ({satoshis} + {fee})'
         )

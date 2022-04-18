@@ -37,8 +37,7 @@ def validate_base58(string):
     invalid_characters = set(string) - set(base58)
     if invalid_characters:
         raise Exception(
-            'pattern {} contains not allowed characters: {}'.format(
-                string, ''.join(sorted(invalid_characters))
-            )
+            f'pattern {string} contains not allowed characters: '
+            f'{"".join(sorted(invalid_characters))}'
         )
     return True

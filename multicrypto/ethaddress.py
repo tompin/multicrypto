@@ -4,7 +4,7 @@ from multicrypto.ellipticcurve import secp256k1
 
 
 def convert_public_key_to_address(public_key, with_check_sum=False):
-    encoded_public_key = '{}{}'.format(public_key.x, public_key.y).encode()
+    encoded_public_key = f'{public_key.x}{public_key.y}'.encode()
     address = '0x' + keccak_256(encoded_public_key).hexdigest()[24:]
     if with_check_sum:
         address = to_checksum_address(address)

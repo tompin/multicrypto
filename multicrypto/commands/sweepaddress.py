@@ -7,7 +7,7 @@ from multicrypto.address import (
     validate_wif_private_key,
     convert_wif_private_key_to_address,
 )
-from multicrypto.coins import coins
+from multicrypto.coins import coins, get_coins_with_api
 from multicrypto.network import get_utxo_from_private_keys, send_utxos
 from multicrypto.validators import check_positive, check_coin_symbol
 
@@ -20,15 +20,13 @@ DEFAULT_BATCH_SIZE = 50
 def get_args():
     parser = argparse.ArgumentParser(
         description=(
-            'Send cryptocurrency to specified address. Main purpose of this command is to '
-            'combine many small inputs into larger ones. There is no way to specify amount '
-            'that will be send, but we can define which inputs we want to use. This command'
-            ' could create many transactions depending how many inputs our address have. '
-            'For example if address has 1000 inputs which we want to sweep and we use '
-            'default batch_size parameter which is 200, this command should create 5 '
-            'transactions. Supported coins are: {}'.format(
-                ','.join(coin for coin in coins if coins[coin].get('apis'))
-            )
+            f'Send cryptocurrency to specified address. Main purpose of this command is to '
+            f'combine many small inputs into larger ones. There is no way to specify amount '
+            f'that will be send, but we can define which inputs we want to use. This command'
+            f' could create many transactions depending how many inputs our address have. '
+            f'For example if address has 1000 inputs which we want to sweep and we use '
+            f'default batch_size parameter which is 200, this command should create 5 '
+            f'transactions. Supported coins are: {get_coins_with_api()}'
         )
     )
     parser.add_argument(
@@ -119,7 +117,7 @@ def sweep_address(args):
         logger.error(e)
         return
     if not coin.get('apis'):
-        logger.error('No api has been defined for the coin {}'.format(coin_symbol))
+        logger.error(f'No api has been defined for the coin {coin_symbol}')
         return
     try:
         utxos = get_utxo_from_private_keys(
@@ -135,7 +133,7 @@ def sweep_address(args):
             satoshis = sum(utxo['satoshis'] for utxo in batch_utxos)
             if satoshis < fee:
                 raise Exception(
-                    'Fee {} is larger than sum of batch inputs {}'.format(fee, satoshis)
+                    f'Fee {fee} is larger than sum of batch inputs {satoshis}'
                 )
             result = send_utxos(coin, batch_utxos, destination_address, satoshis - fee, fee)
             print(result)

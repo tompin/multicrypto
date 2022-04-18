@@ -38,12 +38,12 @@ def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out
             wif_private_key = convert_private_key_to_wif_format(
                 private_key, secret_prefix_bytes, compressed
             )
-            print('Address: {}\nPrivate key: {}'.format(address, wif_private_key))
+            print(f'Address: {address}\nPrivate key: {wif_private_key}')
             if out_dir:
                 save_qrcode(address, out_dir, error_correct='L')
                 if wif_private_key:
                     save_qrcode(wif_private_key, out_dir, f'{address}_private_key.png')
-                print('QR codes were saved in directory {}'.format(out_dir))
+                print(f'QR codes were saved in directory {out_dir}')
             found.set()
             quit.set()
             return address, wif_private_key
@@ -51,11 +51,8 @@ def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out
         counter += 1
         if counter % 10000000 == 0:
             print(
-                'worker: {}, checked {}M addresses ({}/sec)'.format(
-                    worker_num,
-                    counter / 1000000,
-                    counter // (datetime.datetime.now() - start_time).seconds,
-                )
+                f'worker: {worker_num}, checked {counter / 1000000}M addresses '
+                f'({counter // (datetime.datetime.now() - start_time).seconds}/sec)'
             )
             sys.stdout.flush()
 
@@ -134,9 +131,7 @@ def start_workers(args):
         logger.error(e)
         return
     print(
-        'Looking for pattern {} for {} using {} workers'.format(
-            pattern, coins[coin_symbol]['name'], workers
-        )
+        f'Looking for pattern {pattern} for {coins[coin_symbol]["name"]} using {workers} workers'
     )
     quit = multiprocessing.Event()
     found = multiprocessing.Event()

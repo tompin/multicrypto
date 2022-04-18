@@ -91,7 +91,7 @@ def int_to_varint_hex(int_value):
     elif int_value <= 0xFFFFFFFFFFFFFFFF:
         return 'ff' + int_value.to_bytes(8, byteorder='little').hex()
     else:
-        raise Exception('Too big varint: {}'.format(int_value))
+        raise Exception(f'Too big varint: {int_value}')
 
 
 def der_encode_signature(signature):

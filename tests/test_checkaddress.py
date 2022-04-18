@@ -88,7 +88,7 @@ def test_checkaddress_success(sys_stdout):
     main()
 
     res = (
-        'ZEC Address t1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP\n'
+        'ZEC address t1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP\n'
         'txid: 4417d9e022c8f4adf1ef6d9dbad7a1ee0ae44b7eb5cf61e86fd1a0ed22b1c180, confirmations: '
         '   41130, satoshis:      52637874459, amount: 526.37874459 ZEC\n'
         'txid: da08e8e2e3ba55f9b45ba7f0ca14f96683c3547419fcfe10e6c8ae9f3eebe4cf, confirmations: '

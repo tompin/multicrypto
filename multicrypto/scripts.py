@@ -94,7 +94,7 @@ def validate_hex_script(hex_script):
     try:
         bytes.fromhex(hex_script)
     except Exception as e:
-        raise Exception('Script should be provided in HEX format: {}'.format(e))
+        raise Exception(f'Script should be provided in HEX format: {e}')
     # TODO: validate structure of the script
 
 

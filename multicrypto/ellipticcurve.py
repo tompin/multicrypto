@@ -25,7 +25,7 @@ class Curve:
         self.G = Point(self, gx, gy)
 
     def __str__(self):
-        return 'curve {}'.format(self.name)
+        return f'curve {self.name}'
 
     @property
     def bytes_size(self):
@@ -71,7 +71,7 @@ class Point:
         self.x = x % self.curve.p
         self.y = y % self.curve.p
         if not curve.is_point_on_curve(self):
-            raise Exception('Point {} is not on the curve {}'.format(self, curve))
+            raise Exception(f'Point {self} is not on the curve {curve}')
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
@@ -153,7 +153,7 @@ class Point:
         return self.line_intersect(self, self.tangent())
 
     def __repr__(self):
-        return '({}, {}) on {}'.format(self.x, self.y, self.curve)
+        return f'({self.x}, {self.y}) on {self.curve}'
 
 
 secp256k1 = Curve(

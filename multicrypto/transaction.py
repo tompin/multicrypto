@@ -173,7 +173,7 @@ class Transaction:
 
     def create(self):
         if self.id:
-            raise Exception('Transaction {} already created'.format(self.id))
+            raise Exception(f'Transaction {self.id} already created')
         for i in range(len(self.inputs)):
             self.sign_input(i)
         raw_transaction_data = (
@@ -186,7 +186,7 @@ class Transaction:
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
         self.raw = raw_transaction_data.hex()
-        logger.info('Created transaction with id: {}\nRaw data: {}'.format(self.id, self.raw))
+        logger.info(f'Created transaction with id: {self.id}\nRaw data: {self.raw}')
         return self.raw
 
 
@@ -223,7 +223,7 @@ class POSTransaction(Transaction):
 
     def create(self):
         if self.id:
-            raise Exception('Transaction id {} already created'.format(self.id))
+            raise Exception(f'Transaction id {self.id} already created')
         for i in range(len(self.inputs)):
             self.sign_input(i)
         raw_transaction_data = (
@@ -237,5 +237,5 @@ class POSTransaction(Transaction):
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
         self.raw = raw_transaction_data.hex()
-        logger.info('Created transaction with id: {}\nRaw data: {}'.format(self.id, self.raw))
+        logger.info(f'Created transaction with id: {self.id}\nRaw data: {self.raw}')
         return self.raw

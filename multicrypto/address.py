@@ -122,8 +122,8 @@ def validate_pattern(pattern, coin_symbol, is_script):
         start_address, end_address = get_address_range(coins[coin_symbol]['address_prefix_bytes'])
     if not (start_address[: len(pattern)] <= pattern <= end_address[: len(pattern)]):
         raise Exception(
-            'Impossible prefix! Choose different one from {}-{} range'
-            '(characters order is {})'.format(start_address, end_address, base58)
+            f'Impossible prefix! Choose different one from {start_address}-{end_address} range'
+            f'(characters order is {base58})'
         )
     return True
 
@@ -155,8 +155,6 @@ def validate_wif_private_key(wif_private_key, coin_symbol):
         secret_prefix_bytes = private_key_bytes[1:2]
     if secret_prefix_bytes != coins[coin_symbol]['secret_prefix_bytes']:
         raise Exception(
-            'Incorrect secret prefix 0x{} in wif private key for coin {}'.format(
-                secret_prefix_bytes.hex(), coin_symbol
-            )
+            f'Incorrect secret prefix 0x{secret_prefix_bytes.hex()} in wif private key for coin {coin_symbol}'
         )
     return True

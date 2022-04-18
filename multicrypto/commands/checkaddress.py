@@ -3,7 +3,7 @@ import logging
 import sys
 
 from multicrypto.address import validate_address
-from multicrypto.coins import coins
+from multicrypto.coins import coins, get_coins_with_api
 from multicrypto.network import get_utxo_from_address
 from multicrypto.validators import check_positive, check_coin_symbol
 
@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
-            ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))
+        description=(
+            f'Send cryptocurrency to specified address. '
+            f'Supported coins are: {get_coins_with_api()}.'
         )
     )
     parser.add_argument(
@@ -68,7 +69,7 @@ def check_address(args):
 
     validate_address(address, coin_symbol)
     if not coins[coin_symbol].get('apis'):
-        raise Exception('No api has been defined for the coin {}'.format(coin_symbol))
+        raise Exception(f'No api has been defined for the coin {coin_symbol}')
 
     utxos = get_utxo_from_address(
         coins[coin_symbol], address, minimum_input_threshold, maximum_input_threshold, limit_inputs
@@ -81,22 +82,20 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     utxos = check_address(args)
     coin_symbol = args.coin_symbol.upper()
-    print('{} Address {}'.format(coin_symbol, args.address))
+    print(f'{coin_symbol} address {args.address}')
     sum_satoshis = 0
     sum_amount = 0
     for utxo in utxos:
         print(
-            'txid: {}, confirmations: {:8}, satoshis: {:16}, amount: {:9.8f} {}'.format(
-                utxo['txid'], utxo['confirmations'], utxo['satoshis'], utxo['amount'], coin_symbol
-            )
+            f'txid: {utxo["txid"]}, confirmations: {utxo["confirmations"]:8}, '
+            f'satoshis: {utxo["satoshis"]:16}, amount: {utxo["amount"]:9.8f} {coin_symbol}'
         )
         sum_satoshis += utxo['satoshis']
         sum_amount += utxo['amount']
     print('-' * 140)
     print(
-        '{:9} inputs {} satoshis: {:16}, amount: {:9.8f} {}'.format(
-            len(utxos), ' ' * 79, sum_satoshis, sum_amount, coin_symbol
-        )
+        f'{len(utxos):9} inputs {" " * 79} satoshis: {sum_satoshis:16}, '
+        f'amount: {sum_amount:9.8f} {coin_symbol}'
     )
 
 

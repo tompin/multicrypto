@@ -4,7 +4,7 @@ import logging
 import sys
 
 from multicrypto.address import validate_address, validate_wif_private_key
-from multicrypto.coins import coins
+from multicrypto.coins import coins, get_coins_with_api
 from multicrypto.network import send_from_private_keys
 from multicrypto.scripts import validate_hex_script
 from multicrypto.validators import check_coin_symbol, check_non_negative, check_positive
@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description='Send cryptocurrency to specified address. Supported coins are: {}'.format(
-            ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))
+        description=(
+            f'Send cryptocurrency to specified address. '
+            f'Supported coins are: {get_coins_with_api()}'
         )
     )
     parser.add_argument(
@@ -129,7 +130,7 @@ def send_crypto(args):
         logger.error(e)
         return
     if not coins[coin_symbol].get('apis'):
-        logger.error('No api has been defined for the coin {}'.format(coin_symbol))
+        logger.error(f'No api has been defined for the coin {coin_symbol}')
         return
 
     result = send_from_private_keys(
@@ -155,7 +156,7 @@ def main():
         print(result)
         json.loads(result)
     except Exception as e:
-        logger.exception('Error: {}'.format(e))
+        logger.exception(f'Error: {e}')
 
 
 if __name__ == '__main__':
