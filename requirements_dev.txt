@@ -1,4 +1,4 @@
-black==22.1.0
+black==22.3.0
 pytest==6.2.2
 pytest-cov==2.11.1
 coveralls==3.0.0
