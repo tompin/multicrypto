@@ -15,7 +15,7 @@ def decode_point(encoded_point, curve=secp256k1):
         x = int(encoded_point[2:66], 16)
         y = int(encoded_point[66:130], 16)
         return Point(curve=curve, x=x, y=y)
-    elif len(encoded_point) == 66:  # compressed
+    if len(encoded_point) == 66:  # compressed
         x = int(encoded_point[2:66], 16)
         beta = modular_sqrt(x**3 + curve.a * x + curve.b, curve.p)
         if (beta + int(encoded_point[:2], 16)) % 2:
@@ -23,8 +23,7 @@ def decode_point(encoded_point, curve=secp256k1):
         else:
             y = beta
         return Point(curve=curve, x=x, y=y)
-    else:
-        raise Exception('Unrecognized point format')
+    raise Exception('Unrecognized point format')
 
 
 def encode_point(point, compressed, output_format='bytes'):
@@ -36,8 +35,7 @@ def encode_point(point, compressed, output_format='bytes'):
         )
     if output_format == 'hex':
         return encoded_point.hex()
-    else:
-        return encoded_point
+    return encoded_point
 
 
 def int_to_bytes(integer, byteorder):
@@ -50,8 +48,7 @@ def hex_to_bytes(hex_value, byteorder):
     bytes_value = bytes.fromhex(hex_value)
     if byteorder == 'little':
         return bytes_value[::-1]
-    else:
-        return bytes_value
+    return bytes_value
 
 
 def double_sha256(input_data=b''):
@@ -84,14 +81,13 @@ def int_to_varint_hex(int_value):
     """
     if int_value <= 0xFC:
         return hex(int_value)[2:]
-    elif int_value <= 0xFFFF:
+    if int_value <= 0xFFFF:
         return 'fd' + int_value.to_bytes(2, byteorder='little').hex()
-    elif int_value <= 0xFFFFFFFF:
+    if int_value <= 0xFFFFFFFF:
         return 'fe' + int_value.to_bytes(4, byteorder='little').hex()
-    elif int_value <= 0xFFFFFFFFFFFFFFFF:
+    if int_value <= 0xFFFFFFFFFFFFFFFF:
         return 'ff' + int_value.to_bytes(8, byteorder='little').hex()
-    else:
-        raise Exception(f'Too big varint: {int_value}')
+    raise Exception(f'Too big varint: {int_value}')
 
 
 def der_encode_signature(signature):

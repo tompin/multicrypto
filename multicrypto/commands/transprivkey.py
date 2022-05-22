@@ -78,8 +78,8 @@ def translate(args):
         else:
             wif_private_key = private_key
         validate_base58(wif_private_key)
-    except Exception as e:
-        logger.error(e)
+    except ValueError as exc:
+        logger.error(exc)
         return '', '', ''
 
     output_private_key_prefix_bytes = coins[output_coin_symbol]['secret_prefix_bytes']

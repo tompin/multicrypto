@@ -60,7 +60,7 @@ def test_random_generate_address(tmpdir, coin_settings, pattern):
         segwit=False,
         out_dir=out_dir,
         found=SetMock(),
-        quit=SetMock(),
+        stop=SetMock(),
     )
 
     assert address[: len(pattern)] == pattern

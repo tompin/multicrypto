@@ -69,10 +69,7 @@ def verify_message(
     calculated_address = convert_public_key_to_address(
         public_key, coin['address_prefix_bytes'], compressed
     )
-    if calculated_address == address:
-        return True
-    else:
-        return False
+    return calculated_address == address
 
 
 def sign_message(
@@ -96,8 +93,7 @@ def sign_message(
             coin, message_with_magic_prefix, v, (r, s), address, curve, hash_function
         ):
             return b64encode(v.to_bytes(byteorder='big', length=1) + bytes_signature)
-    else:
-        raise Exception("error: cannot sign message")
+    raise Exception("error: cannot sign message")
 
 
 class RFC6979:

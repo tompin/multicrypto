@@ -112,13 +112,13 @@ def send_crypto(args):
         and minimum_input_threshold > maximum_input_threshold
     ):
         logger.error('Minimum input threshold cannot be bigger than maximum input value!')
-        return
+        return None
     if not wif_private_keys and not input_addresses:
         logger.error('You must provide wif_private_keys or input_addresses!')
-        return
+        return None
     if len(unlocking_scripts) != len(input_addresses):
         logger.error('Number of unlocking scripts must match number of input addresses!')
-        return
+        return None
     try:
         if destination_address:
             validate_address(destination_address, coin_symbol)
@@ -126,12 +126,12 @@ def send_crypto(args):
             validate_wif_private_key(wif_private_key, coin_symbol)
         for unlocking_script in unlocking_scripts:
             validate_hex_script(unlocking_script)
-    except Exception as e:
+    except ValueError as e:
         logger.error(e)
-        return
+        return None
     if not coins[coin_symbol].get('apis'):
-        logger.error(f'No api has been defined for the coin {coin_symbol}')
-        return
+        logger.error('No api has been defined for the coin %s', {coin_symbol})
+        return None
 
     result = send_from_private_keys(
         coin=coins[coin_symbol],
@@ -155,8 +155,8 @@ def main():
         result = send_crypto(args)
         print(result)
         json.loads(result)
-    except Exception as e:
-        logger.exception(f'Error: {e}')
+    except ValueError as e:
+        logger.exception('Error: %s', {e})
 
 
 if __name__ == '__main__':

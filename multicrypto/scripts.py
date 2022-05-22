@@ -62,7 +62,7 @@ def is_null_data(script):
 
 
 def is_multisig(script):
-    OP_X = [
+    op_x = [
         OP_0,
         OP_1,
         OP_2,
@@ -84,8 +84,8 @@ def is_multisig(script):
     return (
         len(script) > 3
         and script[-1] == OP_CHECKMULTISIGVERIFY
-        and script[-2] in OP_X
-        and script[0] in OP_X
+        and script[-2] in op_x
+        and script[0] in op_x
     )
     # TODO: read script and verify public keys were correctly provided
 
@@ -94,7 +94,7 @@ def validate_hex_script(hex_script):
     try:
         bytes.fromhex(hex_script)
     except Exception as e:
-        raise Exception(f'Script should be provided in HEX format: {e}')
+        raise ValueError(f'Script should be provided in HEX format: {e}') from e
     # TODO: validate structure of the script
 
 

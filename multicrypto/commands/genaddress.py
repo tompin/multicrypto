@@ -21,7 +21,7 @@ N = secp256k1.n  # order of the curve
 G = secp256k1.G  # generator point
 
 
-def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out_dir, found, quit):
+def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out_dir, found, stop):
     if segwit:
         prefix_bytes = coin_settings['script_prefix_bytes']
     else:
@@ -31,7 +31,7 @@ def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out
     point = seed * G
     counter = 0
     start_time = datetime.datetime.now()
-    while not quit.is_set():
+    while not stop.is_set():
         address = convert_public_key_to_address(point, prefix_bytes, compressed, segwit)
         if address.startswith(pattern):
             private_key = (seed + counter) % N
@@ -45,7 +45,7 @@ def generate_address(worker_num, coin_settings, pattern, compressed, segwit, out
                     save_qrcode(wif_private_key, out_dir, f'{address}_private_key.png')
                 print(f'QR codes were saved in directory {out_dir}')
             found.set()
-            quit.set()
+            stop.set()
             return address, wif_private_key
         point += G
         counter += 1
@@ -114,7 +114,7 @@ def start_workers(args):
     output_dir = args.output_dir
     input_script = args.input_script
     if segwit and not compressed:
-        raise Exception('Segwit addresses must used compressed public key representation')
+        raise ValueError('Segwit addresses must used compressed public key representation')
     jobs = []
     try:
         validate_pattern(pattern, coin_symbol, segwit)
@@ -127,18 +127,18 @@ def start_workers(args):
                 save_qrcode(address, output_dir)
             print(address)
             return
-    except Exception as e:
-        logger.error(e)
+    except ValueError as exc:
+        logger.error(exc)
         return
     print(
         f'Looking for pattern {pattern} for {coins[coin_symbol]["name"]} using {workers} workers'
     )
-    quit = multiprocessing.Event()
+    stop = multiprocessing.Event()
     found = multiprocessing.Event()
     for i in range(workers):
         p = multiprocessing.Process(
             target=generate_address,
-            args=(i, coins[coin_symbol], pattern, compressed, segwit, output_dir, found, quit),
+            args=(i, coins[coin_symbol], pattern, compressed, segwit, output_dir, found, stop),
         )
         jobs.append(p)
         p.start()

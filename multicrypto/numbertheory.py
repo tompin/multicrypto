@@ -43,11 +43,11 @@ def modular_sqrt(a, p):  # noqa: C901
     # Simple cases handling
     if legendre_symbol(a, p) != 1:
         return 0
-    elif a == 0:
+    if a == 0:
         return 0
-    elif p == 2:
+    if p == 2:
         return p
-    elif p % 4 == 3:
+    if p % 4 == 3:
         return pow(a, (p + 1) // 4, p)
     s = p - 1
     e = 0

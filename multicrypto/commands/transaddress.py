@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 
 from multicrypto.address import translate_address, validate_address
 from multicrypto.coins import coins

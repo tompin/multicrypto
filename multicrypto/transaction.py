@@ -88,14 +88,14 @@ class Transaction:
         self.history_block = params.get('check_block_at_height')
         self.inputs = [
             TransactionInput(
-                transaction_id=input['transaction_id'],
-                output_index=input['output_index'],
-                locking_script=input['locking_script'],
-                satoshis=input['satoshis'],
-                private_key=input.get('private_key'),
-                unlocking_script=input.get('unlocking_script', ''),
+                transaction_id=inp['transaction_id'],
+                output_index=inp['output_index'],
+                locking_script=inp['locking_script'],
+                satoshis=inp['satoshis'],
+                private_key=inp.get('private_key'),
+                unlocking_script=inp.get('unlocking_script', ''),
             )
-            for input in inputs
+            for inp in inputs
         ]
         self.inputs_counter = int_to_bytes(len(self.inputs), byteorder='little')
         self.outputs = [
@@ -106,11 +106,11 @@ class Transaction:
 
     def get_encoded_inputs(self, position):
         input_block = b''
-        for i, input in enumerate(self.inputs):
+        for i, inp in enumerate(self.inputs):
             if i in position:
-                input_block += input.get_encoded(with_script=True)
+                input_block += inp.get_encoded(with_script=True)
             else:
-                input_block += input.get_encoded(with_script=False)
+                input_block += inp.get_encoded(with_script=False)
             input_block += self.sequence
         return input_block
 
@@ -153,23 +153,23 @@ class Transaction:
         return data
 
     def sign_input(self, position):
-        input = self.inputs[position]
-        if is_p2sh(input.script):
-            input.script = input.unlocking_script
-            input.script_length = int_to_bytes(len(input.script), byteorder='little')
+        inp = self.inputs[position]
+        if is_p2sh(inp.script):
+            inp.script = inp.unlocking_script
+            inp.script_length = int_to_bytes(len(inp.script), byteorder='little')
             return
         message = self.get_data_to_sign(position)
-        sig = sign(message, input.private_key, secp256k1, double_sha256)  # ECDSA signing
+        sig = sign(message, inp.private_key, secp256k1, double_sha256)  # ECDSA signing
         encoded_signature = der_encode_signature(sig)
         signature = encoded_signature + self.coin.get('sig_hash', b'\x01')
         script_sig = (
             len(signature).to_bytes(1, byteorder='little')
             + signature
-            + input.public_key_len
-            + input.encoded_public_key
+            + inp.public_key_len
+            + inp.encoded_public_key
         )
-        input.script = script_sig
-        input.script_length = int_to_bytes(len(script_sig), byteorder='little')
+        inp.script = script_sig
+        inp.script_length = int_to_bytes(len(script_sig), byteorder='little')
 
     def create(self):
         if self.id:
@@ -186,7 +186,7 @@ class Transaction:
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
         self.raw = raw_transaction_data.hex()
-        logger.info(f'Created transaction with id: {self.id}\nRaw data: {self.raw}')
+        logger.info('Created transaction with id: %s\nRaw data: %s', self.id, self.raw)
         return self.raw
 
 
@@ -196,8 +196,8 @@ class POSTransaction(Transaction):
             self.transaction_time = int(time.time()).to_bytes(4, byteorder='little')
         else:
             self.transaction_time = transaction_time
-        for input in inputs:
-            input['transaction_id'] = reverse_byte_hex(input['transaction_id'])
+        for inp in inputs:
+            inp['transaction_id'] = reverse_byte_hex(inp['transaction_id'])
         super().__init__(coin, inputs, outputs, **params)
 
     def get_data_to_sign(self, position):
@@ -237,5 +237,5 @@ class POSTransaction(Transaction):
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
         self.raw = raw_transaction_data.hex()
-        logger.info(f'Created transaction with id: {self.id}\nRaw data: {self.raw}')
+        logger.info('Created transaction with id: %s\nRaw data: %s', self.id, self.raw)
         return self.raw

@@ -41,8 +41,8 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     try:
         decoded_message = base64.b64decode(signed_message)
-    except Exception as e:
-        logger.error(e)
+    except ValueError as exc:
+        logger.error(exc)
         return
     v = decoded_message[0]
     curve = secp256k1

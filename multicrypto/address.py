@@ -120,8 +120,8 @@ def validate_pattern(pattern, coin_symbol, is_script):
         start_address, end_address = get_address_range(coins[coin_symbol]['script_prefix_bytes'])
     else:
         start_address, end_address = get_address_range(coins[coin_symbol]['address_prefix_bytes'])
-    if not (start_address[: len(pattern)] <= pattern <= end_address[: len(pattern)]):
-        raise Exception(
+    if not start_address[: len(pattern)] <= pattern <= end_address[: len(pattern)]:
+        raise ValueError(
             f'Impossible prefix! Choose different one from {start_address}-{end_address} range'
             f'(characters order is {base58})'
         )
@@ -133,15 +133,15 @@ def validate_address(address, coin_symbol):
     coin = coins[coin_symbol]
     prefix_bytes, _ = decompose_address(address, coin)
     if not address_bytes.startswith(prefix_bytes):
-        raise Exception('Address prefix is not correct for this coin')
+        raise ValueError('Address prefix is not correct for this coin')
     if len(address_bytes) > len(prefix_bytes) + 24:
-        raise Exception('Too many characters in address')
-    elif len(address_bytes) < len(prefix_bytes) + 24:
-        raise Exception('Too little characters in address')
+        raise ValueError('Too many characters in address')
+    if len(address_bytes) < len(prefix_bytes) + 24:
+        raise ValueError('Too little characters in address')
     check_sum = address_bytes[-4:]
     calculated_check_sum = double_sha256(address_bytes[:-4]).digest()[:4]
     if check_sum != calculated_check_sum:
-        raise Exception('Check sum is not correct')
+        raise ValueError('Check sum is not correct')
     return validate_pattern(address, coin_symbol, prefix_bytes == coin['script_prefix_bytes'])
 
 
@@ -154,7 +154,8 @@ def validate_wif_private_key(wif_private_key, coin_symbol):
     else:
         secret_prefix_bytes = private_key_bytes[1:2]
     if secret_prefix_bytes != coins[coin_symbol]['secret_prefix_bytes']:
-        raise Exception(
-            f'Incorrect secret prefix 0x{secret_prefix_bytes.hex()} in wif private key for coin {coin_symbol}'
+        raise ValueError(
+            f'Incorrect secret prefix 0x{secret_prefix_bytes.hex()} in wif private key '
+            f'for coin {coin_symbol}'
         )
     return True

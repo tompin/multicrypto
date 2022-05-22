@@ -91,8 +91,8 @@ class Point:
         if self.x == other.x:
             if self.y == other.y:  # adding point to itself
                 return self.double()
-            else:  # sum of vertical pair points gives identity point
-                return self.curve.identity_point
+            # sum of vertical pair points gives identity point
+            return self.curve.identity_point
 
         inverse_den = modular_inverse((self.x - other.x) % self.curve.p, self.curve.p)
         slope = ((self.y - other.y) * inverse_den) % self.curve.p

@@ -113,11 +113,11 @@ def sweep_address(args):
             destination_address = convert_wif_private_key_to_address(
                 wif_private_key, coin['address_prefix_bytes']
             )
-    except Exception as e:
+    except ValueError as e:
         logger.error(e)
         return
     if not coin.get('apis'):
-        logger.error(f'No api has been defined for the coin {coin_symbol}')
+        logger.error('No api has been defined for the coin %s', {coin_symbol})
         return
     try:
         utxos = get_utxo_from_private_keys(
@@ -132,13 +132,13 @@ def sweep_address(args):
             batch_utxos = utxos[batch_size * i : batch_size * (i + 1)]
             satoshis = sum(utxo['satoshis'] for utxo in batch_utxos)
             if satoshis < fee:
-                raise Exception(
+                raise ValueError(
                     f'Fee {fee} is larger than sum of batch inputs {satoshis}'
                 )
             result = send_utxos(coin, batch_utxos, destination_address, satoshis - fee, fee)
             print(result)
-    except Exception as e:
-        logger.exception(e)
+    except ValueError as exc:
+        logger.exception(exc)
 
 
 def main():
