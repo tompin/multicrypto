@@ -79,9 +79,7 @@ def translate(args):
 def main():
     args = get_args()
     translated_address = translate(args)
-    print(
-        f'{args.address} ({args.input_symbol}) -> {translated_address} ({args.output_symbol})'
-    )
+    print(f'{args.address} ({args.input_symbol}) -> {translated_address} ({args.output_symbol})')
     if args.output_dir:
         save_qrcode(translated_address, args.output_dir, error_correct='L')
         print(f'Address QR code was saved in directory {args.output_dir}')

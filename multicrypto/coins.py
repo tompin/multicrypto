@@ -127,6 +127,4 @@ coins = {
 
 
 def get_coins_with_api():
-    return ','.join(
-        coin['name'].title() for coin in coins.values() if coin.get('apis')
-    )
+    return ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))

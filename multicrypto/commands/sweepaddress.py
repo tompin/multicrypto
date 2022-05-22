@@ -132,9 +132,7 @@ def sweep_address(args):
             batch_utxos = utxos[batch_size * i : batch_size * (i + 1)]
             satoshis = sum(utxo['satoshis'] for utxo in batch_utxos)
             if satoshis < fee:
-                raise ValueError(
-                    f'Fee {fee} is larger than sum of batch inputs {satoshis}'
-                )
+                raise ValueError(f'Fee {fee} is larger than sum of batch inputs {satoshis}')
             result = send_utxos(coin, batch_utxos, destination_address, satoshis - fee, fee)
             print(result)
     except ValueError as exc:

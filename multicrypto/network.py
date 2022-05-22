@@ -146,7 +146,10 @@ def send_utxos(coin, utxos, destination_address, satoshis, fee):
         counter_inputs += 1
         logger.debug(
             '%s. address: %s, input: %s, satoshis: %s',
-            counter_inputs, utxo['source_address'], utxo['txid'], utxo['satoshis']
+            counter_inputs,
+            utxo['source_address'],
+            utxo['txid'],
+            utxo['satoshis'],
         )
         if input_satoshis >= satoshis + fee:
             return send_inputs(
