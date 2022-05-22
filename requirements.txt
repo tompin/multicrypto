@@ -1,4 +1,4 @@
 pypng==0.0.21
-PyQRCode==1.2.1 --use-deprecated=backtrack-on-build-failures
+PyQRCode==1.2.1
 pysha3==1.0.2
 requests==2.27.1
