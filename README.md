@@ -1,11 +1,10 @@
 # README
 
-[![Build Status](https://travis-ci.org/tompin/multicrypto.svg?branch=master)](https://travis-ci.org/tompin/multicrypto)
+[![Build Status](https://app.travis-ci.com/tompin/multicrypto.svg?branch=master)](https://app.travis-ci.com/github/tompin/multicrypto)
 [![Coverage Status](https://coveralls.io/repos/github/tompin/multicrypto/badge.svg?branch=master)](https://coveralls.io/github/tompin/multicrypto?branch=master)
-[![Latest Version](https://pypip.in/version/multicrypto/badge.svg)](https://pypi.python.org/pypi/multicrypto/)
+[![Latest Version](https://img.shields.io/pypi/v/multicrypto.svg)](https://pypi.python.org/pypi/multicrypto/)
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Bitcoin donation](https://img.balancebadge.io/btc/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG.svg?label=Donations&color=ffb121)](https://blockchain.info/address/1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG)
 
 Highly experimental, pure python tool for cryptocurrencies.
 Please notice that coins could change their protocols so make sure the coin parameters are not outdated. 
