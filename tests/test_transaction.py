@@ -5,6 +5,7 @@ from multicrypto.coins import coins
 from multicrypto.consts import OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSH_20
 from multicrypto.ecdsa import verify
 from multicrypto.ellipticcurve import Point, secp256k1
+from multicrypto.ripemd160 import ripemd160
 from multicrypto.transaction import Transaction, POSTransaction
 from multicrypto.utils import double_sha256, encode_point, reverse_byte_hex
 
@@ -22,7 +23,7 @@ def test_verify_one_input():
         b'\x04' + x.to_bytes(32, byteorder='big') + y.to_bytes(32, byteorder='big')
     )
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
-    digest_public_key = hashlib.new('ripemd160', hashed_public_key).digest()
+    digest_public_key = ripemd160(hashed_public_key)
     funding_script = (
         OP_DUP + OP_HASH160 + OP_PUSH_20 + digest_public_key + OP_EQUALVERIFY + OP_CHECKSIG
     )
@@ -52,7 +53,7 @@ def test_verify_one_input_zeit():
     public_key = Point(secp256k1, x, y)
     encoded_public_key = encode_point(public_key, compressed=True)
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
-    digest_public_key = hashlib.new('ripemd160', hashed_public_key).digest()
+    digest_public_key = ripemd160(hashed_public_key)
     funding_script = (
         OP_DUP + OP_HASH160 + OP_PUSH_20 + digest_public_key + OP_EQUALVERIFY + OP_CHECKSIG
     )
@@ -82,7 +83,7 @@ def test_verify_two_inputs():
     public_key1 = Point(secp256k1, x1, y1)
     encoded_public_key1 = b'\x02' + x1.to_bytes(32, byteorder='big')
     hashed_public_key1 = hashlib.sha256(encoded_public_key1).digest()
-    digest_public_key1 = hashlib.new('ripemd160', hashed_public_key1).digest()
+    digest_public_key1 = ripemd160(hashed_public_key1)
     funding_script1 = (
         OP_DUP + OP_HASH160 + OP_PUSH_20 + digest_public_key1 + OP_EQUALVERIFY + OP_CHECKSIG
     )
@@ -102,7 +103,7 @@ def test_verify_two_inputs():
     public_key2 = Point(secp256k1, x2, y2)
     encoded_public_key2 = b'\x03' + x2.to_bytes(32, byteorder='big')
     hashed_public_key2 = hashlib.sha256(encoded_public_key2).digest()
-    digest_public_key2 = hashlib.new('ripemd160', hashed_public_key2).digest()
+    digest_public_key2 = ripemd160(hashed_public_key2)
     funding_script2 = (
         OP_DUP + OP_HASH160 + OP_PUSH_20 + digest_public_key2 + OP_EQUALVERIFY + OP_CHECKSIG
     )

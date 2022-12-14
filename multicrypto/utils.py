@@ -6,6 +6,7 @@ from pyqrcode import QRCode
 
 from multicrypto.ellipticcurve import Point, secp256k1
 from multicrypto.numbertheory import modular_sqrt
+from multicrypto.ripemd160 import ripemd160
 
 
 def decode_point(encoded_point, curve=secp256k1):
@@ -57,7 +58,7 @@ def double_sha256(input_data=b''):
 
 def hash160(input_data):
     hash_sha256 = hashlib.sha256(input_data).digest()
-    digest = hashlib.new('ripemd160', hash_sha256).digest()
+    digest = ripemd160(hash_sha256)
     return digest
 
 
