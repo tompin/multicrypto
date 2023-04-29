@@ -1,6 +1,9 @@
-from sha3 import keccak_256
-
+from Crypto.Hash import keccak
 from multicrypto.ellipticcurve import secp256k1
+
+
+def keccak_256(data):
+    return keccak.new(data=data, digest_bits=256, update_after_digest=True)
 
 
 def convert_public_key_to_address(public_key, with_check_sum=False):
