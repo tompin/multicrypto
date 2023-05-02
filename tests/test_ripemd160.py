@@ -1,5 +1,4 @@
 import pytest
-import string
 
 from multicrypto.ripemd160 import ripemd160
 
