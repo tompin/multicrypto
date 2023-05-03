@@ -1,6 +1,5 @@
 # README
 
-[![Build Status](https://app.travis-ci.com/tompin/multicrypto.svg?branch=master)](https://app.travis-ci.com/github/tompin/multicrypto)
 [![Coverage Status](https://coveralls.io/repos/github/tompin/multicrypto/badge.svg?branch=master)](https://coveralls.io/github/tompin/multicrypto?branch=master)
 [![Latest Version](https://img.shields.io/pypi/v/multicrypto.svg)](https://pypi.python.org/pypi/multicrypto/)
 [![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
@@ -145,7 +144,7 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 | Zero | ZERO | Yes | Yes | Yes |
 
 ## Tests
-Install pytest, pytest-cov and tox packages:
+Install pytest and pytest-cov packages:
 ```bash
 pip install -r requirements_dev.txt
 ```
