@@ -20,9 +20,9 @@ jobs:
           cache: 'pip'
       - name: Create venv and install dependencies
         run: |
-          python -m venv ./venv
-          /venv/bin/pip install -r requirements.txt -r requirements_dev.txt
+          python -m venv venv
+          pip install -r requirements.txt -r requirements_dev.txt
       - name: Check code formatting (black)
         run: black --check --skip-string-normalization --line-length 100 multicrypto/
       - name: Run tests
-        run: /venv/bin/python -m pytest
+        run: python -m pytest
