@@ -34,8 +34,7 @@ def get_args():
         type=check_coin_symbol,
         required=False,
         default='',
-        help='Symbol of the coin for which we want to know corresponding '
-        'translated private key',
+        help='Symbol of the coin for which we want to know corresponding ' 'translated private key',
     )
     parser.add_argument(
         '-f',
@@ -84,9 +83,7 @@ def translate(args):
 
     output_private_key_prefix_bytes = coins[output_coin_symbol]['secret_prefix_bytes']
     output_address_prefix_bytes = coins[output_coin_symbol]['address_prefix_bytes']
-    translated_private_key = translate_private_key(
-        wif_private_key, output_private_key_prefix_bytes
-    )
+    translated_private_key = translate_private_key(wif_private_key, output_private_key_prefix_bytes)
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
     address = convert_private_key_to_address(private_key, output_address_prefix_bytes, compressed)
     return translated_private_key, compressed, address

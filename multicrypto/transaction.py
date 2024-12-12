@@ -43,9 +43,7 @@ class TransactionInput:
         if private_key:
             self.private_key = private_key
             self.public_key = private_key * secp256k1.G
-            compressed_public_key_hash = calculate_public_key_hash(
-                self.public_key, compressed=True
-            )
+            compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
             if compressed_public_key_hash.hex() not in locking_script:
                 is_compressed_public_key = False
             else:

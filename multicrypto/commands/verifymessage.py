@@ -20,9 +20,7 @@ def get_args():
     parser.add_argument(
         '-c', '--coin_symbol', type=check_coin_symbol, required=True, help='Coin symbol'
     )
-    parser.add_argument(
-        '-m', '--message', type=str, required=True, help='Message which was signed'
-    )
+    parser.add_argument('-m', '--message', type=str, required=True, help='Message which was signed')
     parser.add_argument('-s', '--signed_message', type=str, required=True, help='Signed message')
     parser.add_argument(
         '-a', '--address', type=str, required=True, help='Address used to sign the message'

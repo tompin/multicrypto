@@ -130,9 +130,7 @@ def start_workers(args):
     except ValueError as exc:
         logger.error(exc)
         return
-    print(
-        f'Looking for pattern {pattern} for {coins[coin_symbol]["name"]} using {workers} workers'
-    )
+    print(f'Looking for pattern {pattern} for {coins[coin_symbol]["name"]} using {workers} workers')
     stop = multiprocessing.Event()
     found = multiprocessing.Event()
     for i in range(workers):
