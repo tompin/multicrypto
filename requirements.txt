@@ -1,4 +1,4 @@
 pycryptodome==3.19
 pypng==0.0.21
 PyQRCode==1.2.1
-requests==2.31
+requests==2.31.0
