@@ -131,7 +131,6 @@ def test_checkadress_minimum_input_greater_than_maximum_input_failure():
 
 @patch.object(sys, 'argv', ['', '-a', 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP', '-c', 'ZCL'])
 def test_checkadress_no_api_failure():
-
     with pytest.raises(Exception) as exc_info:
         main()
 

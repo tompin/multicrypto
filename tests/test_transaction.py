@@ -19,9 +19,7 @@ def test_verify_one_input():
     x = int('8cc516ad062ac55d5ed980c4f743a366621fa409060188df3c39e289720090ae', 16)
     y = int('bba61faf69a3f2a39fac2745a565e5b2a4a9a5c90a71c9ee770135695231832c', 16)
     public_key = Point(secp256k1, x, y)
-    encoded_public_key = (
-        b'\x04' + x.to_bytes(32, byteorder='big') + y.to_bytes(32, byteorder='big')
-    )
+    encoded_public_key = b'\x04' + x.to_bytes(32, byteorder='big') + y.to_bytes(32, byteorder='big')
     hashed_public_key = hashlib.sha256(encoded_public_key).digest()
     digest_public_key = ripemd160(hashed_public_key)
     funding_script = (
