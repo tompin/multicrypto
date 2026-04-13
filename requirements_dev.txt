@@ -1,6 +1,6 @@
 black==24.3.0
 coverage==7.3.2
-pytest==7.4.3
+pytest==9.0.3
 pytest-cov==4.0.0
 flake8==6.1.0
 responses==0.12.1
