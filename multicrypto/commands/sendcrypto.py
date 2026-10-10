@@ -6,6 +6,7 @@ import sys
 from multicrypto.address import validate_address, validate_wif_private_key
 from multicrypto.api import send_from_private_keys
 from multicrypto.coins import coins, get_coins_with_api
+from multicrypto.network import NetworkError, broadcast_transaction, parse_node_address
 from multicrypto.scripts import validate_hex_script
 from multicrypto.validators import check_coin_symbol, check_non_negative, check_positive
 
@@ -90,6 +91,25 @@ def get_args():
         default=None,
         help='Specify limit for number of inputs that will be used in transaction',
     )
+    parser.add_argument(
+        '--p2p',
+        action='store_true',
+        help=(
+            'Send transaction directly to a node of the coin peer-to-peer network instead of '
+            'the block explorer API (inputs are still fetched from the API)'
+        ),
+    )
+    parser.add_argument(
+        '--node',
+        type=str,
+        action='append',
+        default=None,
+        help=(
+            'Address of the node in host[:port] format to which the transaction will be sent, '
+            'can be repeated to try more nodes in order, implies --p2p. By default nodes are '
+            'found using DNS seeds'
+        ),
+    )
     return parser.parse_args()
 
 
@@ -128,12 +148,26 @@ def send_crypto(args):
     except ValueError as e:
         logger.error(e)
         return None
-    if not coins[coin_symbol].get('apis'):
+    coin = coins[coin_symbol]
+    if not coin.get('apis'):
         logger.error('No API has been defined for the coin %s', coin_symbol)
         return None
+    broadcast = None
+    if args.p2p or args.node:
+        if 'network' not in coin:
+            logger.error('No peer-to-peer network has been defined for the coin %s', coin_symbol)
+            return None
+        try:
+            nodes = [parse_node_address(node, coin['network']['port']) for node in args.node or []]
+        except ValueError as e:
+            logger.error(e)
+            return None
+
+        def broadcast(raw_transaction):
+            return json.dumps({'txid': broadcast_transaction(coin, raw_transaction, nodes)})
 
     result = send_from_private_keys(
-        coin=coins[coin_symbol],
+        coin=coin,
         wif_private_keys=wif_private_keys,
         input_addresses=input_addresses,
         unlocking_scripts=unlocking_scripts,
@@ -143,6 +177,7 @@ def send_crypto(args):
         minimum_input_threshold=minimum_input_threshold,
         maximum_input_threshold=maximum_input_threshold,
         limit_inputs=limit_inputs,
+        broadcast=broadcast,
     )
 
     return result
@@ -152,10 +187,14 @@ def main():
     args = get_args()
     try:
         result = send_crypto(args)
+        if result is None:  # the error has been already logged
+            return
         print(result)
         json.loads(result)
     except ValueError as e:
         logger.exception('Error: %s', {e})
+    except NetworkError as e:
+        logger.error('Error: %s', e)
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ The module consists of two layers:
 import itertools
 import logging
 from datetime import date, timedelta
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 
 import requests
 
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 Coin = Dict[str, Any]
 Utxo = Dict[str, Any]
+Broadcast = Callable[[str], str]
 
 DEFAULT_TIMEOUT = 30  # in seconds
 
@@ -127,7 +128,13 @@ def send_inputs(
     input_satoshis: int,
     satoshis: int,
     fee: int,
+    broadcast: Optional[Broadcast] = None,
 ) -> str:
+    """Create transaction and broadcast it.
+
+    :param broadcast: Function sending raw transaction (hex) and returning the result, by default
+                      the transaction is sent to the coin Insight API
+    """
     outputs = [{'address': destination_address, 'satoshis': satoshis}]
     change = input_satoshis - satoshis - fee
     if change > 0:
@@ -137,7 +144,10 @@ def send_inputs(
     if 'check_block_at_height' in coin.get('params', {}):
         history_block = api.get_history_block()
     transaction = Transaction(coin, inputs, outputs, check_block_at_height=history_block)
-    return api.send_raw_transaction(transaction.create())
+    raw_transaction = transaction.create()
+    if broadcast is None:
+        return api.send_raw_transaction(raw_transaction)
+    return broadcast(raw_transaction)
 
 
 def send_from_private_keys(
@@ -151,6 +161,7 @@ def send_from_private_keys(
     minimum_input_threshold: Optional[int] = None,
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
+    broadcast: Optional[Broadcast] = None,
 ) -> str:
     if not input_addresses and not wif_private_keys:
         raise ValueError('Missing required parameters input_addresses or wif_private_keys')
@@ -178,11 +189,16 @@ def send_from_private_keys(
             )
         )
     utxos = itertools.chain.from_iterable(utxo_sources)
-    return send_utxos(coin, utxos, destination_address, satoshis, fee)
+    return send_utxos(coin, utxos, destination_address, satoshis, fee, broadcast)
 
 
 def send_utxos(
-    coin: Coin, utxos: Iterable[Utxo], destination_address: str, satoshis: int, fee: int
+    coin: Coin,
+    utxos: Iterable[Utxo],
+    destination_address: str,
+    satoshis: int,
+    fee: int,
+    broadcast: Optional[Broadcast] = None,
 ) -> str:
     inputs = []
     input_satoshis = 0
@@ -216,6 +232,7 @@ def send_utxos(
                 input_satoshis,
                 satoshis,
                 fee,
+                broadcast,
             )
     raise InsufficientFundsError(
         f'Not enough funds in address(es).\n'

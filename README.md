@@ -68,6 +68,13 @@ must be provided):
 ```bash
 sendcrypto -a 2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h -c TBTC -i 2NAMu8JCTLXtTv2LRQktByt1EoKaJaVmDAj -u 5106519351935387 -s 190000 -f 5000
 ```
+By default the transaction is sent to the block explorer API. Adding `--p2p` sends it directly to a node
+of the coin peer-to-peer network found using DNS seeds (inputs are still fetched from the API). Particular
+nodes can be selected with `--node <HOST>[:<PORT>]` (can be repeated, nodes are tried in order):
+```bash
+sendcrypto -c BTC -s 25000000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp --p2p
+sendcrypto -c BTC -s 25000000 -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp --node 203.0.113.5:8333
+```
 3. Listing address inputs with total amount:
 ```bash
 checkaddress --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --minimum_input_threshold=<INT> --maximum_input_threshold=<INT>
@@ -143,6 +150,20 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 | Horizen | ZEN | Yes | Yes | Yes |
 | Zero | ZERO | Yes | Yes | Yes |
 
+### Peer-to-peer network
+Module `multicrypto.network` connects directly to nodes of the coin network (without block explorer),
+fetches addresses of their peers and broadcasts raw transactions. It is available for coins with
+`network` definition: BTC, BTG, DASH, DOGE, LTC, TBTC, ZEC, ZEN.
+```python
+from multicrypto.coins import coins
+from multicrypto.network import Node, discover_nodes
+
+nodes = discover_nodes(coins['BTC'])  # nodes found using DNS seeds
+with Node(coins['BTC'], nodes[0].host, nodes[0].port) as node:
+    peers = node.get_peers()
+    transaction_id = node.send_transaction('<RAW TRANSACTION HEX>')
+```
+
 ## Development
 The project is managed with [uv](https://docs.astral.sh/uv/). Dependencies are pinned in
 `uv.lock` and the development Python version in `.python-version`.
@@ -210,6 +231,16 @@ Exemplary for Zen we have:
     'apis': [
         {'url': 'https://explorer.zensystem.io/insight-api-zen'}
     ]
+}
+```
+Optional `network` entry enables `multicrypto.network`. Values come from chainparams.cpp
+(`pchMessageStart`, `nDefaultPort`, `vSeeds`) and version.h (`PROTOCOL_VERSION`):
+```bash
+'network': {
+    'magic': b'\x63\x61\x73\x68',
+    'port': 9033,
+    'protocol_version': 170002,
+    'seeds': ['dnsseed.horizen.global', 'dnsseed.zensystem.io'],
 }
 ```
 2. Update this readme with new supported coin and add appropriate tests
