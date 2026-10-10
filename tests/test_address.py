@@ -1,9 +1,6 @@
 import pytest
 
 from multicrypto.address import (
-    P2PKH,
-    P2SH_P2WPKH,
-    P2WPKH,
     convert_private_key_to_coin_address,
     decode_segwit_address,
     get_private_key_from_wif_format,
@@ -14,7 +11,7 @@ from multicrypto.address import (
     validate_wif_private_key,
 )
 from multicrypto.base58 import BASE58_ALPHABET
-from multicrypto.coins import coins
+from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2WPKH, coins
 
 
 def test_convert_private_key_to_address():
@@ -127,6 +124,9 @@ def test_validate_wif_private_key_uncompressed_failure():
         ('BTC', P2SH_P2WPKH, '3JvL6Ymt8MVWiCNHC7oWU6nLeHNJKLZGLN'),
         ('BTC', P2WPKH, 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'),
         ('TBTC', P2WPKH, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx'),
+        ('LTC', P2WPKH, 'ltc1qw508d6qejxtdg4y5r3zarvary0c5xw7kgmn4n9'),
+        ('TLTC', P2WPKH, 'tltc1qw508d6qejxtdg4y5r3zarvary0c5xw7klfsuq0'),
+        ('LTC', P2PKH, 'LVuDpNCSSj6pQ7t9Pv6d6sUkLKoqDEVUnJ'),
     ],
 )
 def test_convert_private_key_to_coin_address(coin_symbol, address_type, expected_address):
@@ -140,7 +140,8 @@ def test_convert_private_key_to_coin_address(coin_symbol, address_type, expected
     [
         ('BTC', False, P2WPKH, 'Segwit addresses require compressed public key'),
         ('BTC', False, P2SH_P2WPKH, 'Segwit addresses require compressed public key'),
-        ('ZEC', True, P2WPKH, 'does not support bech32 addresses'),
+        ('ZEC', True, P2WPKH, 'Address type p2wpkh is not supported for zcash'),
+        ('ZEC', True, P2SH_P2WPKH, 'supported types: p2pkh'),
         ('BTC', True, 'p2tr', 'Unknown address type p2tr'),
     ],
 )

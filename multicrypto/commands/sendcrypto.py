@@ -4,13 +4,12 @@ import logging
 import sys
 
 from multicrypto.address import (
-    ADDRESS_TYPES,
-    P2PKH,
     validate_address,
+    validate_address_type,
     validate_wif_private_key,
 )
 from multicrypto.api import send_from_private_keys
-from multicrypto.coins import coins, get_coins_with_api
+from multicrypto.coins import ADDRESS_TYPES, P2PKH, coins, get_coins_with_api
 from multicrypto.network import NetworkError, broadcast_transaction, parse_node_address
 from multicrypto.scripts import validate_hex_script
 from multicrypto.validators import check_coin_symbol, check_non_negative, check_positive
@@ -157,6 +156,7 @@ def send_crypto(args):
         logger.error('Number of unlocking scripts must match number of input addresses!')
         return None
     try:
+        validate_address_type(args.address_type, coins[coin_symbol])
         if destination_address:
             validate_address(destination_address, coin_symbol)
         for wif_private_key in wif_private_keys:

@@ -9,9 +9,10 @@ from multicrypto.ellipticcurve import secp256k1
 from multicrypto.address import (
     convert_public_key_to_address,
     convert_private_key_to_wif_format,
+    validate_address_type,
     validate_pattern,
 )
-from multicrypto.coins import coins
+from multicrypto.coins import P2SH_P2WPKH, coins
 from multicrypto.scripts import validate_hex_script, convert_script_to_p2sh_address
 from multicrypto.utils import save_qrcode
 from multicrypto.validators import check_coin_symbol
@@ -115,6 +116,8 @@ def start_workers(args):
     input_script = args.input_script
     if segwit and not compressed:
         raise ValueError('Segwit addresses must used compressed public key representation')
+    if segwit:
+        validate_address_type(P2SH_P2WPKH, coins[coin_symbol])
     jobs = []
     try:
         validate_pattern(pattern, coin_symbol, segwit)

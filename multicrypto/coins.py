@@ -1,4 +1,11 @@
-# Dictionary with coins definition with coin symbols as keys
+# Types of addresses which can be derived from a private key and spent
+P2PKH = 'p2pkh'
+P2SH_P2WPKH = 'p2sh-p2wpkh'  # segwit nested in P2SH, e.g. 3... for BTC
+P2WPKH = 'p2wpkh'  # native segwit (bech32), e.g. bc1q... for BTC
+ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH)
+
+# Dictionary with coins definition with coin symbols as keys. Optional 'address_types' lists
+# supported address types (only P2PKH by default), segwit P2WPKH requires also 'bech32_hrp'.
 coins = {
     'BTC': {
         'name': 'bitcoin',
@@ -6,6 +13,7 @@ coins = {
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x05',
         'bech32_hrp': 'bc',
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
         'apis': [
             {'url': 'https://mempool.space/api', 'type': 'esplora'},
             {'url': 'https://blockstream.info/api', 'type': 'esplora'},
@@ -92,7 +100,9 @@ coins = {
         'address_prefix_bytes': b'\x30',
         'secret_prefix_bytes': b'\xb0',
         'script_prefix_bytes': b'\x05',
-        'apis': [{'url': 'https://insight.litecore.io/api'}],
+        'bech32_hrp': 'ltc',
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+        'apis': [{'url': 'https://litecoinspace.org/api', 'type': 'esplora'}],
         'network': {
             'magic': b'\xfb\xc0\xb6\xdb',
             'port': 9333,
@@ -132,6 +142,7 @@ coins = {
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
         'bech32_hrp': 'tb',
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
         'apis': [
             {'url': 'https://mempool.space/testnet/api', 'type': 'esplora'},
             {'url': 'https://blockstream.info/testnet/api', 'type': 'esplora'},
@@ -154,6 +165,24 @@ coins = {
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
         'apis': [{'url': 'https://test-insight.bitpay.com/api'}],
+    },
+    'TLTC': {
+        'name': 'litecoin testnet',
+        'address_prefix_bytes': b'\x6f',
+        'secret_prefix_bytes': b'\xef',
+        'script_prefix_bytes': b'\xc4',
+        'bech32_hrp': 'tltc',
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+        'apis': [{'url': 'https://litecoinspace.org/testnet/api', 'type': 'esplora'}],
+        'network': {
+            'magic': b'\xfd\xd2\xc8\xf1',
+            'port': 19335,
+            'protocol_version': 70016,
+            'seeds': [
+                'seed-b.litecoin.loshan.co.uk',
+                'dnsseed-testnet.thrasher.io',
+            ],
+        },
     },
     'ZEC': {
         'name': 'zcash',
@@ -215,6 +244,10 @@ coins = {
         ],
     },
 }
+
+
+def get_address_types(coin):
+    return coin.get('address_types', (P2PKH,))
 
 
 def get_coins_with_api():

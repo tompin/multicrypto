@@ -210,3 +210,12 @@ def test_sendcrypto_from_p2wpkh_address(broadcast_transaction, sys_stdout):
         raw_transaction
     )
     assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
+
+
+@patch.object(sys, 'argv', ARGS + ['-t', 'p2wpkh'])
+@patch('sys.stdout', new_callable=StringIO)
+def test_sendcrypto_address_type_not_supported(sys_stdout, caplog):
+    main()
+
+    assert sys_stdout.getvalue() == ''
+    assert 'Address type p2wpkh is not supported for zcash, supported types: p2pkh' in caplog.text

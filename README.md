@@ -68,7 +68,7 @@ must be provided):
 ```bash
 sendcrypto -a 2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h -c TBTC -i 2NAMu8JCTLXtTv2LRQktByt1EoKaJaVmDAj -u 5106519351935387 -s 190000 -f 5000
 ```
-Segwit is supported for coins with bech32 addresses (BTC, TBTC). Funds can be sent to bech32 addresses
+Segwit is supported for BTC, LTC and their testnets (TBTC, TLTC). Funds can be sent to bech32 addresses
 (native segwit `bc1q...` and taproot `bc1p...`), and with `--address_type` (`-t`) to spend funds from the
 nested segwit (`p2sh-p2wpkh`, `3...`) or native segwit (`p2wpkh`, `bc1q...`) address of the private key
 (default is `p2pkh`, the change is sent back to the same address). This is also available in `sweepaddress`.
@@ -240,6 +240,13 @@ Exemplary for Zen we have:
         {'url': 'https://explorer.zensystem.io/insight-api-zen'}
     ]
 }
+```
+Optional `address_types` lists address types which can be derived from a private key and spent
+(only `p2pkh` by default). Segwit coins define also `bech32_hrp` (human readable part of bech32 addresses
+from chainparams.cpp), for Bitcoin:
+```bash
+'bech32_hrp': 'bc',
+'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
 ```
 Entries in `apis` use the Insight API by default. Block explorers with the Esplora API (e.g.
 mempool.space, blockstream.info) need `'type': 'esplora'`, for Bitcoin:

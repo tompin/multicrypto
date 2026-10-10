@@ -3,15 +3,14 @@ import logging
 import sys
 
 from multicrypto.address import (
-    ADDRESS_TYPES,
-    P2PKH,
     convert_private_key_to_coin_address,
     get_private_key_from_wif_format,
     validate_address,
+    validate_address_type,
     validate_wif_private_key,
 )
 from multicrypto.api import get_utxo_from_private_keys, send_utxos
-from multicrypto.coins import coins, get_coins_with_api
+from multicrypto.coins import ADDRESS_TYPES, P2PKH, coins, get_coins_with_api
 from multicrypto.validators import check_positive, check_coin_symbol
 
 logger = logging.getLogger(__name__)
@@ -123,6 +122,7 @@ def sweep_address(args):
         return
     try:
         coin = coins[coin_symbol]
+        validate_address_type(address_type, coin)
         validate_wif_private_key(wif_private_key, coin_symbol)
         if destination_address:
             validate_address(destination_address, coin_symbol)

@@ -8,16 +8,16 @@ from multicrypto.base58 import (
     BASE58_ALPHABET,
 )
 from multicrypto.bech32 import decode, encode
-from multicrypto.coins import coins
+from multicrypto.coins import (
+    ADDRESS_TYPES,
+    P2PKH,
+    P2SH_P2WPKH,
+    coins,
+    get_address_types,
+)
 from multicrypto.utils import double_sha256, encode_point, hash160
 
 G = secp256k1.G  # generator point
-
-# Types of addresses which can be derived from a private key
-P2PKH = 'p2pkh'
-P2SH_P2WPKH = 'p2sh-p2wpkh'  # segwit nested in P2SH, e.g. 3... for BTC
-P2WPKH = 'p2wpkh'  # native segwit (bech32), e.g. bc1q... for BTC
-ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH)
 
 
 def convert_private_key_to_address(private_key, addr_prefix_bytes, compressed=True, segwit=False):
@@ -31,10 +31,20 @@ def convert_wif_private_key_to_address(wif_private_key, address_prefix_bytes, se
     return address
 
 
-def convert_private_key_to_coin_address(private_key, coin, compressed=True, address_type=P2PKH):
-    """Calculate address of the given type (one of ADDRESS_TYPES) for the private key."""
+def validate_address_type(address_type, coin):
     if address_type not in ADDRESS_TYPES:
         raise ValueError(f'Unknown address type {address_type}, choose one of {ADDRESS_TYPES}')
+    supported_types = get_address_types(coin)
+    if address_type not in supported_types:
+        raise ValueError(
+            f'Address type {address_type} is not supported for {coin["name"]}, '
+            f'supported types: {", ".join(supported_types)}'
+        )
+
+
+def convert_private_key_to_coin_address(private_key, coin, compressed=True, address_type=P2PKH):
+    """Calculate address of the given type (one of ADDRESS_TYPES) for the private key."""
+    validate_address_type(address_type, coin)
     if address_type == P2PKH:
         return convert_private_key_to_address(private_key, coin['address_prefix_bytes'], compressed)
     if not compressed:
@@ -43,8 +53,6 @@ def convert_private_key_to_coin_address(private_key, coin, compressed=True, addr
         return convert_private_key_to_address(
             private_key, coin['script_prefix_bytes'], compressed, segwit=True
         )
-    if not coin.get('bech32_hrp'):
-        raise ValueError(f'Coin {coin["name"]} does not support bech32 addresses')
     public_key_hash = calculate_public_key_hash(G * private_key, compressed=True)
     return encode(coin['bech32_hrp'], 0, public_key_hash)
 

@@ -237,3 +237,24 @@ def test_sweepaddress_p2sh_p2wpkh(sys_stdout):
         raw_transaction
     )
     assert sys_stdout.getvalue() == '{"txid": "abc"}\n'
+
+
+@patch.object(
+    sys,
+    'argv',
+    [
+        '',
+        '-c',
+        'SAFE',
+        '-t',
+        'p2sh-p2wpkh',
+        '-p',
+        'Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6',
+    ],
+)
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_address_type_not_supported(sys_stdout, caplog):
+    main()
+
+    assert sys_stdout.getvalue() == ''
+    assert 'Address type p2sh-p2wpkh is not supported for safecoin' in caplog.text
