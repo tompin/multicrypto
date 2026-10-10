@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from multicrypto.address import translate_address, validate_address
+from multicrypto.address import is_segwit_address, translate_address, validate_address
 from multicrypto.coins import coins
 from multicrypto.utils import save_qrcode
 from multicrypto.validators import check_coin_symbol
@@ -69,6 +69,8 @@ def translate(args):
     else:
         input_address_prefix_bytes = coins[input_coin_symbol]['address_prefix_bytes']
         output_address_prefix_bytes = coins[output_coin_symbol]['address_prefix_bytes']
+    if is_segwit_address(address, coins[input_coin_symbol]):
+        raise ValueError('Translating bech32 (segwit) addresses is not supported')
     validate_address(address, input_coin_symbol)
     translated_address = translate_address(
         address, input_address_prefix_bytes, output_address_prefix_bytes

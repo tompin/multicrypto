@@ -1,8 +1,14 @@
 import pytest
 
 from multicrypto.address import (
+    P2PKH,
+    P2SH_P2WPKH,
+    P2WPKH,
+    convert_private_key_to_coin_address,
+    decode_segwit_address,
     get_private_key_from_wif_format,
     convert_private_key_to_address,
+    validate_address,
     translate_address,
     validate_pattern,
     validate_wif_private_key,
@@ -112,3 +118,70 @@ def test_validate_wif_private_key_uncompressed_failure():
     with pytest.raises(Exception) as exc_info:
         validate_wif_private_key(btc_wif_private_key_uncompressed, 'LTC')
     assert str(exc_info.value) == 'Incorrect secret prefix 0x80 in wif private key for coin LTC'
+
+
+@pytest.mark.parametrize(
+    'coin_symbol,address_type,expected_address',
+    [
+        ('BTC', P2PKH, '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH'),
+        ('BTC', P2SH_P2WPKH, '3JvL6Ymt8MVWiCNHC7oWU6nLeHNJKLZGLN'),
+        ('BTC', P2WPKH, 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'),
+        ('TBTC', P2WPKH, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx'),
+    ],
+)
+def test_convert_private_key_to_coin_address(coin_symbol, address_type, expected_address):
+    address = convert_private_key_to_coin_address(1, coins[coin_symbol], True, address_type)
+
+    assert address == expected_address
+
+
+@pytest.mark.parametrize(
+    'coin_symbol,compressed,address_type,error',
+    [
+        ('BTC', False, P2WPKH, 'Segwit addresses require compressed public key'),
+        ('BTC', False, P2SH_P2WPKH, 'Segwit addresses require compressed public key'),
+        ('ZEC', True, P2WPKH, 'does not support bech32 addresses'),
+        ('BTC', True, 'p2tr', 'Unknown address type p2tr'),
+    ],
+)
+def test_convert_private_key_to_coin_address_failure(coin_symbol, compressed, address_type, error):
+    with pytest.raises(ValueError, match=error):
+        convert_private_key_to_coin_address(1, coins[coin_symbol], compressed, address_type)
+
+
+def test_decode_segwit_address():
+    witness_version, witness_program = decode_segwit_address(
+        'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', coins['BTC']
+    )
+
+    assert witness_version == 0
+    assert bytes(witness_program).hex() == '751e76e8199196d454941c45d1b3a323f1433bd6'
+    assert (
+        decode_segwit_address('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', coins['TBTC']) is None
+    )
+    assert decode_segwit_address('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', coins['ZEC']) is None
+
+
+@pytest.mark.parametrize(
+    'address,coin_symbol',
+    [
+        ('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', 'BTC'),
+        ('BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4', 'BTC'),
+        ('bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0', 'BTC'),
+        ('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 'TBTC'),
+    ],
+)
+def test_validate_segwit_address_success(address, coin_symbol):
+    assert validate_address(address, coin_symbol)
+
+
+@pytest.mark.parametrize(
+    'address',
+    [
+        'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5',  # incorrect checksum
+        'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx',  # bech32 v1
+    ],
+)
+def test_validate_segwit_address_failure(address):
+    with pytest.raises(ValueError, match='Incorrect bech32 address'):
+        validate_address(address, 'BTC')

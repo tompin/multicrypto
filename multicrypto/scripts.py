@@ -1,4 +1,10 @@
-from multicrypto.address import calculate_address
+from multicrypto.address import (
+    calculate_address,
+    decode_segwit_address,
+    decompose_address,
+    is_segwit_address,
+    segwit_scriptpubkey,
+)
 from multicrypto.consts import (
     OP_HASH160,
     OP_PUSH_20,
@@ -30,6 +36,7 @@ from multicrypto.utils import hex_to_bytes, hash160
 
 P2SH_SCRIPT = (OP_HASH160 + OP_PUSH_20) + b'%b' + OP_EQUAL
 P2PKH_SCRIPT = (OP_DUP + OP_HASH160 + OP_PUSH_20) + b'%b' + OP_EQUALVERIFY + OP_CHECKSIG
+P2WPKH_SCRIPT = (OP_0 + OP_PUSH_20) + b'%b'
 
 
 def is_p2sh(script):
@@ -46,6 +53,10 @@ def is_p2pkh(script):
         and script.startswith(OP_DUP + OP_HASH160 + OP_PUSH_20)
         and script.endswith(OP_EQUALVERIFY + OP_CHECKSIG)
     )
+
+
+def is_p2wpkh(script):
+    return len(script) == 22 and script.startswith(OP_0 + OP_PUSH_20)
 
 
 def is_p2pk(script):
@@ -88,6 +99,19 @@ def is_multisig(script):
         and script[0] in op_x
     )
     # TODO: read script and verify public keys were correctly provided
+
+
+def address_to_script(address, coin):
+    """Locking script (scriptPubKey) paying to the base58 (P2PKH, P2SH) or bech32 address"""
+    if is_segwit_address(address, coin):
+        witness = decode_segwit_address(address, coin)
+        if witness is None:
+            raise ValueError(f'Incorrect bech32 address {address}')
+        return segwit_scriptpubkey(*witness)
+    prefix, digest = decompose_address(address, coin)
+    if prefix == coin['script_prefix_bytes']:
+        return P2SH_SCRIPT % digest
+    return P2PKH_SCRIPT % digest
 
 
 def validate_hex_script(hex_script):

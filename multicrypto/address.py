@@ -7,11 +7,17 @@ from multicrypto.base58 import (
     validate_base58,
     BASE58_ALPHABET,
 )
-from multicrypto.bech32 import encode
+from multicrypto.bech32 import decode, encode
 from multicrypto.coins import coins
 from multicrypto.utils import double_sha256, encode_point, hash160
 
 G = secp256k1.G  # generator point
+
+# Types of addresses which can be derived from a private key
+P2PKH = 'p2pkh'
+P2SH_P2WPKH = 'p2sh-p2wpkh'  # segwit nested in P2SH, e.g. 3... for BTC
+P2WPKH = 'p2wpkh'  # native segwit (bech32), e.g. bc1q... for BTC
+ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH)
 
 
 def convert_private_key_to_address(private_key, addr_prefix_bytes, compressed=True, segwit=False):
@@ -23,6 +29,24 @@ def convert_wif_private_key_to_address(wif_private_key, address_prefix_bytes, se
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
     address = convert_private_key_to_address(private_key, address_prefix_bytes, compressed, segwit)
     return address
+
+
+def convert_private_key_to_coin_address(private_key, coin, compressed=True, address_type=P2PKH):
+    """Calculate address of the given type (one of ADDRESS_TYPES) for the private key."""
+    if address_type not in ADDRESS_TYPES:
+        raise ValueError(f'Unknown address type {address_type}, choose one of {ADDRESS_TYPES}')
+    if address_type == P2PKH:
+        return convert_private_key_to_address(private_key, coin['address_prefix_bytes'], compressed)
+    if not compressed:
+        raise ValueError('Segwit addresses require compressed public key')
+    if address_type == P2SH_P2WPKH:
+        return convert_private_key_to_address(
+            private_key, coin['script_prefix_bytes'], compressed, segwit=True
+        )
+    if not coin.get('bech32_hrp'):
+        raise ValueError(f'Coin {coin["name"]} does not support bech32 addresses')
+    public_key_hash = calculate_public_key_hash(G * private_key, compressed=True)
+    return encode(coin['bech32_hrp'], 0, public_key_hash)
 
 
 def calculate_address(digest, address_prefix_bytes):
@@ -95,8 +119,24 @@ def bech32_address(coin_symbol, legacy_address):
 
 
 def segwit_scriptpubkey(witver, witprog):
-    """Create a segwit locking script for a given witness program (P2WPKH and P2WSH)."""
-    return bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
+    """Create a segwit locking script for a given witness program (P2WPKH, P2WSH, P2TR)."""
+    return bytes([witver + 0x50 if witver else 0, len(witprog)] + list(witprog))
+
+
+def decode_segwit_address(address, coin):
+    """Return (witness version, witness program) for bech32 address of the coin or None."""
+    hrp = coin.get('bech32_hrp')
+    if not hrp:
+        return None
+    witver, witprog = decode(hrp, address)
+    if witver is None:
+        return None
+    return witver, witprog
+
+
+def is_segwit_address(address, coin):
+    hrp = coin.get('bech32_hrp')
+    return bool(hrp) and address.lower().startswith(hrp + '1')
 
 
 def translate_private_key(private_key_wif_format, output_private_key_prefix_bytes):
@@ -129,8 +169,12 @@ def validate_pattern(pattern, coin_symbol, is_script):
 
 
 def validate_address(address, coin_symbol):
-    address_bytes = base58_to_bytes(address)
     coin = coins[coin_symbol]
+    if is_segwit_address(address, coin):
+        if decode_segwit_address(address, coin) is None:
+            raise ValueError('Incorrect bech32 address')
+        return True
+    address_bytes = base58_to_bytes(address)
     prefix_bytes, _ = decompose_address(address, coin)
     if not address_bytes.startswith(prefix_bytes):
         raise ValueError('Address prefix is not correct for this coin')

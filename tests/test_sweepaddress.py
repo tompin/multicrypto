@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import responses
 
-from multicrypto.api import InsightAPI
+from multicrypto.api import InsightAPI, get_api
 from multicrypto.coins import coins
 from multicrypto.commands.sweepaddress import main
 
@@ -196,3 +196,44 @@ def test_sweepaddress_succes(sys_stdout):
         '{"txid": "a6c82d9295579275cc3b7a4ca80210230a104c159818cfd203b71a6370daff62"}\n'
     )
     assert sys_stdout.getvalue() == res
+
+
+@responses.activate
+@patch.object(
+    sys,
+    'argv',
+    [
+        '',
+        '-c',
+        'TBTC',
+        '-p',
+        'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo',
+        '-t',
+        'p2sh-p2wpkh',
+    ],
+)
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_p2sh_p2wpkh(sys_stdout):
+    source_address = '2MuaXqvRRTAs1tuu36aeoJFzTVdqGdaevkz'
+    api_url = get_api(coins['TBTC']).base_url
+    responses.add(
+        responses.GET,
+        f'{api_url}/address/{source_address}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+    responses.add(responses.POST, f'{api_url}/tx', body='abc', status=200)
+
+    main()
+
+    raw_transaction = responses.calls[1].request.body
+    # unlocking script pushes P2WPKH redeem script
+    assert raw_transaction.startswith(
+        '010000000001' + '01' + '11' * 32 + '00000000'
+        '17160014925d4028880bd0c9d68fbc7fc7dfee976698629c'
+    )
+    # all funds minus default fee sent back to the source address
+    assert '01' + '905f010000000000' + '17a91419970f64fb36fe3b7b21eca335ff70dde51eb8c887' in (
+        raw_transaction
+    )
+    assert sys_stdout.getvalue() == '{"txid": "abc"}\n'

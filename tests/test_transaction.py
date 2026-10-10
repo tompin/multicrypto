@@ -1,12 +1,14 @@
 import hashlib
 from unittest.mock import patch
 
+import pytest
+
 from multicrypto.coins import coins
 from multicrypto.consts import OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSH_20
 from multicrypto.ecdsa import verify
 from multicrypto.ellipticcurve import Point, secp256k1
 from multicrypto.ripemd160 import ripemd160
-from multicrypto.transaction import Transaction, POSTransaction
+from multicrypto.transaction import Transaction, TransactionOutput, POSTransaction
 from multicrypto.utils import double_sha256, encode_point, reverse_byte_hex
 
 
@@ -466,3 +468,186 @@ def test_p2sh_transaction_two_p2sh_and_two_pk2sh_inputs__one_p2sh_output():
 #
 #     assert transaction.raw == raw_transaction
 #     assert transaction.id == '1e976937f0dadc7c7fac9b7c62291f7843bc781ec44ee65c41b9b9e4f10cf0b3'
+
+
+@patch('multicrypto.transaction.sign')
+def test_create_p2sh_p2wpkh_transaction_bip143(sign_mock):
+    """P2SH-P2WPKH example from BIP-143"""
+
+    raw_transaction = (
+        '01000000000101db6b1b20aa0fd7b23880be2ecbd4a98130974cf4748fb66092ac4d3ceb1a5477'
+        '010000001716001479091972186c449eb1ded22b78e40d009bdf0089feffffff02b8b4eb0b0000'
+        '00001976a914a457b684d7f0d539a46a45bbc043f35b59d0d96388ac0008af2f000000001976a9'
+        '14fd270b1ee6abcaea97fea7ad0402e8bd8ad6d77c88ac02473044022047ac8e878352d3ebbde1'
+        'c94ce3a10d057c24175747116f8288e5d794d12d482f0220217f36a485cae903c713331d877c1f'
+        '64677e3622ad4010726870540656fe9dcb012103ad1d8e89212f0b92c74d23bb710c00662ad147'
+        '0198ac48c43f7d6f93a2a2687392040000'
+    )
+    sign_mock.return_value = (
+        0x47AC8E878352D3EBBDE1C94CE3A10D057C24175747116F8288E5D794D12D482F,
+        0x217F36A485CAE903C713331D877C1F64677E3622AD4010726870540656FE9DCB,
+    )
+    inputs = [
+        {
+            'transaction_id': 'db6b1b20aa0fd7b23880be2ecbd4a98130974cf4748fb66092ac4d3ceb1a5477',
+            'output_index': 1,
+            'locking_script': 'a9144733f37cf4db86fbc2efed2500b4f4e49f31202387',
+            'private_key': 0xEB696A065EF48A2192DA5B28B694F87544B30FAE8327C4510137A922F32C6DCF,
+            'satoshis': 1000000000,
+        }
+    ]
+    outputs = [
+        {'address': '1Fyxts6r24DpEieygQiNnWxUdb18ANa5p7', 'satoshis': 199996600},
+        {'address': '1Q5YjKVj5yQWHBBsyEBamkfph3cA6G9KK8', 'satoshis': 800000000},
+    ]
+
+    transaction = Transaction(
+        coin=coins['BTC'],
+        inputs=inputs,
+        outputs=outputs,
+        sequence=b'\xfe\xff\xff\xff',
+        lock_time=b'\x92\x04\x00\x00',
+    )
+    sighash = double_sha256(transaction.get_segwit_data_to_sign(0)).hexdigest()
+    transaction.create()
+
+    assert sighash == '64f3b0f4dd2bb3aa1ce8566d220cc74dda9df97d8490cc81d89d735c92e59fb6'
+    assert transaction.raw == raw_transaction
+    # Transaction id doesn't depend on witness data
+    raw_without_witness = (
+        raw_transaction[:8] + raw_transaction[12 : raw_transaction.index('0247304402')] + '92040000'
+    )
+    assert transaction.id == reverse_byte_hex(
+        double_sha256(bytes.fromhex(raw_without_witness)).hexdigest()
+    )
+
+
+def test_create_segwit_transaction_mixed_inputs_and_outputs():
+    """Transaction spending P2WPKH, P2PKH and P2SH-P2WPKH inputs to P2WPKH, P2TR, P2SH and
+    P2PKH outputs. Signatures and transaction id were verified with independent
+    implementation (python-bitcoinlib signature hashes)."""
+
+    raw_transaction = (
+        '010000000001031111111111111111111111111111111111111111111111111111111111'
+        '1111110000000000ffffffff222222222222222222222222222222222222222222222222'
+        '2222222222222222010000006a47304402201fef8f4997b3263eccec36197d4d4d610233'
+        '994458499a1ed3f58ea594b56898022051ccbf6f308f5e70e13a28c4d21c8864118aa8e5'
+        '17d6de4099f79119d27b47c2012102e5740e63bad28081ed7cf654dd6c19029ca03382fc'
+        '05ab5f5dda81f2c55b845bffffffff333333333333333333333333333333333333333333'
+        '333333333333333333333302000000171600143203f9559360daea3ed68ea0bdecee39c8'
+        'a78baaffffffff0490d0030000000000160014925d4028880bd0c9d68fbc7fc7dfee9766'
+        '98629c400d03000000000022512079be667ef9dcbbac55a06295ce870b07029bfcdb2dce'
+        '28d959f2815b16f81798a08601000000000017a914876706636415cae5675d45a5718ad4'
+        'a08d9d606c87409c0000000000001976a9143203f9559360daea3ed68ea0bdecee39c8a7'
+        '8baa88ac02473044022030ee983ad1465914b96257d0bee494c0c2369d47f2a288904e79'
+        '49435eaf304102206998817a296c252b328a615af07a4e4b2b2170cef2c2a5571be059ca'
+        'ea26fd110121027592aab5d43618dda13fba71e3993cd7517a712d3da49664c06ee1bd3d'
+        '1f70af0002483045022100e24132ffe9d61e9fc94e4b146fffcd97128d1976ba006ef3ec'
+        '8f2a049ef9c226022033aa8f19b5705947b1d79e656b7eea1daf82c6f0346e579daa4daa'
+        'b84f8a6355012102ec6d499aefd540e90357f1004a136049d1f7df5ad99c44c46e3ed416'
+        '9e40acb600000000'
+    )
+    inputs = [
+        {
+            'transaction_id': '11' * 32,
+            'output_index': 0,
+            'locking_script': '0014925d4028880bd0c9d68fbc7fc7dfee976698629c',
+            'private_key': 0x1111,
+            'satoshis': 100000,
+        },
+        {
+            'transaction_id': '22' * 32,
+            'output_index': 1,
+            'locking_script': '76a9143d984c5679f9399eb6cb41a9eac16f69adf29b2688ac',
+            'private_key': 0x2222,
+            'satoshis': 200000,
+        },
+        {
+            'transaction_id': '33' * 32,
+            'output_index': 2,
+            'locking_script': 'a9145087aead179e49b5e8daedd894f4e47e8ea55fee87',
+            'private_key': 0x3333,
+            'satoshis': 300000,
+        },
+    ]
+    outputs = [
+        {'address': 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q', 'satoshis': 250000},
+        {
+            'address': 'bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0',
+            'satoshis': 200000,
+        },
+        {'address': '3E2xZjtAVBybnFoEQqrCyejTewe5bMAsjJ', 'satoshis': 100000},
+        {'address': '15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4', 'satoshis': 40000},
+    ]
+
+    transaction = Transaction(coin=coins['BTC'], inputs=inputs, outputs=outputs)
+    transaction.create()
+
+    assert transaction.is_segwit
+    assert [inp.is_segwit for inp in transaction.inputs] == [True, False, True]
+    assert transaction.inputs[0].script == b''
+    assert transaction.inputs[1].witness == []
+    assert transaction.raw == raw_transaction
+    assert transaction.id == 'd3e9b2457da01305c0fb31900e5b40cb67b440e0beeb8191da416d8acb906053'
+
+
+def der_decode_signature(der_signature):
+    r_length = der_signature[3]
+    r = int.from_bytes(der_signature[4 : 4 + r_length], byteorder='big')
+    s_length = der_signature[5 + r_length]
+    s = int.from_bytes(der_signature[6 + r_length : 6 + r_length + s_length], byteorder='big')
+    return r, s
+
+
+def test_p2wpkh_input_signature_is_valid():
+    private_key = 0x1111
+    inputs = [
+        {
+            'transaction_id': '11' * 32,
+            'output_index': 0,
+            'locking_script': '0014925d4028880bd0c9d68fbc7fc7dfee976698629c',
+            'private_key': private_key,
+            'satoshis': 100000,
+        }
+    ]
+    outputs = [{'address': '15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4', 'satoshis': 90000}]
+    transaction = Transaction(coin=coins['BTC'], inputs=inputs, outputs=outputs)
+    message = transaction.get_segwit_data_to_sign(0)
+
+    transaction.create()
+
+    signature, encoded_public_key = transaction.inputs[0].witness
+    public_key = private_key * secp256k1.G
+    assert signature[-1:] == b'\x01'  # SIGHASH_ALL
+    assert encoded_public_key == encode_point(public_key, compressed=True)
+    assert verify(
+        message, der_decode_signature(signature[:-1]), public_key, secp256k1, double_sha256
+    )
+
+
+def test_transaction_without_segwit_inputs_has_no_witness():
+    inputs = [
+        {
+            'transaction_id': '22' * 32,
+            'output_index': 0,
+            'locking_script': '76a9143d984c5679f9399eb6cb41a9eac16f69adf29b2688ac',
+            'private_key': 0x2222,
+            'satoshis': 100000,
+        }
+    ]
+    outputs = [{'address': 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q', 'satoshis': 90000}]
+
+    transaction = Transaction(coin=coins['BTC'], inputs=inputs, outputs=outputs)
+    transaction.create()
+
+    assert not transaction.is_segwit
+    assert transaction.raw.startswith('0100000001')
+    assert transaction.id == reverse_byte_hex(
+        double_sha256(bytes.fromhex(transaction.raw)).hexdigest()
+    )
+    assert transaction.outputs[0].script.hex() == '0014925d4028880bd0c9d68fbc7fc7dfee976698629c'
+
+
+def test_transaction_output_invalid_bech32_address():
+    with pytest.raises(ValueError, match='Incorrect bech32 address'):
+        TransactionOutput('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5', 1000, coins['BTC'])

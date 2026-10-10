@@ -6,8 +6,10 @@ coins = {
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x05',
         'bech32_hrp': 'bc',
-        'witness_version': 1,
-        'apis': [],
+        'apis': [
+            {'url': 'https://mempool.space/api', 'type': 'esplora'},
+            {'url': 'https://blockstream.info/api', 'type': 'esplora'},
+        ],
         'network': {
             'magic': b'\xf9\xbe\xb4\xd9',
             'port': 8333,
@@ -130,7 +132,10 @@ coins = {
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
         'bech32_hrp': 'tb',
-        'apis': [{'url': 'https://test-insight.bitpay.com/api'}],
+        'apis': [
+            {'url': 'https://mempool.space/testnet/api', 'type': 'esplora'},
+            {'url': 'https://blockstream.info/testnet/api', 'type': 'esplora'},
+        ],
         'network': {
             'magic': b'\x0b\x11\x09\x07',
             'port': 18333,

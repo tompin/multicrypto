@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import responses
 
-from multicrypto.api import InsightAPI
+from multicrypto.api import InsightAPI, get_api
 from multicrypto.coins import coins
 from multicrypto.commands.sendcrypto import main
 from multicrypto.network import PeerAddress, TransactionRejectedError
@@ -162,3 +162,51 @@ def test_sendcrypto_p2p_not_supported(sys_stdout, caplog):
 
     assert sys_stdout.getvalue() == ''
     assert 'No peer-to-peer network has been defined for the coin BTCZ' in caplog.text
+
+
+@responses.activate
+@patch.object(
+    sys,
+    'argv',
+    [
+        '',
+        '-a',
+        'tb1q8kvyc4nelyueadktgx574st0dxkl9xexguyqkm',
+        '-c',
+        'TBTC',
+        '-s',
+        '60000',
+        '-f',
+        '1000',
+        '-p',
+        'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo',
+        '-t',
+        'p2wpkh',
+        '--p2p',
+    ],
+)
+@patch('sys.stdout', new_callable=StringIO)
+@patch('multicrypto.commands.sendcrypto.broadcast_transaction', return_value=TXID)
+def test_sendcrypto_from_p2wpkh_address(broadcast_transaction, sys_stdout):
+    source_address = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
+    api_url = get_api(coins['TBTC']).base_url
+    responses.add(
+        responses.GET,
+        f'{api_url}/address/{source_address}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+
+    main()
+
+    raw_transaction = broadcast_transaction.call_args.args[1]
+    # version, segwit marker and flag, one input with empty unlocking script
+    assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
+    # destination output and change sent back to the source address
+    assert '60ea000000000000' + '16' + '00143d984c5679f9399eb6cb41a9eac16f69adf29b26' in (
+        raw_transaction
+    )
+    assert '5898000000000000' + '16' + '0014925d4028880bd0c9d68fbc7fc7dfee976698629c' in (
+        raw_transaction
+    )
+    assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'

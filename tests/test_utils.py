@@ -8,6 +8,7 @@ from multicrypto.utils import (
     reverse_byte_hex,
     decode_point,
     encode_point,
+    int_to_varint,
     int_to_varint_hex,
 )
 
@@ -82,3 +83,18 @@ integer_data = [
 @pytest.mark.parametrize("integer, varint_hex", integer_data)
 def test_int_to_varint_hex(integer, varint_hex):
     assert int_to_varint_hex(integer) == varint_hex
+
+
+@pytest.mark.parametrize(
+    'integer, varint',
+    [
+        (0, b'\x00'),
+        (0xFC, b'\xfc'),
+        (0xFD, b'\xfd\xfd\x00'),
+        (0xFFFF, b'\xfd\xff\xff'),
+        (0x10000, b'\xfe\x00\x00\x01\x00'),
+        (0x100000000, b'\xff\x00\x00\x00\x00\x01\x00\x00\x00'),
+    ],
+)
+def test_int_to_varint(integer, varint):
+    assert int_to_varint(integer) == varint

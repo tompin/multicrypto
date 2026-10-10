@@ -23,8 +23,8 @@ pip install multicrypto
 
 The package contains below commands:
  1. `sweepaddress` - combines many inputs into one
- 2. `sendcrypto` - creates raw transaction and send it to insight explorer api
- 3. `checkaddress` - checks address balance using insight explorer api
+ 2. `sendcrypto` - creates raw transaction and send it to block explorer api (Insight or Esplora)
+ 3. `checkaddress` - checks address balance using block explorer api (Insight or Esplora)
  4. `transaddress` - translates address to different coin format (resulting address will have the same private key) 
  5. `transprivkey` - translates WIF private key to different coin format
  6. `genaddress` - generates vanity address for given coin
@@ -67,6 +67,14 @@ Sending (P2PSH) 0.0019 BTC on testnet to address 2NDN55zZ6BtStckQWnhGJejBdM5EaGc
 must be provided):
 ```bash
 sendcrypto -a 2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h -c TBTC -i 2NAMu8JCTLXtTv2LRQktByt1EoKaJaVmDAj -u 5106519351935387 -s 190000 -f 5000
+```
+Segwit is supported for coins with bech32 addresses (BTC, TBTC). Funds can be sent to bech32 addresses
+(native segwit `bc1q...` and taproot `bc1p...`), and with `--address_type` (`-t`) to spend funds from the
+nested segwit (`p2sh-p2wpkh`, `3...`) or native segwit (`p2wpkh`, `bc1q...`) address of the private key
+(default is `p2pkh`, the change is sent back to the same address). This is also available in `sweepaddress`.
+Sending 0.25 BTC from the native segwit address of the private key to bech32 address:
+```bash
+sendcrypto -c BTC -s 25000000 -a bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4 -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -t p2wpkh
 ```
 By default the transaction is sent to the block explorer API. Adding `--p2p` sends it directly to a node
 of the coin peer-to-peer network found using DNS seeds (inputs are still fetched from the API). Particular
@@ -232,6 +240,14 @@ Exemplary for Zen we have:
         {'url': 'https://explorer.zensystem.io/insight-api-zen'}
     ]
 }
+```
+Entries in `apis` use the Insight API by default. Block explorers with the Esplora API (e.g.
+mempool.space, blockstream.info) need `'type': 'esplora'`, for Bitcoin:
+```bash
+'apis': [
+    {'url': 'https://mempool.space/api', 'type': 'esplora'},
+    {'url': 'https://blockstream.info/api', 'type': 'esplora'},
+]
 ```
 Optional `network` entry enables `multicrypto.network`. Values come from chainparams.cpp
 (`pchMessageStart`, `nDefaultPort`, `vSeeds`) and version.h (`PROTOCOL_VERSION`):

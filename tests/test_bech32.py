@@ -29,6 +29,16 @@ VALID_CHECKSUM = [
     "split1checkupstagehandshakeupstreamerranterredcaperred2y9e3w",
 ]
 
+VALID_CHECKSUM_BECH32M = [
+    "A1LQFN3A",
+    "a1lqfn3a",
+    "an83characterlonghumanreadablepartthatcontainsthetheexcludedcharactersbioandnumber11sg7hg6",
+    "abcdef1l7aum6echk45nj3s0wdvt2fg8x9yrzpqzd3ryx",
+    "11llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllludsr8",
+    "split1checkupstagehandshakeupstreamerranterredcaperredlc445v",
+    "?1v759aa",
+]
+
 INVALID_CHECKSUM = [
     " 1nwldj5",
     "\x7f" + "1axkwrx",
@@ -38,6 +48,20 @@ INVALID_CHECKSUM = [
     "x1b4n0q5v",
     "li1dgmt3",
     "de1lg7wt\xff",
+    " 1xj0phk",
+    "\x7f" + "1g6xzxy",
+    "\x80" + "1vctc34",
+    "an84characterslonghumanreadablepartthatcontainsthetheexcludedcharactersbioandnumber11d6pts4",
+    "qyrz8wqd2c9m",
+    "1qyrz8wqd2c9m",
+    "y1b0jsk6g",
+    "lt1igcx5c0",
+    "in1muywd",
+    "mm1crxm3i",
+    "au1s5cgom",
+    "M1VUXWEZ",
+    "16plkw9",
+    "1p2gdwpf",
 ]
 
 VALID_ADDRESS = [
@@ -47,14 +71,22 @@ VALID_ADDRESS = [
         "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262",
     ],
     [
-        "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx",
+        "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7kt5nd6y",
         "5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6",
     ],
-    ["BC1SW50QA3JX3S", "6002751e"],
-    ["bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj", "5210751e76e8199196d454941c45d1b3a323"],
+    ["BC1SW50QGDZ25J", "6002751e"],
+    ["bc1zw508d6qejxtdg4y5r3zarvaryvaxxpcs", "5210751e76e8199196d454941c45d1b3a323"],
     [
         "tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy",
         "0020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433",
+    ],
+    [
+        "tb1pqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesf3hn0c",
+        "5120000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433",
+    ],
+    [
+        "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0",
+        "512079be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
     ],
 ]
 
@@ -69,6 +101,24 @@ INVALID_ADDRESS = [
     "bc1zw508d6qejxtdg4y5r3zarvaryvqyzf3du",
     "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv",
     "bc1gmk9yu",
+    # Witness version 1+ encoded with Bech32 instead of Bech32m (valid in BIP-173 only)
+    "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx",
+    "BC1SW50QA3JX3S",
+    "bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj",
+    # BIP-350 test vectors
+    "tc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq5zuyut",
+    "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqh2y7hd",
+    "tb1z0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqglt7rf",
+    "BC1S0XLXVLHEMJA6C4DQV22UAPCTQUPFHLXM9H8Z3K2E72Q4K9HCZ7VQ54WELL",
+    "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kemeawh",
+    "tb1q0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq24jc47",
+    "bc1p38j9r5y49hruaue7wxjce0updqjuyyx0kh56v8s25huc6995vvpql3jow4",
+    "BC130XLXVLHEMJA6C4DQV22UAPCTQUPFHLXM9H8Z3K2E72Q4K9HCZ7VQ7ZWS8R",
+    "bc1pw5dgrnzv",
+    "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7v8n0nx0muaewav253zgeav",
+    "tb1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq47Zagq",
+    "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7v07qwwzcrf",
+    "tb1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vpggkg4j",
 ]
 
 INVALID_ADDRESS_ENC = [
@@ -83,18 +133,31 @@ INVALID_ADDRESS_ENC = [
 @pytest.mark.parametrize("string", VALID_CHECKSUM)
 def test_valid_checksum(string):
     """Test checksum creation and validation."""
-    hrp, _ = bech32.bech32_decode(string)
+    hrp, _, spec = bech32.bech32_decode(string)
     assert hrp is not None
+    assert spec == bech32.BECH32
     pos = string.rfind('1')
     test = string[: pos + 1] + chr(ord(string[pos + 1]) ^ 1) + string[pos + 2 :]
-    hrp, _ = bech32.bech32_decode(test)
+    hrp, _, _ = bech32.bech32_decode(test)
+    assert hrp is None
+
+
+@pytest.mark.parametrize("string", VALID_CHECKSUM_BECH32M)
+def test_valid_checksum_bech32m(string):
+    """Test Bech32m checksum creation and validation."""
+    hrp, _, spec = bech32.bech32_decode(string)
+    assert hrp is not None
+    assert spec == bech32.BECH32M
+    pos = string.rfind('1')
+    test = string[: pos + 1] + chr(ord(string[pos + 1]) ^ 1) + string[pos + 2 :]
+    hrp, _, _ = bech32.bech32_decode(test)
     assert hrp is None
 
 
 @pytest.mark.parametrize("string", INVALID_CHECKSUM)
 def test_invalid_checksum(string):
     """Test validation of invalid checksums."""
-    hrp, _ = bech32.bech32_decode(string)
+    hrp, _, _ = bech32.bech32_decode(string)
     assert hrp is None
 
 

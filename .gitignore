@@ -12,3 +12,4 @@ multicrypto.egg-info/*
 .pypirc
 .venv/
 .ruff_cache/
+testnet_wallet.json

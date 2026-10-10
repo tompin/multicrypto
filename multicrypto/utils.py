@@ -66,6 +66,19 @@ def encode_script(script):
     return int_to_bytes(len(script), byteorder='little') + script
 
 
+def int_to_varint(int_value):
+    """Encode integer as Bitcoin variable length integer (bytes)."""
+    if int_value < 0xFD:
+        return int_value.to_bytes(1, byteorder='little')
+    if int_value <= 0xFFFF:
+        return b'\xfd' + int_value.to_bytes(2, byteorder='little')
+    if int_value <= 0xFFFFFFFF:
+        return b'\xfe' + int_value.to_bytes(4, byteorder='little')
+    if int_value <= 0xFFFFFFFFFFFFFFFF:
+        return b'\xff' + int_value.to_bytes(8, byteorder='little')
+    raise Exception(f'Too big varint: {int_value}')
+
+
 def int_to_varint_hex(int_value):
     """
     VARINT

@@ -17,8 +17,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE."""
 
 # HRP - Human Readable Part
+# Bech32 (BIP-173) is used for witness version 0 addresses and Bech32m (BIP-350) for
+# witness versions 1 to 16 (e.g. Taproot).
 
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+BECH32 = 'bech32'
+BECH32M = 'bech32m'
+BECH32M_CONST = 0x2BC830A3
 
 
 def bech32_polymod(values):
@@ -39,40 +44,47 @@ def bech32_hrp_expand(hrp):
 
 
 def bech32_verify_checksum(hrp, data):
-    """Verify a checksum given HRP and converted data characters."""
-    return bech32_polymod(bech32_hrp_expand(hrp) + data) == 1
+    """Verify a checksum given HRP and converted data characters, return the encoding."""
+    const = bech32_polymod(bech32_hrp_expand(hrp) + data)
+    if const == 1:
+        return BECH32
+    if const == BECH32M_CONST:
+        return BECH32M
+    return None
 
 
-def bech32_create_checksum(hrp, data):
+def bech32_create_checksum(hrp, data, spec=BECH32):
     """Compute the checksum values given HRP and data."""
     values = bech32_hrp_expand(hrp) + data
-    polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ 1
+    const = BECH32M_CONST if spec == BECH32M else 1
+    polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ const
     return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
 
 
-def bech32_encode(hrp, data):
-    """Compute a Bech32 string given HRP and data values."""
-    combined = data + bech32_create_checksum(hrp, data)
+def bech32_encode(hrp, data, spec=BECH32):
+    """Compute a Bech32 or Bech32m string given HRP and data values."""
+    combined = data + bech32_create_checksum(hrp, data, spec)
     return hrp + '1' + ''.join([CHARSET[d] for d in combined])
 
 
 def bech32_decode(bech):
-    """Validate a Bech32 string, and determine HRP and data."""
+    """Validate a Bech32/Bech32m string, and determine HRP, data and encoding."""
     if (any(ord(x) < 33 or ord(x) > 126 for x in bech)) or (
         bech.lower() != bech and bech.upper() != bech
     ):
-        return None, None
+        return None, None, None
     bech = bech.lower()
     pos = bech.rfind('1')
     if pos < 1 or pos + 7 > len(bech) or len(bech) > 90:
-        return None, None
+        return None, None, None
     if not all(x in CHARSET for x in bech[pos + 1 :]):
-        return None, None
+        return None, None, None
     hrp = bech[:pos]
     data = [CHARSET.find(x) for x in bech[pos + 1 :]]
-    if not bech32_verify_checksum(hrp, data):
-        return None, None
-    return hrp, data[:-6]
+    spec = bech32_verify_checksum(hrp, data)
+    if spec is None:
+        return None, None, None
+    return hrp, data[:-6], spec
 
 
 def convert_bits(data, frombits, tobits, pad=True):
@@ -100,8 +112,8 @@ def convert_bits(data, frombits, tobits, pad=True):
 
 def decode(hrp, addr):
     """Decode a segwit address."""
-    hrpgot, data = bech32_decode(addr)
-    if hrpgot != hrp:
+    hrpgot, data, spec = bech32_decode(addr)
+    if hrpgot != hrp or not data:
         return None, None
     decoded = convert_bits(data[1:], 5, 8, False)
     if decoded is None or len(decoded) < 2 or len(decoded) > 40:
@@ -110,12 +122,15 @@ def decode(hrp, addr):
         return None, None
     if data[0] == 0 and len(decoded) != 20 and len(decoded) != 32:
         return None, None
+    if (data[0] == 0 and spec != BECH32) or (data[0] != 0 and spec != BECH32M):
+        return None, None
     return data[0], decoded
 
 
 def encode(hrp, witver, witprog):
     """Encode a segwit address."""
-    ret = bech32_encode(hrp, [witver] + convert_bits(witprog, 8, 5))
+    spec = BECH32 if witver == 0 else BECH32M
+    ret = bech32_encode(hrp, [witver] + convert_bits(witprog, 8, 5), spec)
     if decode(hrp, ret) == (None, None):
         return None
     return ret

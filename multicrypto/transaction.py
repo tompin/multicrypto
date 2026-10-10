@@ -1,18 +1,28 @@
 import logging
 import time
 
-from multicrypto.address import decompose_address, encode_point, calculate_public_key_hash
+from multicrypto.address import calculate_public_key_hash, encode_point
 from multicrypto.consts import OP_0
 from multicrypto.ecdsa import sign
 from multicrypto.ellipticcurve import secp256k1
-from multicrypto.scripts import P2PKH_SCRIPT, P2SH_SCRIPT, is_p2sh
+from multicrypto.scripts import (
+    P2PKH_SCRIPT,
+    P2WPKH_SCRIPT,
+    address_to_script,
+    is_p2sh,
+    is_p2wpkh,
+)
 from multicrypto.utils import (
     int_to_bytes,
+    int_to_varint,
     hex_to_bytes,
     der_encode_signature,
+    encode_script,
     reverse_byte_hex,
     double_sha256,
 )
+
+SEGWIT_MARKER_AND_FLAG = b'\x00\x01'
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +50,22 @@ class TransactionInput:
         self.script = hex_to_bytes(locking_script, byteorder='big')
         self.script_length = int_to_bytes(len(self.script), byteorder='little')
         self.satoshis = satoshis.to_bytes(8, byteorder='little')
+        # Public key hash of P2WPKH or P2SH-P2WPKH input, None for non segwit inputs
+        self.witness_program = None
+        self.witness = []
         if private_key:
             self.private_key = private_key
             self.public_key = private_key * secp256k1.G
             compressed_public_key_hash = calculate_public_key_hash(self.public_key, compressed=True)
-            if compressed_public_key_hash.hex() not in locking_script:
+            nested_segwit_hash = calculate_public_key_hash(
+                self.public_key, compressed=True, segwit=True
+            )
+            is_nested_segwit = is_p2sh(self.script) and self.script[2:22] == nested_segwit_hash
+            if is_p2wpkh(self.script) or is_nested_segwit:
+                # Segwit requires compressed public keys
+                self.witness_program = compressed_public_key_hash
+                is_compressed_public_key = True
+            elif compressed_public_key_hash.hex() not in locking_script:
                 is_compressed_public_key = False
             else:
                 is_compressed_public_key = True
@@ -53,6 +74,10 @@ class TransactionInput:
             )
             self.public_key_len = len(self.encoded_public_key).to_bytes(1, byteorder='little')
         self.unlocking_script = hex_to_bytes(unlocking_script, byteorder='big')
+
+    @property
+    def is_segwit(self):
+        return self.witness_program is not None
 
     def get_encoded(self, with_script):
         input_data = self.transaction_id + self.output_index
@@ -67,11 +92,7 @@ class TransactionOutput:
     def __init__(self, address, satoshis, coin):
         self.satoshis = satoshis
         self.address = address
-        self.prefix, self.address_digest = decompose_address(address, coin)
-        if self.prefix == coin['script_prefix_bytes']:
-            self.script = P2SH_SCRIPT % self.address_digest
-        else:
-            self.script = P2PKH_SCRIPT % self.address_digest
+        self.script = address_to_script(address, coin)
 
 
 class Transaction:
@@ -101,6 +122,10 @@ class Transaction:
             for output in outputs
         ]
         self.outputs_counter = int_to_bytes(len(self.outputs), byteorder='little')
+
+    @property
+    def is_segwit(self):
+        return any(inp.is_segwit for inp in self.inputs)
 
     def get_encoded_inputs(self, position):
         input_block = b''
@@ -150,8 +175,57 @@ class Transaction:
         )
         return data
 
+    def get_segwit_data_to_sign(self, position):
+        """Signature hash preimage for segwit version 0 inputs according to BIP-143"""
+        inp = self.inputs[position]
+        prevouts = b''.join(i.transaction_id + i.output_index for i in self.inputs)
+        sequences = self.sequence * len(self.inputs)
+        # For P2WPKH script code is the same as P2PKH locking script
+        script_code = encode_script(P2PKH_SCRIPT % inp.witness_program)
+        data = (
+            self.version
+            + double_sha256(prevouts).digest()
+            + double_sha256(sequences).digest()
+            # Outpoint of the signed input
+            + inp.transaction_id
+            + inp.output_index
+            + script_code
+            + inp.satoshis
+            + self.sequence
+            + double_sha256(self.get_encoded_outputs()).digest()
+            + self.lock_time
+            + self.hash_type
+        )
+        return data
+
+    def sign_segwit_input(self, position):
+        inp = self.inputs[position]
+        message = self.get_segwit_data_to_sign(position)
+        sig = sign(message, inp.private_key, secp256k1, double_sha256)
+        signature = der_encode_signature(sig) + self.coin.get('sig_hash', b'\x01')
+        inp.witness = [signature, inp.encoded_public_key]
+        if is_p2sh(inp.script):
+            # P2SH-P2WPKH: unlocking script only pushes the redeem script (witness program)
+            redeem_script = P2WPKH_SCRIPT % inp.witness_program
+            inp.script = encode_script(redeem_script)
+        else:
+            # P2WPKH: unlocking script is empty
+            inp.script = b''
+        inp.script_length = int_to_varint(len(inp.script))
+
+    def get_encoded_witnesses(self):
+        witness_block = b''
+        for inp in self.inputs:
+            witness_block += int_to_varint(len(inp.witness))
+            for item in inp.witness:
+                witness_block += int_to_varint(len(item)) + item
+        return witness_block
+
     def sign_input(self, position):
         inp = self.inputs[position]
+        if inp.is_segwit:
+            self.sign_segwit_input(position)
+            return
         if is_p2sh(inp.script):
             inp.script = inp.unlocking_script
             inp.script_length = int_to_bytes(len(inp.script), byteorder='little')
@@ -174,15 +248,24 @@ class Transaction:
             raise Exception(f'Transaction {self.id} already created')
         for i in range(len(self.inputs)):
             self.sign_input(i)
-        raw_transaction_data = (
-            self.version
-            + self.inputs_counter
+        inputs_and_outputs = (
+            self.inputs_counter
             + self.get_encoded_inputs(position=range(len(self.inputs)))
             + self.outputs_counter
             + self.get_encoded_outputs()
-            + self.lock_time
         )
+        raw_transaction_data = self.version + inputs_and_outputs + self.lock_time
+        # Transaction id is calculated without witness data (BIP-141)
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
+        if self.is_segwit:
+            # Serialization with witness data according to BIP-144
+            raw_transaction_data = (
+                self.version
+                + SEGWIT_MARKER_AND_FLAG
+                + inputs_and_outputs
+                + self.get_encoded_witnesses()
+                + self.lock_time
+            )
         self.raw = raw_transaction_data.hex()
         logger.info('Created transaction with id: %s\nRaw data: %s', self.id, self.raw)
         return self.raw

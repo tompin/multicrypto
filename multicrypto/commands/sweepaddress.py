@@ -3,9 +3,12 @@ import logging
 import sys
 
 from multicrypto.address import (
+    ADDRESS_TYPES,
+    P2PKH,
+    convert_private_key_to_coin_address,
+    get_private_key_from_wif_format,
     validate_address,
     validate_wif_private_key,
-    convert_wif_private_key_to_address,
 )
 from multicrypto.api import get_utxo_from_private_keys, send_utxos
 from multicrypto.coins import coins, get_coins_with_api
@@ -85,6 +88,19 @@ def get_args():
         help='Specify limit for number of inputs that will be used in transaction. '
         f'Default is {DEFAULT_BATCH_SIZE} inputs per transaction.',
     )
+    parser.add_argument(
+        '-t',
+        '--address_type',
+        type=str,
+        choices=ADDRESS_TYPES,
+        required=False,
+        default=P2PKH,
+        help=(
+            'Type of the address derived from the private key, from which funds will be sent: '
+            'p2pkh (legacy), p2sh-p2wpkh (nested segwit) or p2wpkh (native segwit, bech32). '
+            f'Default is {P2PKH}'
+        ),
+    )
     return parser.parse_args()
 
 
@@ -97,6 +113,7 @@ def sweep_address(args):
     minimum_input_threshold = args.minimum_input_threshold
     maximum_input_threshold = args.maximum_input_threshold
     batch_size = args.batch_size
+    address_type = args.address_type
     if (
         minimum_input_threshold
         and maximum_input_threshold
@@ -110,8 +127,9 @@ def sweep_address(args):
         if destination_address:
             validate_address(destination_address, coin_symbol)
         else:
-            destination_address = convert_wif_private_key_to_address(
-                wif_private_key, coin['address_prefix_bytes']
+            private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+            destination_address = convert_private_key_to_coin_address(
+                private_key, coin, compressed, address_type
             )
     except ValueError as e:
         logger.error(e)
@@ -123,6 +141,7 @@ def sweep_address(args):
         utxos = get_utxo_from_private_keys(
             coin=coin,
             wif_private_keys=[wif_private_key],
+            address_type=address_type,
             minimum_input_threshold=minimum_input_threshold,
             maximum_input_threshold=maximum_input_threshold,
         )

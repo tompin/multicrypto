@@ -4,7 +4,13 @@ from unittest.mock import patch
 import pytest
 import responses
 
-from multicrypto.api import InsightAPI, InsufficientFundsError, send_from_private_keys
+from multicrypto.api import (
+    EsploraAPI,
+    InsightAPI,
+    InsufficientFundsError,
+    get_api,
+    send_from_private_keys,
+)
 from multicrypto.coins import coins
 
 data = [
@@ -245,3 +251,120 @@ def test_send_from_private_keys_insufficient_funds():
             satoshis=100000000000,
             fee=10000,
         )
+
+
+ESPLORA_URL = 'https://mempool.space/api'
+SEGWIT_ADDRESS = 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q'
+
+
+def test_get_api_selects_client_by_type():
+    coin = coins['BTC']
+
+    assert isinstance(get_api(coins['SAFE']), InsightAPI)
+    assert isinstance(get_api(coin), EsploraAPI)
+    assert get_api(coin).base_url == ESPLORA_URL
+    assert get_api({**coin, 'current_api_index': 1}).base_url == 'https://blockstream.info/api'
+
+
+@responses.activate
+def test_esplora_api_get_utxo():
+    responses.add(
+        responses.GET,
+        f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
+        json=[
+            {
+                'txid': '11' * 32,
+                'vout': 1,
+                'status': {'confirmed': True, 'block_height': 900000},
+                'value': 150000000,
+            },
+            {'txid': '22' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 5000},
+        ],
+        status=200,
+    )
+    responses.add(responses.GET, f'{ESPLORA_URL}/blocks/tip/height', body='900009', status=200)
+
+    utxos = EsploraAPI(coins['BTC']).get_utxo(SEGWIT_ADDRESS)
+
+    script = '0014925d4028880bd0c9d68fbc7fc7dfee976698629c'
+    assert utxos == [
+        {
+            'address': SEGWIT_ADDRESS,
+            'txid': '11' * 32,
+            'vout': 1,
+            'scriptPubKey': script,
+            'satoshis': 150000000,
+            'amount': 1.5,
+            'height': 900000,
+            'confirmations': 10,
+        },
+        {
+            'address': SEGWIT_ADDRESS,
+            'txid': '22' * 32,
+            'vout': 0,
+            'scriptPubKey': script,
+            'satoshis': 5000,
+            'amount': 0.00005,
+            'height': None,
+            'confirmations': 0,
+        },
+    ]
+
+
+@responses.activate
+def test_esplora_api_get_utxo_error():
+    responses.add(
+        responses.GET,
+        f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
+        body='Too many unspent outputs',
+        status=400,
+    )
+
+    with pytest.raises(ValueError, match='API error: Too many unspent outputs'):
+        EsploraAPI(coins['BTC']).get_utxo(SEGWIT_ADDRESS)
+
+
+@responses.activate
+def test_esplora_api_send_raw_transaction():
+    responses.add(responses.POST, f'{ESPLORA_URL}/tx', body='ab' * 32, status=200)
+
+    result = EsploraAPI(coins['BTC']).send_raw_transaction('0100')
+
+    assert result == '{"txid": "%s"}' % ('ab' * 32)
+    assert responses.calls[0].request.body == '0100'
+
+
+@responses.activate
+def test_esplora_api_send_raw_transaction_rejected():
+    responses.add(
+        responses.POST, f'{ESPLORA_URL}/tx', body='sendrawtransaction RPC error', status=400
+    )
+
+    with pytest.raises(ValueError, match='Transaction rejected: sendrawtransaction RPC error'):
+        EsploraAPI(coins['BTC']).send_raw_transaction('0100')
+
+
+@responses.activate
+def test_send_from_private_keys_esplora_p2wpkh():
+    responses.add(
+        responses.GET,
+        f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+    responses.add(responses.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
+
+    result = send_from_private_keys(
+        coin=coins['BTC'],
+        wif_private_keys=['KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'],
+        input_addresses=None,
+        unlocking_scripts=None,
+        destination_address='15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4',
+        satoshis=60000,
+        fee=1000,
+        address_type='p2wpkh',
+    )
+
+    assert result == '{"txid": "%s"}' % ('cd' * 32)
+    raw_transaction = responses.calls[1].request.body
+    assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')

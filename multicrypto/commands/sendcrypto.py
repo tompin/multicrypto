@@ -3,7 +3,12 @@ import json
 import logging
 import sys
 
-from multicrypto.address import validate_address, validate_wif_private_key
+from multicrypto.address import (
+    ADDRESS_TYPES,
+    P2PKH,
+    validate_address,
+    validate_wif_private_key,
+)
 from multicrypto.api import send_from_private_keys
 from multicrypto.coins import coins, get_coins_with_api
 from multicrypto.network import NetworkError, broadcast_transaction, parse_node_address
@@ -92,6 +97,19 @@ def get_args():
         help='Specify limit for number of inputs that will be used in transaction',
     )
     parser.add_argument(
+        '-t',
+        '--address_type',
+        type=str,
+        choices=ADDRESS_TYPES,
+        required=False,
+        default=P2PKH,
+        help=(
+            'Type of the address derived from the private keys, from which funds will be sent: '
+            'p2pkh (legacy), p2sh-p2wpkh (nested segwit) or p2wpkh (native segwit, bech32). '
+            f'Default is {P2PKH}'
+        ),
+    )
+    parser.add_argument(
         '--p2p',
         action='store_true',
         help=(
@@ -178,6 +196,7 @@ def send_crypto(args):
         maximum_input_threshold=maximum_input_threshold,
         limit_inputs=limit_inputs,
         broadcast=broadcast,
+        address_type=args.address_type,
     )
 
     return result

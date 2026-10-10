@@ -3,6 +3,8 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
+
 from multicrypto.commands.transaddress import main
 
 
@@ -27,3 +29,10 @@ def test_transaddress_succes(sys_stdout, tmpdir):
     res += 'Address QR code was saved in directory {}\n'.format(output_dir)
     assert sys_stdout.getvalue() == res
     assert os.path.isfile(os.path.join(output_dir, 't1UKo1hnsd2xMrUgviSDRsZLVKEZ3yU4Sxr.png'))
+
+
+def test_transaddress_bech32_not_supported():
+    sys.argv = ['', '-a', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', '-i', 'BTC', '-o', 'LTC']
+
+    with pytest.raises(ValueError, match='Translating bech32'):
+        main()

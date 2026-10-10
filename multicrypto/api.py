@@ -1,20 +1,28 @@
-"""Communication with Insight-compatible block explorer APIs.
+"""Communication with block explorer APIs.
 
 The module consists of two layers:
 
-* :class:`InsightAPI` - a thin HTTP client for the block explorer configured for a coin,
+* thin HTTP clients for the block explorer configured for a coin: :class:`InsightAPI` and
+  :class:`EsploraAPI` (mempool.space, blockstream.info), selected by the ``type`` of the API
+  definition (``insight`` by default) using :func:`get_api`,
 * UTXO helpers which collect unspent outputs, build transactions and broadcast them
   using the client.
 """
 
 import itertools
+import json
 import logging
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 
 import requests
 
-from multicrypto.address import convert_private_key_to_address, get_private_key_from_wif_format
+from multicrypto.address import (
+    P2PKH,
+    convert_private_key_to_coin_address,
+    get_private_key_from_wif_format,
+)
+from multicrypto.scripts import address_to_script
 from multicrypto.transaction import Transaction
 from multicrypto.utils import reverse_byte_hex
 
@@ -60,6 +68,62 @@ class InsightAPI:
         return response.json()['blocks'][0]
 
 
+class EsploraAPI:
+    """HTTP client for the Esplora API (e.g. mempool.space, blockstream.info) selected in the
+    coin definition. Responses are converted to the Insight API format."""
+
+    def __init__(self, coin: Coin, timeout: float = DEFAULT_TIMEOUT):
+        definition = coin['apis'][coin.get('current_api_index', 0)]
+        self.coin = coin
+        self.base_url = definition['url']
+        self.timeout = timeout
+
+    def _get(self, path: str) -> requests.Response:
+        response = requests.get(f'{self.base_url}/{path}', timeout=self.timeout)
+        if not response.ok:
+            raise ValueError(f'API error: {response.text}')
+        return response
+
+    def get_utxo(self, address: str) -> List[Utxo]:
+        esplora_utxos = self._get(f'address/{address}/utxo').json()
+        # Esplora doesn't return locking script, but it is the same for all outputs of an address
+        script = address_to_script(address, self.coin).hex()
+        tip_height = None
+        if any(utxo['status']['confirmed'] for utxo in esplora_utxos):
+            tip_height = int(self._get('blocks/tip/height').text)
+        utxos = []
+        for utxo in esplora_utxos:
+            height = utxo['status'].get('block_height')
+            utxos.append(
+                {
+                    'address': address,
+                    'txid': utxo['txid'],
+                    'vout': utxo['vout'],
+                    'scriptPubKey': script,
+                    'satoshis': utxo['value'],
+                    'amount': utxo['value'] / 10**8,
+                    'height': height,
+                    'confirmations': tip_height - height + 1 if height else 0,
+                }
+            )
+        return utxos
+
+    def send_raw_transaction(self, raw_transaction: str) -> str:
+        response = requests.post(f'{self.base_url}/tx', data=raw_transaction, timeout=self.timeout)
+        if not response.ok:
+            raise ValueError(f'Transaction rejected: {response.text}')
+        return json.dumps({'txid': response.text})
+
+
+API_CLIENTS = {'insight': InsightAPI, 'esplora': EsploraAPI}
+
+
+def get_api(coin: Coin, timeout: float = DEFAULT_TIMEOUT):
+    """Return client for the API selected in the coin definition."""
+    definition = coin['apis'][coin.get('current_api_index', 0)]
+    return API_CLIENTS[definition.get('type', 'insight')](coin, timeout)
+
+
 def get_utxo_from_address(
     coin: Coin,
     address: str,
@@ -68,7 +132,7 @@ def get_utxo_from_address(
     limit_inputs: Optional[int] = None,
 ) -> List[Utxo]:
     utxos = []
-    for utxo in InsightAPI(coin).get_utxo(address):
+    for utxo in get_api(coin).get_utxo(address):
         if limit_inputs and len(utxos) == limit_inputs:
             break
         if minimum_input_threshold and utxo['satoshis'] < minimum_input_threshold:
@@ -100,16 +164,16 @@ def get_utxo_from_addresses(
 def get_utxo_from_private_keys(
     coin: Coin,
     wif_private_keys: Iterable[str],
-    is_script: bool = False,
+    address_type: str = P2PKH,
     minimum_input_threshold: Optional[int] = None,
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
 ) -> Iterator[Utxo]:
-    prefix_bytes = coin['script_prefix_bytes'] if is_script else coin['address_prefix_bytes']
+    """Collect UTXOs of addresses of the given type (one of ADDRESS_TYPES) for private keys."""
     for wif_private_key in set(wif_private_keys):
         private_key, compressed = get_private_key_from_wif_format(wif_private_key)
-        source_address = convert_private_key_to_address(
-            private_key, prefix_bytes, compressed, is_script
+        source_address = convert_private_key_to_coin_address(
+            private_key, coin, compressed, address_type
         )
         utxos = get_utxo_from_address(
             coin, source_address, minimum_input_threshold, maximum_input_threshold, limit_inputs
@@ -139,7 +203,7 @@ def send_inputs(
     change = input_satoshis - satoshis - fee
     if change > 0:
         outputs.append({'address': source_address, 'satoshis': change})
-    api = InsightAPI(coin)
+    api = get_api(coin)
     history_block = {}
     if 'check_block_at_height' in coin.get('params', {}):
         history_block = api.get_history_block()
@@ -162,6 +226,7 @@ def send_from_private_keys(
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
     broadcast: Optional[Broadcast] = None,
+    address_type: str = P2PKH,
 ) -> str:
     if not input_addresses and not wif_private_keys:
         raise ValueError('Missing required parameters input_addresses or wif_private_keys')
@@ -182,7 +247,7 @@ def send_from_private_keys(
             get_utxo_from_private_keys(
                 coin,
                 wif_private_keys,
-                False,
+                address_type,
                 minimum_input_threshold,
                 maximum_input_threshold,
                 limit_inputs,
