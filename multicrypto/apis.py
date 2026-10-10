@@ -6,9 +6,7 @@ import requests
 class API:
     @classmethod
     def get_current_definition(cls, coin):
-        index = coin.get('current_api_index', 0)
-        api_definition = coin['apis'][index]
-        return api_definition
+        return coin['apis'][coin.get('current_api_index', 0)]
 
     @classmethod
     def send_raw_transaction(cls, coin, raw_transaction):
@@ -30,5 +28,4 @@ class API:
         yesterday = date.today() - timedelta(days=1)
         blocks_url = f'{api["url"]}/blocks?limit=1&blockDate={yesterday.strftime("%Y-%m-%d")}'
         result = requests.get(blocks_url)
-        history_block = result.json()['blocks'][0]
-        return history_block
+        return result.json()['blocks'][0]

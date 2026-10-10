@@ -17,8 +17,7 @@ def sign(message, private_key, curve=secp256k1, hash_function=sha256):
     hashed_message = hash_function(message).digest()
     int_hashed_message = int.from_bytes(hashed_message, byteorder='big')
     # generate a deterministic nonce according to RFC6979
-    rfc6979 = RFC6979(message, private_key, curve.n, hash_function)
-    k = rfc6979.gen_nonce()
+    k = RFC6979(message, private_key, curve.n, hash_function).gen_nonce()
     rfc6979_point = curve.G * k
     r = rfc6979_point.x
     s = ((int_hashed_message + r * private_key) * modular_inverse(k, curve.n)) % curve.n
@@ -48,11 +47,9 @@ def verify_message(
     r, s = signature
     if v < 27 or v >= 35:
         return False
-    if v >= 31:
-        compressed = True
+    compressed = v >= 31
+    if compressed:
         v -= 4
-    else:
-        compressed = False
     recid = v - 27
 
     # Calculation is based on http://www.secg.org/sec1-v2.pdf
@@ -65,10 +62,7 @@ def verify_message(
     h = hash_function(message).digest()
     e = int.from_bytes(h, byteorder='big')
     Q = modular_inverse(r, curve.n) * (s * R - e * curve.G)
-    public_key = Q
-    calculated_address = convert_public_key_to_address(
-        public_key, coin['address_prefix_bytes'], compressed
-    )
+    calculated_address = convert_public_key_to_address(Q, coin['address_prefix_bytes'], compressed)
     return calculated_address == address
 
 
@@ -84,15 +78,12 @@ def sign_message(
     bytes_signature = r.to_bytes(byteorder='big', length=curve.bytes_size) + s.to_bytes(
         byteorder='big', length=curve.bytes_size
     )
-    v = 27
-    if compressed:
-        v += 4
+    v = 27 + (4 if compressed else 0)
     for i in range(4):
-        v += i
         if verify_message(
-            coin, message_with_magic_prefix, v, (r, s), address, curve, hash_function
+            coin, message_with_magic_prefix, v + i, (r, s), address, curve, hash_function
         ):
-            return b64encode(v.to_bytes(byteorder='big', length=1) + bytes_signature)
+            return b64encode((v + i).to_bytes(byteorder='big', length=1) + bytes_signature)
     raise Exception("error: cannot sign message")
 
 
@@ -144,9 +135,8 @@ class RFC6979:
 
     def gen_nonce(self):
         """http://tools.ietf.org/html/rfc6979#section-3.2"""
-        h1 = self.hash_function(self.message)
-        hash_size = h1.digest_size
-        h1 = h1.digest()
+        h1 = self.hash_function(self.message).digest()
+        hash_size = len(h1)
         key_and_msg = self.int2octets(self.private_key) + self.bits2octets(h1)
         v = b'\x01' * hash_size
         k = b'\x00' * hash_size
@@ -158,7 +148,7 @@ class RFC6979:
             t = b''
             while len(t) * 8 < self.n_bit_length:
                 v = hmac.new(k, v, self.hash_function).digest()
-                t = t + v
+                t += v
             nonce = self.bits2int(t)
             if 1 <= nonce < self.n:
                 return nonce

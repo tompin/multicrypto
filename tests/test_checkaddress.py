@@ -134,7 +134,7 @@ def test_checkadress_no_api_failure():
     with pytest.raises(Exception) as exc_info:
         main()
 
-    assert str(exc_info.value) == 'No api has been defined for the coin ZCL'
+    assert str(exc_info.value) == 'No API has been defined for the coin ZCL'
 
 
 @responses.activate

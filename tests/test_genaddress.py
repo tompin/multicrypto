@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from multicrypto.address import get_address_range
-from multicrypto.base58 import base58
+from multicrypto.base58 import BASE58_ALPHABET
 from multicrypto.coins import coins
 from multicrypto.commands.genaddress import generate_address, main
 from multicrypto.consts import OP_EQUAL, OP_16, OP_ADD, OP_15
@@ -34,7 +34,7 @@ def get_prefix_in_range(address_prefix_bytes):
     length = 2
     for i in range(length):
         while True:
-            new_prefix = prefix + random.choice(base58)
+            new_prefix = prefix + random.choice(BASE58_ALPHABET)
             if (
                 start_address <= new_prefix or start_address[: i + 2] == new_prefix
             ) and new_prefix <= end_address:

@@ -5,7 +5,7 @@ from multicrypto.base58 import (
     base58_to_int,
     base58_to_bytes,
     validate_base58,
-    base58,
+    BASE58_ALPHABET,
 )
 from multicrypto.bech32 import encode
 from multicrypto.coins import coins
@@ -123,7 +123,7 @@ def validate_pattern(pattern, coin_symbol, is_script):
     if not start_address[: len(pattern)] <= pattern <= end_address[: len(pattern)]:
         raise ValueError(
             f'Impossible prefix! Choose different one from {start_address}-{end_address} range'
-            f'(characters order is {base58})'
+            f'(characters order is {BASE58_ALPHABET})'
         )
     return True
 

@@ -7,7 +7,7 @@ from multicrypto.address import (
     validate_pattern,
     validate_wif_private_key,
 )
-from multicrypto.base58 import base58
+from multicrypto.base58 import BASE58_ALPHABET
 from multicrypto.coins import coins
 
 
@@ -62,7 +62,7 @@ def test_validate_pattern_raise_impossible_prefix():
     btc_range = '1111111111111111111111111-1QLbz7JHiBTspS962RLKV8GndWFwiEaqKL'
     error_message = (
         'Impossible prefix! Choose different one from {} range'
-        '(characters order is {})'.format(btc_range, base58)
+        '(characters order is {})'.format(btc_range, BASE58_ALPHABET)
     )
 
     with pytest.raises(Exception) as exc_info:

@@ -65,10 +65,9 @@ def modular_sqrt(a, p):  # noqa: C901
     while True:
         t = b
         m = 0
-        for m in range(r):
-            if t == 1:
-                break
+        while m < r - 1 and t != 1:
             t = pow(t, 2, p)
+            m += 1
         if m == 0:
             return x
         gs = pow(g, 2 ** (r - m - 1), p)

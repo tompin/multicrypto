@@ -1,0 +1,39 @@
+[tool.ruff]
+# Same as Black.
+line-length = 100
+
+# Lowest Python version supported by the package (see setup.py classifiers).
+target-version = "py38"
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+    "htmlcov",
+]
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`), Pyflakes (`F`) and flake8-bugbear (`B`) codes.
+select = ["E", "F", "B"]
+ignore = []
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = []
+unfixable = []
+
+# Tests contain long test vectors (raw transactions, keys) which cannot be wrapped.
+per-file-ignores = { "tests/*" = ["E501"] }
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10
+
+[tool.ruff.format]
+quote-style = "preserve"

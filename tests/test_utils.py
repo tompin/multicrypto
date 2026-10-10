@@ -61,7 +61,7 @@ def test_encode_decode_points():
     G = secp256k1.G
     N = secp256k1.n
     random_point = G * random.randint(1, N)
-    for i in range(100):
+    for _ in range(100):
         assert random_point == decode_point(
             encode_point(random_point, compressed=random.choice([True, False]))
         )

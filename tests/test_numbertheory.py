@@ -8,7 +8,7 @@ from multicrypto.numbertheory import modular_inverse, modular_sqrt
 
 def test_modular_inverse():
     n = secp256k1.n
-    for i in range(100):
+    for _ in range(100):
         a = randint(1, n)
         inv_a = modular_inverse(a, n)
         assert inv_a * a % n == 1

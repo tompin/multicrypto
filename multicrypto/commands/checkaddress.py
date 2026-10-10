@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+from typing import List, Dict, Any
 
 from multicrypto.address import validate_address
 from multicrypto.coins import coins, get_coins_with_api
@@ -10,22 +11,16 @@ from multicrypto.validators import check_positive, check_coin_symbol
 logger = logging.getLogger(__name__)
 
 
-def get_args():
+def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            f'Send cryptocurrency to specified address. '
+            f'Check unspent outputs of the cryptocurrency address. '
             f'Supported coins are: {get_coins_with_api()}.'
         )
     )
+    parser.add_argument('-a', '--address', type=str, required=True, help='Address to check')
     parser.add_argument(
-        '-a', '--address', type=str, required=True, help='Address to which we want to send'
-    )
-    parser.add_argument(
-        '-c',
-        '--coin_symbol',
-        type=check_coin_symbol,
-        required=True,
-        help='Symbol of the coin for which we want to make money transfer',
+        '-c', '--coin_symbol', type=check_coin_symbol, required=True, help='Symbol of the coin'
     )
     parser.add_argument(
         '-n',
@@ -33,7 +28,7 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Use only inputs containing satoshis equal or above the ' 'specified threshold',
+        help='Minimum input threshold in satoshis',
     )
     parser.add_argument(
         '-x',
@@ -41,7 +36,7 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Use only inputs containing satoshis below or equal to ' 'the specified threshold',
+        help='Maximum input threshold in satoshis',
     )
     parser.add_argument(
         '-l',
@@ -49,40 +44,34 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Specify limit for number of inputs that will be used',
+        help='Limit the number of inputs used',
     )
     return parser.parse_args()
 
 
-def check_address(args):
+def check_address(args: argparse.Namespace) -> List[Dict[str, Any]]:
     coin_symbol = args.coin_symbol
     address = args.address
-    minimum_input_threshold = args.minimum_input_threshold
-    maximum_input_threshold = args.maximum_input_threshold
+    min_threshold = args.minimum_input_threshold
+    max_threshold = args.maximum_input_threshold
     limit_inputs = args.limit_inputs
-    if (
-        minimum_input_threshold
-        and maximum_input_threshold
-        and minimum_input_threshold > maximum_input_threshold
-    ):
-        raise Exception('Minimum input threshold cannot be bigger than maximum input value!')
+
+    if min_threshold and max_threshold and min_threshold > max_threshold:
+        raise ValueError('Minimum input threshold cannot be bigger than maximum input value!')
 
     validate_address(address, coin_symbol)
-    if not coins[coin_symbol].get('apis'):
-        raise Exception(f'No api has been defined for the coin {coin_symbol}')
 
-    utxos = get_utxo_from_address(
-        coins[coin_symbol], address, minimum_input_threshold, maximum_input_threshold, limit_inputs
-    )
+    coin_data = coins.get(coin_symbol)
+    if not coin_data or not coin_data.get('apis'):
+        raise ValueError(f'No API has been defined for the coin {coin_symbol}')
+
+    utxos = get_utxo_from_address(coin_data, address, min_threshold, max_threshold, limit_inputs)
     return utxos
 
 
-def main():
-    args = get_args()
-    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
-    utxos = check_address(args)
-    coin_symbol = args.coin_symbol.upper()
-    print(f'{coin_symbol} address {args.address}')
+def display_utxos(utxos: List[Dict[str, Any]], coin_symbol: str, address: str) -> None:
+    coin_symbol = coin_symbol.upper()
+    print(f'{coin_symbol} address {address}')
     sum_satoshis = 0
     sum_amount = 0
     for utxo in utxos:
@@ -97,6 +86,13 @@ def main():
         f'{len(utxos):9} inputs {" " * 79} satoshis: {sum_satoshis:16}, '
         f'amount: {sum_amount:9.8f} {coin_symbol}'
     )
+
+
+def main():
+    args = get_args()
+    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
+    utxos = check_address(args)
+    display_utxos(utxos, args.coin_symbol, args.address)
 
 
 if __name__ == '__main__':

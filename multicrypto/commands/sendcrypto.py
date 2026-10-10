@@ -130,7 +130,7 @@ def send_crypto(args):
         logger.error(e)
         return None
     if not coins[coin_symbol].get('apis'):
-        logger.error('No api has been defined for the coin %s', {coin_symbol})
+        logger.error('No API has been defined for the coin %s', coin_symbol)
         return None
 
     result = send_from_private_keys(
