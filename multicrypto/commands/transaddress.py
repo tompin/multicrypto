@@ -26,7 +26,7 @@ def get_args():
         '--output_symbol',
         type=check_coin_symbol,
         required=True,
-        help='Symbol of the coin for which we want to know translated ' 'corresponding address',
+        help='Symbol of the coin for which we want to know translated corresponding address',
     )
     parser.add_argument(
         '-f',

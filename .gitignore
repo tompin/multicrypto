@@ -10,3 +10,5 @@ multicrypto.egg-info/*
 .pytest_cache/
 .deploy.txt
 .pypirc
+.venv/
+.ruff_cache/

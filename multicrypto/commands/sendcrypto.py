@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 def get_args():
     parser = argparse.ArgumentParser(
         description=(
-            f'Send cryptocurrency to specified address. '
-            f'Supported coins are: {get_coins_with_api()}'
+            f'Send cryptocurrency to specified address. Supported coins are: {get_coins_with_api()}'
         )
     )
     parser.add_argument(
@@ -24,7 +23,7 @@ def get_args():
         '--wif_private_keys',
         type=str,
         required=False,
-        help='Comma separated private keys in WIF format which will be used' ' to send funds from',
+        help='Comma separated private keys in WIF format which will be used to send funds from',
     )
     parser.add_argument(
         '-a', '--address', type=str, required=True, help='Address to which we want to send funds'
@@ -73,7 +72,7 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Use only inputs containing satoshis equal or above the ' 'specified threshold',
+        help='Use only inputs containing satoshis equal or above the specified threshold',
     )
     parser.add_argument(
         '-x',
@@ -81,7 +80,7 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Use only inputs containing satoshis below or equal to ' 'the specified threshold',
+        help='Use only inputs containing satoshis below or equal to the specified threshold',
     )
     parser.add_argument(
         '-l',

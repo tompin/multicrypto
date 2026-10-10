@@ -144,13 +144,18 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 | Zero | ZERO | Yes | Yes | Yes |
 
 ## Tests
-Install pytest and pytest-cov packages:
+Install development dependencies with [uv](https://docs.astral.sh/uv/):
 ```bash
-pip install -r requirements_dev.txt
+uv sync
 ```
 Run tests and check report htmlcov/index.html:
 ```bash
-python -m pytest --cov=./ --cov-report=html
+uv run python -m pytest --cov=./ --cov-report=html
+```
+Run linter and formatter:
+```bash
+uv run ruff check .
+uv run ruff format .
 ```
 
 ## Adding new coin

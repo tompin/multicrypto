@@ -1,8 +1,0 @@
-[flake8]
-ignore =
-    W503,  # Line break before binary operator
-    W504,  # Line break after a binary operator
-    E203  # Whitespace before ':'
-max-line-length = 100
-exclude = tests/* .tox
-max-complexity = 10

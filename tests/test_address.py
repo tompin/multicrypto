@@ -61,8 +61,9 @@ def test_validate_pattern_raise_impossible_prefix():
     coin_symbol = 'BTC'
     btc_range = '1111111111111111111111111-1QLbz7JHiBTspS962RLKV8GndWFwiEaqKL'
     error_message = (
-        'Impossible prefix! Choose different one from {} range'
-        '(characters order is {})'.format(btc_range, BASE58_ALPHABET)
+        'Impossible prefix! Choose different one from {} range(characters order is {})'.format(
+            btc_range, BASE58_ALPHABET
+        )
     )
 
     with pytest.raises(Exception) as exc_info:

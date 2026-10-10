@@ -13,16 +13,17 @@ jobs:
     steps:
       - name: Get code
         uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v6
         with:
+          version: "0.13.0"
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-      - name: Create venv and install dependencies
-        run: |
-          python -m venv venv
-          pip install -r requirements.txt -r requirements_dev.txt
-      - name: Check code formatting (black)
-        run: black --check --skip-string-normalization --line-length 100 multicrypto/
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Lint (ruff)
+        run: uv run ruff check .
+      - name: Check code formatting (ruff)
+        run: uv run ruff format --check .
       - name: Run tests
-        run: python -m pytest
+        run: uv run python -m pytest

@@ -34,7 +34,7 @@ def get_args():
         type=check_coin_symbol,
         required=False,
         default='',
-        help='Symbol of the coin for which we want to know corresponding ' 'translated private key',
+        help='Symbol of the coin for which we want to know corresponding translated private key',
     )
     parser.add_argument(
         '-f',

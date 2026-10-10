@@ -11,7 +11,7 @@ def test_transaddress_succes(sys_stdout):
         '',
         '-c',
         'BTC',
-        '-p' 'KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu',
+        '-pKzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu',
         '-m',
         'Hello World!',
     ]

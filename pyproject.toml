@@ -1,8 +1,67 @@
+[project]
+name = "multicrypto"
+version = "0.1.17"
+description = "Tool for translating and creating custom addresses for various cryptocurrencies"
+readme = "README.md"
+authors = [{ name = "tompin", email = "tompin@tuta.io" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.8"
+keywords = ["cryptocurrency", "address", "transaction"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pycryptodome==3.19",
+    "pypng==0.0.21",
+    "PyQRCode==1.2.1",
+    "requests==2.32.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/tompin/multicrypto"
+
+[project.scripts]
+checkaddress = "multicrypto.commands.checkaddress:main"
+genaddress = "multicrypto.commands.genaddress:main"
+sendcrypto = "multicrypto.commands.sendcrypto:main"
+signmessage = "multicrypto.commands.signmessage:main"
+sweepaddress = "multicrypto.commands.sweepaddress:main"
+transaddress = "multicrypto.commands.transaddress:main"
+transprivkey = "multicrypto.commands.transprivkey:main"
+verifymessage = "multicrypto.commands.verifymessage:main"
+
+[dependency-groups]
+dev = [
+    "coverage==7.3.2",
+    "pytest==7.4.3",
+    "pytest-cov==4.0.0",
+    "responses==0.12.1",
+    "ruff==0.17.0",
+    "validators==0.18.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# The package lives in the repository root, not in src/.
+module-root = ""
+
 [tool.ruff]
-# Same as Black.
 line-length = 100
 
-# Lowest Python version supported by the package (see setup.py classifiers).
+# Lowest Python version supported by the package.
 target-version = "py38"
 
 # Exclude a variety of commonly ignored directories.
@@ -36,4 +95,5 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-complexity = 10
 
 [tool.ruff.format]
+# Keep existing quotes (previously black --skip-string-normalization).
 quote-style = "preserve"

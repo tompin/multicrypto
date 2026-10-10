@@ -66,7 +66,7 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Use only inputs containing satoshis equal or above the ' 'specified threshold',
+        help='Use only inputs containing satoshis equal or above the specified threshold',
     )
     parser.add_argument(
         '-x',
@@ -74,7 +74,7 @@ def get_args():
         type=check_positive,
         required=False,
         default=None,
-        help='Use only inputs containing satoshis below or equal to ' 'the specified threshold',
+        help='Use only inputs containing satoshis below or equal to the specified threshold',
     )
     parser.add_argument(
         '-b',
