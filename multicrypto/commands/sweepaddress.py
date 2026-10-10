@@ -7,8 +7,8 @@ from multicrypto.address import (
     validate_wif_private_key,
     convert_wif_private_key_to_address,
 )
+from multicrypto.api import get_utxo_from_private_keys, send_utxos
 from multicrypto.coins import coins, get_coins_with_api
-from multicrypto.network import get_utxo_from_private_keys, send_utxos
 from multicrypto.validators import check_positive, check_coin_symbol
 
 logger = logging.getLogger(__name__)

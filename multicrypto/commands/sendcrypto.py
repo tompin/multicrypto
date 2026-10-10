@@ -4,8 +4,8 @@ import logging
 import sys
 
 from multicrypto.address import validate_address, validate_wif_private_key
+from multicrypto.api import send_from_private_keys
 from multicrypto.coins import coins, get_coins_with_api
-from multicrypto.network import send_from_private_keys
 from multicrypto.scripts import validate_hex_script
 from multicrypto.validators import check_coin_symbol, check_non_negative, check_positive
 

@@ -4,8 +4,8 @@ import sys
 from typing import List, Dict, Any
 
 from multicrypto.address import validate_address
+from multicrypto.api import get_utxo_from_address
 from multicrypto.coins import coins, get_coins_with_api
-from multicrypto.network import get_utxo_from_address
 from multicrypto.validators import check_positive, check_coin_symbol
 
 logger = logging.getLogger(__name__)

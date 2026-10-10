@@ -1,8 +1,11 @@
+from datetime import date, timedelta
+from unittest.mock import patch
+
+import pytest
 import responses
 
-from multicrypto.apis import API
+from multicrypto.api import InsightAPI, InsufficientFundsError, send_from_private_keys
 from multicrypto.coins import coins
-from multicrypto.network import send_from_private_keys
 
 data = [
     {
@@ -151,9 +154,9 @@ data = [
 @responses.activate
 def test_sendcrypto_success():
     coin = coins['SAFE']
-    api = API.get_current_definition(coin)
-    send_url = '{}/tx/send'.format(api['url'])
-    address_url = '{}/addr/{}/utxo'.format(api['url'], 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+    api_url = InsightAPI(coin).base_url
+    send_url = '{}/tx/send'.format(api_url)
+    address_url = '{}/addr/{}/utxo'.format(api_url, 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
     responses.add(responses.GET, address_url, json=data, status=200)
     responses.add(
         responses.POST,
@@ -177,3 +180,68 @@ def test_sendcrypto_success():
     )
 
     assert res == '{"txid": "904c6c12dcd011b30079c3a8646fa744b4d3da0a27f3e67194287a0d0b3bd689"}'
+
+
+def test_insight_api_uses_current_api_index():
+    coin = {'apis': [{'url': 'https://first.example'}, {'url': 'https://second.example'}]}
+
+    assert InsightAPI(coin).base_url == 'https://first.example'
+    assert InsightAPI({**coin, 'current_api_index': 1}).base_url == 'https://second.example'
+
+
+@responses.activate
+def test_insight_api_get_history_block():
+    coin = coins['ZEN']
+    api = InsightAPI(coin, timeout=5)
+    block = {'hash': '0000000003ac1a4b', 'height': 1000000}
+    responses.add(responses.GET, f'{api.base_url}/blocks', json={'blocks': [block]}, status=200)
+
+    assert api.get_history_block() == block
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert responses.calls[0].request.url == (
+        f'{api.base_url}/blocks?limit=1&blockDate={yesterday}'
+    )
+
+
+def test_insight_api_passes_timeout_to_requests():
+    api = InsightAPI(coins['SAFE'], timeout=5)
+    with patch('multicrypto.api.requests.get') as get_mock:
+        get_mock.return_value.json.return_value = []
+
+        api.get_utxo('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+
+    get_mock.assert_called_once_with(
+        f'{api.base_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo', timeout=5
+    )
+
+
+def test_send_from_private_keys_without_inputs():
+    with pytest.raises(ValueError, match='Missing required parameters'):
+        send_from_private_keys(
+            coin=coins['SAFE'],
+            wif_private_keys=None,
+            input_addresses=None,
+            unlocking_scripts=None,
+            destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+            satoshis=1,
+            fee=1,
+        )
+
+
+@responses.activate
+def test_send_from_private_keys_insufficient_funds():
+    coin = coins['SAFE']
+    api_url = InsightAPI(coin).base_url
+    address_url = f'{api_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo'
+    responses.add(responses.GET, address_url, json=data[:1], status=200)
+
+    with pytest.raises(InsufficientFundsError, match='Sum of inputs is 52637874459'):
+        send_from_private_keys(
+            coin=coin,
+            wif_private_keys=['Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'],
+            input_addresses=None,
+            unlocking_scripts=None,
+            destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+            satoshis=100000000000,
+            fee=10000,
+        )

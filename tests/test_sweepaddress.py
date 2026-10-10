@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import responses
 
-from multicrypto.apis import API
+from multicrypto.api import InsightAPI
 from multicrypto.coins import coins
 from multicrypto.commands.sweepaddress import main
 
@@ -161,9 +161,9 @@ data = [
 @patch('sys.stdout', new_callable=StringIO)
 def test_sweepaddress_succes(sys_stdout):
     coin = coins['SAFE']
-    api = API.get_current_definition(coin)
-    send_url = '{}/tx/send'.format(api['url'])
-    address_url = '{}/addr/{}/utxo'.format(api['url'], 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+    api_url = InsightAPI(coin).base_url
+    send_url = '{}/tx/send'.format(api_url)
+    address_url = '{}/addr/{}/utxo'.format(api_url, 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
 
     responses.add(responses.GET, address_url, json=data, status=200)
     responses.add(

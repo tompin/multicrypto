@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 import responses
 
-from multicrypto.apis import API
+from multicrypto.api import InsightAPI
 from multicrypto.coins import coins
 from multicrypto.commands.checkaddress import main
 
@@ -81,8 +81,8 @@ def test_checkaddress_success(sys_stdout):
         },
     ]
     coin = coins['ZEC']
-    api = API.get_current_definition(coin)
-    address_url = '{}/addr/{}/utxo'.format(api['url'], 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
+    api_url = InsightAPI(coin).base_url
+    address_url = '{}/addr/{}/utxo'.format(api_url, 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
     responses.add(responses.GET, address_url, json=response_data, status=200)
 
     main()
@@ -158,8 +158,8 @@ def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
         {'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt'},
     ]
     coin = coins['ZEC']
-    api = API.get_current_definition(coin)
-    address_url = '{}/addr/{}/utxo'.format(api['url'], 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
+    api_url = InsightAPI(coin).base_url
+    address_url = '{}/addr/{}/utxo'.format(api_url, 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
     responses.add(responses.GET, address_url, json=response_data, status=200)
 
     with pytest.raises(Exception) as exc_info:

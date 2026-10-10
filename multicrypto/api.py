@@ -1,0 +1,224 @@
+"""Communication with Insight-compatible block explorer APIs.
+
+The module consists of two layers:
+
+* :class:`InsightAPI` - a thin HTTP client for the block explorer configured for a coin,
+* UTXO helpers which collect unspent outputs, build transactions and broadcast them
+  using the client.
+"""
+
+import itertools
+import logging
+from datetime import date, timedelta
+from typing import Any, Dict, Iterable, Iterator, List, Optional
+
+import requests
+
+from multicrypto.address import convert_private_key_to_address, get_private_key_from_wif_format
+from multicrypto.transaction import Transaction
+from multicrypto.utils import reverse_byte_hex
+
+logger = logging.getLogger(__name__)
+
+Coin = Dict[str, Any]
+Utxo = Dict[str, Any]
+
+DEFAULT_TIMEOUT = 30  # in seconds
+
+
+class InsufficientFundsError(Exception):
+    """Raised when the sum of available inputs does not cover the amount and the fee."""
+
+
+class InsightAPI:
+    """HTTP client for the Insight API selected in the coin definition."""
+
+    def __init__(self, coin: Coin, timeout: float = DEFAULT_TIMEOUT):
+        definition = coin['apis'][coin.get('current_api_index', 0)]
+        self.base_url = definition['url']
+        self.timeout = timeout
+
+    def get_utxo(self, address: str) -> List[Utxo]:
+        response = requests.get(f'{self.base_url}/addr/{address}/utxo', timeout=self.timeout)
+        return response.json()
+
+    def send_raw_transaction(self, raw_transaction: str) -> str:
+        response = requests.post(
+            f'{self.base_url}/tx/send', json={'rawtx': raw_transaction}, timeout=self.timeout
+        )
+        return response.text
+
+    def get_history_block(self) -> Dict[str, Any]:
+        """Return the first block mined yesterday, required by coins with replay protection."""
+        yesterday = date.today() - timedelta(days=1)
+        response = requests.get(
+            f'{self.base_url}/blocks',
+            params={'limit': 1, 'blockDate': yesterday.isoformat()},
+            timeout=self.timeout,
+        )
+        return response.json()['blocks'][0]
+
+
+def get_utxo_from_address(
+    coin: Coin,
+    address: str,
+    minimum_input_threshold: Optional[int] = None,
+    maximum_input_threshold: Optional[int] = None,
+    limit_inputs: Optional[int] = None,
+) -> List[Utxo]:
+    utxos = []
+    for utxo in InsightAPI(coin).get_utxo(address):
+        if limit_inputs and len(utxos) == limit_inputs:
+            break
+        if minimum_input_threshold and utxo['satoshis'] < minimum_input_threshold:
+            continue
+        if maximum_input_threshold and utxo['satoshis'] > maximum_input_threshold:
+            continue
+        utxos.append(utxo)
+    return utxos
+
+
+def get_utxo_from_addresses(
+    coin: Coin,
+    addresses: Iterable[str],
+    unlocking_scripts: Iterable[str],
+    minimum_input_threshold: Optional[int] = None,
+    maximum_input_threshold: Optional[int] = None,
+    limit_inputs: Optional[int] = None,
+) -> Iterator[Utxo]:
+    for address, unlocking_script in zip(addresses, unlocking_scripts):
+        utxos = get_utxo_from_address(
+            coin, address, minimum_input_threshold, maximum_input_threshold, limit_inputs
+        )
+        for utxo in utxos:
+            utxo['source_address'] = address
+            utxo['unlocking_script'] = unlocking_script
+            yield utxo
+
+
+def get_utxo_from_private_keys(
+    coin: Coin,
+    wif_private_keys: Iterable[str],
+    is_script: bool = False,
+    minimum_input_threshold: Optional[int] = None,
+    maximum_input_threshold: Optional[int] = None,
+    limit_inputs: Optional[int] = None,
+) -> Iterator[Utxo]:
+    prefix_bytes = coin['script_prefix_bytes'] if is_script else coin['address_prefix_bytes']
+    for wif_private_key in set(wif_private_keys):
+        private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+        source_address = convert_private_key_to_address(
+            private_key, prefix_bytes, compressed, is_script
+        )
+        utxos = get_utxo_from_address(
+            coin, source_address, minimum_input_threshold, maximum_input_threshold, limit_inputs
+        )
+        for utxo in utxos:
+            utxo['private_key'] = private_key
+            utxo['source_address'] = source_address
+            yield utxo
+
+
+def send_inputs(
+    coin: Coin,
+    inputs: List[Dict[str, Any]],
+    destination_address: str,
+    source_address: str,
+    input_satoshis: int,
+    satoshis: int,
+    fee: int,
+) -> str:
+    outputs = [{'address': destination_address, 'satoshis': satoshis}]
+    change = input_satoshis - satoshis - fee
+    if change > 0:
+        outputs.append({'address': source_address, 'satoshis': change})
+    api = InsightAPI(coin)
+    history_block = {}
+    if 'check_block_at_height' in coin.get('params', {}):
+        history_block = api.get_history_block()
+    transaction = Transaction(coin, inputs, outputs, check_block_at_height=history_block)
+    return api.send_raw_transaction(transaction.create())
+
+
+def send_from_private_keys(
+    coin: Coin,
+    wif_private_keys: Optional[List[str]],
+    input_addresses: Optional[List[str]],
+    unlocking_scripts: Optional[List[str]],
+    destination_address: str,
+    satoshis: int,
+    fee: int,
+    minimum_input_threshold: Optional[int] = None,
+    maximum_input_threshold: Optional[int] = None,
+    limit_inputs: Optional[int] = None,
+) -> str:
+    if not input_addresses and not wif_private_keys:
+        raise ValueError('Missing required parameters input_addresses or wif_private_keys')
+    utxo_sources = []
+    if input_addresses:
+        utxo_sources.append(
+            get_utxo_from_addresses(
+                coin,
+                input_addresses,
+                unlocking_scripts,
+                minimum_input_threshold,
+                maximum_input_threshold,
+                limit_inputs,
+            )
+        )
+    if wif_private_keys:
+        utxo_sources.append(
+            get_utxo_from_private_keys(
+                coin,
+                wif_private_keys,
+                False,
+                minimum_input_threshold,
+                maximum_input_threshold,
+                limit_inputs,
+            )
+        )
+    utxos = itertools.chain.from_iterable(utxo_sources)
+    return send_utxos(coin, utxos, destination_address, satoshis, fee)
+
+
+def send_utxos(
+    coin: Coin, utxos: Iterable[Utxo], destination_address: str, satoshis: int, fee: int
+) -> str:
+    inputs = []
+    input_satoshis = 0
+    for utxo in utxos:
+        if not utxo:
+            continue
+        input_satoshis += utxo['satoshis']
+        inputs.append(
+            {
+                'transaction_id': reverse_byte_hex(utxo['txid']),
+                'output_index': utxo['vout'],
+                'locking_script': utxo['scriptPubKey'],
+                'satoshis': utxo['satoshis'],
+                'private_key': utxo.get('private_key'),
+                'unlocking_script': utxo.get('unlocking_script', ''),
+            }
+        )
+        logger.debug(
+            '%s. address: %s, input: %s, satoshis: %s',
+            len(inputs),
+            utxo['source_address'],
+            utxo['txid'],
+            utxo['satoshis'],
+        )
+        if input_satoshis >= satoshis + fee:
+            return send_inputs(
+                coin,
+                inputs,
+                destination_address,
+                utxo['source_address'],
+                input_satoshis,
+                satoshis,
+                fee,
+            )
+    raise InsufficientFundsError(
+        f'Not enough funds in address(es).\n'
+        f'Sum of inputs is {input_satoshis} which is less than '
+        f'{satoshis + fee} ({satoshis} + {fee})'
+    )
