@@ -143,20 +143,57 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 | Horizen | ZEN | Yes | Yes | Yes |
 | Zero | ZERO | Yes | Yes | Yes |
 
-## Tests
-Install development dependencies with [uv](https://docs.astral.sh/uv/):
+## Development
+The project is managed with [uv](https://docs.astral.sh/uv/). Dependencies are pinned in
+`uv.lock` and the development Python version in `.python-version`.
+
+### Setup
+Install uv (the version used in CI is 0.13.0):
 ```bash
-uv sync
+curl -LsSf https://astral.sh/uv/0.13.0/install.sh | sh
 ```
+Create the virtual environment in `.venv` and install the package with all development
+dependencies exactly as locked:
+```bash
+uv sync --locked
+```
+uv downloads the required Python version automatically if it is not installed.
+Run `uv sync` again after pulling changes that modify `pyproject.toml` or `uv.lock`.
+
+### Running commands
+`uv run` executes commands inside the project environment, no activation is needed:
+```bash
+uv run checkaddress -c ZEC -a t1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt
+```
+If you prefer an activated shell:
+```bash
+source .venv/bin/activate
+```
+
+### Tests
 Run tests and check report htmlcov/index.html:
 ```bash
 uv run python -m pytest --cov=./ --cov-report=html
+```
+Run tests with another supported Python version in a temporary environment
+(`.venv` stays untouched):
+```bash
+uv run --isolated --python 3.8 python -m pytest
 ```
 Run linter and formatter:
 ```bash
 uv run ruff check .
 uv run ruff format .
 ```
+
+### Managing dependencies
+```bash
+uv add requests                    # add runtime dependency
+uv add --dev pytest-mock           # add development dependency
+uv remove requests                 # remove dependency
+uv lock --upgrade-package requests # upgrade single locked package
+```
+Always commit `pyproject.toml` together with the updated `uv.lock`.
 
 ## Adding new coin
 1. Add new entry in `settings.py`. Prefix bytes are usually defined in chainparams.cpp or 
