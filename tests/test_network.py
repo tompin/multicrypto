@@ -333,9 +333,12 @@ def test_broadcast_transaction_tries_next_node():
 
 def test_broadcast_transaction_discovers_nodes():
     discovered = [PeerAddress(f'10.0.0.{i}', 8333) for i in range(20)]
-    with patch('multicrypto.network.discover_nodes', return_value=discovered), patch(
-        'multicrypto.network.socket.create_connection', side_effect=OSError('refused')
-    ) as create_connection:
+    with (
+        patch('multicrypto.network.discover_nodes', return_value=discovered),
+        patch(
+            'multicrypto.network.socket.create_connection', side_effect=OSError('refused')
+        ) as create_connection,
+    ):
         with pytest.raises(NetworkError, match='any of 10 node'):
             broadcast_transaction(BTC, GENESIS_TX)
 

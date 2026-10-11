@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [{ name = "tompin", email = "tompin@tuta.io" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 keywords = ["cryptocurrency", "address", "transaction"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -14,8 +14,6 @@ classifiers = [
     "Topic :: Security :: Cryptography",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -64,7 +62,7 @@ module-root = ""
 line-length = 100
 
 # Lowest Python version supported by the package.
-target-version = "py38"
+target-version = "py310"
 
 # Exclude a variety of commonly ignored directories.
 exclude = [

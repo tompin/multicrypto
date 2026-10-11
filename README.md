@@ -2,7 +2,7 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/tompin/multicrypto/badge.svg?branch=master)](https://coveralls.io/github/tompin/multicrypto?branch=master)
 [![Latest Version](https://img.shields.io/pypi/v/multicrypto.svg)](https://pypi.python.org/pypi/multicrypto/)
-[![Python Version](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Highly experimental, pure python tool for cryptocurrencies.
@@ -10,7 +10,7 @@ Please notice that coins could change their protocols so make sure the coin para
 
 ## INSTALLATION
 
-Python 3.8 or newer is required. If you don't have it, install it by following instructions from
+Python 3.10 or newer is required. If you don't have it, install it by following instructions from
 python.org. Then run (using pip for Python 3):
 ```bash
 pip install multicrypto
@@ -221,7 +221,7 @@ uv run python -m pytest --cov=./ --cov-report=html
 Run tests with another supported Python version in a temporary environment
 (`.venv` stays untouched):
 ```bash
-uv run --isolated --python 3.8 python -m pytest
+uv run --isolated --python 3.10 python -m pytest
 ```
 Run tests in Docker (Python from the base image):
 ```bash

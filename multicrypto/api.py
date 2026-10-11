@@ -148,7 +148,7 @@ def get_utxo_from_addresses(
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
 ) -> Iterator[Utxo]:
-    for address, unlocking_script in zip(addresses, unlocking_scripts):
+    for address, unlocking_script in zip(addresses, unlocking_scripts, strict=True):
         utxos = get_utxo_from_address(
             coin, address, minimum_input_threshold, maximum_input_threshold, limit_inputs
         )
