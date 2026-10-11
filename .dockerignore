@@ -9,3 +9,13 @@ dist
 htmlcov
 venv
 .venv
+.ruff_cache
+.idea
+.coverage
+coverage.lcov
+
+# Local files with secrets and notes, must never get into the image
+.pypirc
+.deploy.txt
+testnet_wallet.json
+TODO.txt
