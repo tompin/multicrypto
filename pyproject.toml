@@ -20,11 +20,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
+# Ranges instead of exact versions so the package can be installed next to other packages,
+# versions used in development and tests are pinned in uv.lock.
 dependencies = [
-    "pycryptodome==3.24.0",
-    "pypng==0.0.21",
-    "PyQRCode==1.2.1",
-    "requests==2.33.0",
+    "pycryptodome>=3.19.1,<4",
+    "pypng>=0.0.20",
+    "PyQRCode>=1.2.1,<2",
+    "requests>=2.32.4,<3",
 ]
 
 [project.urls]
