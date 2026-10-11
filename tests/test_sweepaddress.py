@@ -297,3 +297,57 @@ def test_sweepaddress_address_type_not_supported(sys_stdout, caplog):
 
     assert sys_stdout.getvalue() == ''
     assert 'Address type p2sh-p2wpkh is not supported for safecoin' in caplog.text
+
+
+def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50):
+    source_address = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
+    api_url = get_api(coins['TBTC']).base_url
+    utxos = [
+        {'txid': f'{i:02x}' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': value}
+        for i, value in enumerate(utxo_values)
+    ]
+    responses.add(responses.GET, f'{api_url}/address/{source_address}/utxo', json=utxos, status=200)
+    responses.add(responses.POST, f'{api_url}/tx', body='abc', status=200)
+    argv = [
+        '',
+        '-c',
+        'TBTC',
+        '-p',
+        'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo',
+        '-t',
+        'p2wpkh',
+        '-f',
+        str(fee),
+        '-b',
+        str(batch_size),
+    ]
+    with patch.object(sys, 'argv', argv):
+        main()
+
+
+@responses.activate
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_fee_equal_to_inputs(sys_stdout, caplog):
+    sweep_p2wpkh([10000], fee=10000)
+
+    assert sys_stdout.getvalue() == ''
+    assert 'Fee 10000 is not smaller than sum of batch inputs 10000' in caplog.text
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_number_of_inputs_multiple_of_batch_size(sys_stdout, caplog):
+    sweep_p2wpkh([100000, 100000], batch_size=1)
+
+    assert sys_stdout.getvalue() == '{"txid": "abc"}\n{"txid": "abc"}\n'
+    assert caplog.text == ''
+
+
+@responses.activate
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_no_inputs(sys_stdout, caplog):
+    sweep_p2wpkh([])
+
+    assert sys_stdout.getvalue() == ''
+    assert 'No inputs found for the private key' in caplog.text

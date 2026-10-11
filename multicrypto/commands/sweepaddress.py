@@ -147,12 +147,13 @@ def sweep_address(args):
             maximum_input_threshold=maximum_input_threshold,
         )
         utxos = list(utxos)
-        batches_counter = 1 + len(utxos) // batch_size
-        for i in range(batches_counter):
-            batch_utxos = utxos[batch_size * i : batch_size * (i + 1)]
+        if not utxos:
+            raise ValueError('No inputs found for the private key')
+        for i in range(0, len(utxos), batch_size):
+            batch_utxos = utxos[i : i + batch_size]
             satoshis = sum(utxo['satoshis'] for utxo in batch_utxos)
-            if satoshis < fee:
-                raise ValueError(f'Fee {fee} is larger than sum of batch inputs {satoshis}')
+            if satoshis <= fee:
+                raise ValueError(f'Fee {fee} is not smaller than sum of batch inputs {satoshis}')
             result = send_utxos(coin, batch_utxos, destination_address, satoshis - fee, fee)
             print(result)
     except ValueError as exc:
