@@ -368,3 +368,50 @@ def test_send_from_private_keys_esplora_p2wpkh():
     assert result == '{"txid": "%s"}' % ('cd' * 32)
     raw_transaction = responses.calls[1].request.body
     assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
+
+
+def send_p2wpkh_with_change(satoshis):
+    """Send from P2WPKH address with single 100000 satoshis input and 1000 satoshis fee."""
+    responses.add(
+        responses.GET,
+        f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+    responses.add(responses.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
+    send_from_private_keys(
+        coin=coins['BTC'],
+        wif_private_keys=['KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'],
+        input_addresses=None,
+        unlocking_scripts=None,
+        destination_address='15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4',
+        satoshis=satoshis,
+        fee=1000,
+        address_type='p2wpkh',
+    )
+    raw_transaction = responses.calls[1].request.body
+    inputs = '01' + '11' * 32 + '00000000' + '00' + 'ffffffff'
+    assert raw_transaction.startswith('010000000001' + inputs)
+    return raw_transaction[len('010000000001' + inputs) :]
+
+
+CHANGE_P2WPKH_SCRIPT = '16' + '0014925d4028880bd0c9d68fbc7fc7dfee976698629c'
+
+
+@responses.activate
+def test_send_from_private_keys_dust_change_added_to_fee(caplog):
+    caplog.set_level('INFO')
+
+    outputs = send_p2wpkh_with_change(satoshis=98707)  # 293 satoshis change
+
+    assert outputs.startswith('01' + '9381010000000000' + '1976a914')
+    assert CHANGE_P2WPKH_SCRIPT not in outputs
+    assert 'Change 293 is below dust threshold 294 and was added to the fee' in caplog.text
+
+
+@responses.activate
+def test_send_from_private_keys_change_at_dust_threshold():
+    outputs = send_p2wpkh_with_change(satoshis=98706)  # 294 satoshis change
+
+    assert outputs.startswith('02' + '9281010000000000' + '1976a914')
+    assert '2601000000000000' + CHANGE_P2WPKH_SCRIPT in outputs

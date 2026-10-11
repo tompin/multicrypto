@@ -33,11 +33,14 @@ from multicrypto.consts import (
     OP_RETURN,
     OP_CHECKMULTISIGVERIFY,
 )
-from multicrypto.utils import hex_to_bytes, hash160
+from multicrypto.utils import hex_to_bytes, hash160, int_to_varint
 
 P2SH_SCRIPT = (OP_HASH160 + OP_PUSH_20) + b'%b' + OP_EQUAL
 P2PKH_SCRIPT = (OP_DUP + OP_HASH160 + OP_PUSH_20) + b'%b' + OP_EQUALVERIFY + OP_CHECKSIG
 P2WPKH_SCRIPT = (OP_0 + OP_PUSH_20) + b'%b'
+
+# Fee rate (in satoshis per virtual byte) used by Bitcoin Core to decide whether an output is dust
+DUST_RELAY_FEE = 3
 
 
 def is_p2sh(script):
@@ -62,6 +65,28 @@ def is_p2wpkh(script):
 
 def is_p2tr(script):
     return len(script) == 34 and script.startswith(OP_1 + OP_PUSH_32)
+
+
+def is_witness_program(script):
+    """Locking script of a segwit output: version (OP_0 to OP_16) and 2 to 40 bytes push"""
+    return (
+        4 <= len(script) <= 42
+        and (script[:1] == OP_0 or OP_1 <= script[:1] <= OP_16)
+        and script[1] == len(script) - 2
+    )
+
+
+def get_dust_threshold(script):
+    """Minimal amount of satoshis which can be sent to the locking script without the output
+    being rejected by nodes as dust: cost of creating and spending the output at the dust relay
+    fee, calculated in the same way as GetDustThreshold in Bitcoin Core"""
+    output_size = 8 + len(int_to_varint(len(script))) + len(script)
+    # outpoint, script length, unlocking script (signature and public key), sequence
+    if is_witness_program(script):
+        spending_input_size = 32 + 4 + 1 + 107 // 4 + 4
+    else:
+        spending_input_size = 32 + 4 + 1 + 107 + 4
+    return (output_size + spending_input_size) * DUST_RELAY_FEE
 
 
 def is_p2pk(script):

@@ -19,7 +19,7 @@ import requests
 
 from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
 from multicrypto.coins import P2PKH
-from multicrypto.scripts import address_to_script
+from multicrypto.scripts import address_to_script, get_dust_threshold
 from multicrypto.transaction import Transaction
 from multicrypto.utils import reverse_byte_hex
 
@@ -198,8 +198,13 @@ def send_inputs(
     """
     outputs = [{'address': destination_address, 'satoshis': satoshis}]
     change = input_satoshis - satoshis - fee
-    if change > 0:
+    dust_threshold = get_dust_threshold(address_to_script(source_address, coin))
+    if change >= dust_threshold:
         outputs.append({'address': source_address, 'satoshis': change})
+    elif change > 0:
+        logger.info(
+            'Change %s is below dust threshold %s and was added to the fee', change, dust_threshold
+        )
     api = get_api(coin)
     history_block = {}
     if 'check_block_at_height' in coin.get('params', {}):
