@@ -3,6 +3,7 @@
 .cache/*
 .coverage
 htmlcov/*
+coverage.lcov
 build/*
 dist/*
 .tox/*

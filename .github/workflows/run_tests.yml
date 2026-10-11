@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Get code
@@ -26,4 +26,9 @@ jobs:
       - name: Check code formatting (ruff)
         run: uv run ruff format --check .
       - name: Run tests
-        run: uv run python -m pytest
+        run: uv run python -m pytest --cov=multicrypto --cov-report=term --cov-report=lcov
+      - name: Upload coverage to Coveralls
+        if: matrix.python-version == '3.12'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.lcov
