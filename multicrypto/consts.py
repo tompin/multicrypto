@@ -87,6 +87,7 @@ OP_EQUALVERIFY = b'\x88'  # Same as OP_EQUAL, but runs OP_VERIFY afterward.
 
 # The number in the word name (2-16) is pushed onto the stack. In this case 14, so 20 bytes.
 OP_PUSH_20 = b'\x14'
+OP_PUSH_32 = b'\x20'
 
 # Marks transaction as invalid if top stack value is not true. The top stack value is removed.
 OP_VERIFY = b'\x69'

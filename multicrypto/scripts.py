@@ -8,6 +8,7 @@ from multicrypto.address import (
 from multicrypto.consts import (
     OP_HASH160,
     OP_PUSH_20,
+    OP_PUSH_32,
     OP_EQUALVERIFY,
     OP_EQUAL,
     OP_CHECKSIG,
@@ -57,6 +58,10 @@ def is_p2pkh(script):
 
 def is_p2wpkh(script):
     return len(script) == 22 and script.startswith(OP_0 + OP_PUSH_20)
+
+
+def is_p2tr(script):
+    return len(script) == 34 and script.startswith(OP_1 + OP_PUSH_32)
 
 
 def is_p2pk(script):

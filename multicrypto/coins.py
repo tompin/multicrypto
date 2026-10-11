@@ -2,10 +2,11 @@
 P2PKH = 'p2pkh'
 P2SH_P2WPKH = 'p2sh-p2wpkh'  # segwit nested in P2SH, e.g. 3... for BTC
 P2WPKH = 'p2wpkh'  # native segwit (bech32), e.g. bc1q... for BTC
-ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH)
+P2TR = 'p2tr'  # taproot key path only (bech32m, BIP-86), e.g. bc1p... for BTC
+ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR)
 
 # Dictionary with coins definition with coin symbols as keys. Optional 'address_types' lists
-# supported address types (only P2PKH by default), segwit P2WPKH requires also 'bech32_hrp'.
+# supported address types (only P2PKH by default), P2WPKH and P2TR require also 'bech32_hrp'.
 coins = {
     'BTC': {
         'name': 'bitcoin',
@@ -13,7 +14,7 @@ coins = {
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x05',
         'bech32_hrp': 'bc',
-        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR),
         'apis': [
             {'url': 'https://mempool.space/api', 'type': 'esplora'},
             {'url': 'https://blockstream.info/api', 'type': 'esplora'},
@@ -101,7 +102,7 @@ coins = {
         'secret_prefix_bytes': b'\xb0',
         'script_prefix_bytes': b'\x05',
         'bech32_hrp': 'ltc',
-        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR),
         'apis': [{'url': 'https://litecoinspace.org/api', 'type': 'esplora'}],
         'network': {
             'magic': b'\xfb\xc0\xb6\xdb',
@@ -142,7 +143,7 @@ coins = {
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
         'bech32_hrp': 'tb',
-        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR),
         'apis': [
             {'url': 'https://mempool.space/testnet/api', 'type': 'esplora'},
             {'url': 'https://blockstream.info/testnet/api', 'type': 'esplora'},
@@ -172,7 +173,7 @@ coins = {
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
         'bech32_hrp': 'tltc',
-        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+        'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR),
         'apis': [{'url': 'https://litecoinspace.org/testnet/api', 'type': 'esplora'}],
         'network': {
             'magic': b'\xfd\xd2\xc8\xf1',

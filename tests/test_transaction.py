@@ -8,7 +8,20 @@ from multicrypto.consts import OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, 
 from multicrypto.ecdsa import verify
 from multicrypto.ellipticcurve import Point, secp256k1
 from multicrypto.ripemd160 import ripemd160
-from multicrypto.transaction import Transaction, TransactionOutput, POSTransaction
+from multicrypto.schnorr import (
+    schnorr_sign,
+    schnorr_verify,
+    tagged_hash,
+    taproot_tweak_private_key,
+)
+from multicrypto.transaction import (
+    SIGHASH_ALL,
+    SIGHASH_DEFAULT,
+    POSTransaction,
+    Transaction,
+    TransactionOutput,
+    get_taproot_signature_message,
+)
 from multicrypto.utils import double_sha256, encode_point, reverse_byte_hex
 
 
@@ -651,3 +664,211 @@ def test_transaction_without_segwit_inputs_has_no_witness():
 def test_transaction_output_invalid_bech32_address():
     with pytest.raises(ValueError, match='Incorrect bech32 address'):
         TransactionOutput('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5', 1000, coins['BTC'])
+
+
+# Transaction from BIP-341 key path spending test vectors
+BIP341_PREVOUTS = [
+    '7de20cbff686da83a54981d2b9bab3586f4ca7e48f57f5b55963115f3b334e9c01000000',
+    'd7b7cab57b1393ace2d064f4d4a2cb8af6def61273e127517d44759b6dafdd9900000000',
+    'f8e1f583384333689228c5d28eac13366be082dc57441760d957275419a4184200000000',
+    'f0689180aa63b30cb162a73c6d2a38b7eeda2a83ece74310fda0843ad604853b01000000',
+    'aa5202bdf6d8ccd2ee0f0202afbbb7461d9264a25e5bfd3c5a52ee1239e0ba6c00000000',
+    '956149bdc66faa968eb2be2d2faa29718acbfe3941215893a2a3446d32acd05000000000',
+    'e664b9773b88c09c32cb70a2a3e4da0ced63b7ba3b22f848531bbb1d5d5f4c9401000000',
+    'e9aa6b8e6c9de67619e6a3924ae25696bb7b694bb677a632a74ef7eadfd4eabf00000000',
+    'a778eb6a263dc090464cd125c466b5a99667720b1c110468831d058aa1b82af101000000',
+]
+BIP341_SEQUENCES = [
+    '00000000',
+    'ffffffff',
+    'ffffffff',
+    'feffffff',
+    'feffffff',
+    '00000000',
+    '00000000',
+    'ffffffff',
+    'ffffffff',
+]
+BIP341_UTXOS = [
+    (420000000, '512053a1f6e454df1aa2776a2814a721372d6258050de330b3c6d10ee8f4e0dda343'),
+    (462000000, '5120147c9c57132f6e7ecddba9800bb0c4449251c92a1e60371ee77557b6620f3ea3'),
+    (294000000, '76a914751e76e8199196d454941c45d1b3a323f1433bd688ac'),
+    (504000000, '5120e4d810fd50586274face62b8a807eb9719cef49c04177cc6b76a9a4251d5450e'),
+    (630000000, '512091b64d5324723a985170e4dc5a0f84c041804f2cd12660fa5dec09fc21783605'),
+    (378000000, '00147dd65592d0ab2fe0d0257d571abf032cd9db93dc'),
+    (672000000, '512075169f4001aa68f15bbed28b218df1d0a62cbbcf1188c6665110c293c907b831'),
+    (546000000, '5120712447206d7a5238acc7ff53fbe94a3b64539ad291c7cdbc490b7577e4b17df5'),
+    (588000000, '512077e30a5522dd9f894c3f8b8bd4c4b2cf82ca7da8a3ea6a239655c39c050ab220'),
+]
+BIP341_OUTPUTS = (
+    '00ca9a3b000000001976a91406afd46bcdfd22ef94ac122aa11f241244a37ecc88ac807840cb00000000'
+    '20ac9a87f5594be208f8532db38cff670c450ed2fea8fcdefcc9a663f78bab962b'
+)
+
+
+@pytest.mark.parametrize(
+    'position,hash_type,private_key,merkle_root,sighash,witness',
+    [
+        (
+            3,
+            SIGHASH_ALL,
+            0xD3C7AF07DA2D54F7A7735D3D0FC4F0A73164DB638B2F2F7C43F711F6D4AA7E64,
+            'c525714a7f49c28aedbbba78c005931a81c234b2f6c99a73e4d06082adc8bf2b',
+            'bf013ea93474aa67815b1b6cc441d23b64fa310911d991e713cd34c7f5d46669',
+            'ff45f742a876139946a149ab4d9185574b98dc919d2eb6754f8abaa59d18b025'
+            '637a3aa043b91817739554f4ed2026cf8022dbd83e351ce1fabc272841d2510a01',
+        ),
+        (
+            4,
+            SIGHASH_DEFAULT,
+            0xF36BB07A11E469CE941D16B63B11B9B9120A84D9D87CFF2C84A8D4AFFB438F4E,
+            'ccbd66c6f7e8fdab47b3a486f59d28262be857f30d4773f2d5ea47f7761ce0e2',
+            '4f900a0bae3f1446fd48490c2958b5a023228f01661cda3496a11da502a7f7ef',
+            'b4010dd48a617db09926f729e79c33ae0b4e94b79f04a1ae93ede6315eb3669d'
+            'e185a17d2b0ac9ee09fd4c64b678a0b61a0a86fa888a273c8511be83bfd6810f',
+        ),
+    ],
+)
+def test_taproot_signature_message_bip341(
+    position, hash_type, private_key, merkle_root, sighash, witness
+):
+    """Signature hash and signature of key path spending from BIP-341 test vectors"""
+    message = get_taproot_signature_message(
+        version=b'\x02\x00\x00\x00',
+        lock_time=bytes.fromhex('0065cd1d'),
+        prevouts=[bytes.fromhex(prevout) for prevout in BIP341_PREVOUTS],
+        amounts=[amount.to_bytes(8, byteorder='little') for amount, _ in BIP341_UTXOS],
+        locking_scripts=[bytes.fromhex(script) for _, script in BIP341_UTXOS],
+        sequences=[bytes.fromhex(sequence) for sequence in BIP341_SEQUENCES],
+        encoded_outputs=bytes.fromhex(BIP341_OUTPUTS),
+        position=position,
+        hash_type=hash_type,
+    )
+    signature_hash = tagged_hash('TapSighash', message)
+    tweaked_private_key = taproot_tweak_private_key(private_key, bytes.fromhex(merkle_root))
+    # BIP-341 test vectors are signed with auxiliary random data set to zeros
+    signature = schnorr_sign(signature_hash, tweaked_private_key, b'\x00' * 32)
+    if hash_type != SIGHASH_DEFAULT:
+        signature += hash_type.to_bytes(1, byteorder='little')
+
+    assert signature_hash.hex() == sighash
+    assert signature.hex() == witness
+
+
+def test_taproot_signature_message_unsupported_hash_type():
+    with pytest.raises(ValueError, match='Unsupported taproot signature hash type 3'):
+        get_taproot_signature_message(
+            version=b'\x02\x00\x00\x00',
+            lock_time=b'\x00\x00\x00\x00',
+            prevouts=[],
+            amounts=[],
+            locking_scripts=[],
+            sequences=[],
+            encoded_outputs=b'',
+            position=0,
+            hash_type=3,
+        )
+
+
+P2TR_INPUT = {
+    'transaction_id': '44' * 32,
+    'output_index': 3,
+    'locking_script': '51204e338e84086e2003075392f4a3fda3afafab27ae74c946d0d156bc14080d94e8',
+    'private_key': 0x4444,
+    'satoshis': 400000,
+}
+
+
+def test_create_transaction_with_p2tr_input():
+    """Transaction spending P2TR, P2WPKH and P2PKH inputs, taproot signature is verified with
+    output key from the locking script."""
+    inputs = [
+        P2TR_INPUT,
+        {
+            'transaction_id': '11' * 32,
+            'output_index': 0,
+            'locking_script': '0014925d4028880bd0c9d68fbc7fc7dfee976698629c',
+            'private_key': 0x1111,
+            'satoshis': 100000,
+        },
+        {
+            'transaction_id': '22' * 32,
+            'output_index': 1,
+            'locking_script': '76a9143d984c5679f9399eb6cb41a9eac16f69adf29b2688ac',
+            'private_key': 0x2222,
+            'satoshis': 200000,
+        },
+    ]
+    outputs = [
+        {'address': 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q', 'satoshis': 250000},
+        {
+            'address': 'bc1pfcecapqgdcsqxp6njt628ldr47h6kfawwny5d5x3267pgzqdjn5q89mmf0',
+            'satoshis': 440000,
+        },
+    ]
+    transaction = Transaction(coin=coins['BTC'], inputs=inputs, outputs=outputs)
+    message = transaction.get_taproot_data_to_sign(0)
+
+    transaction.create()
+
+    p2tr_input = transaction.inputs[0]
+    assert transaction.is_segwit
+    assert [inp.witness_version for inp in transaction.inputs] == [1, 0, None]
+    assert p2tr_input.script == b''
+    assert p2tr_input.locking_script.hex() == P2TR_INPUT['locking_script']
+    # SIGHASH_DEFAULT signature has 64 bytes and the witness doesn't contain public key
+    assert len(p2tr_input.witness) == 1
+    assert len(p2tr_input.witness[0]) == 64
+    assert schnorr_verify(
+        tagged_hash('TapSighash', message), p2tr_input.witness_program, p2tr_input.witness[0]
+    )
+    assert transaction.outputs[1].script.hex() == P2TR_INPUT['locking_script']
+    # version, segwit marker and flag, first input with empty unlocking script
+    assert transaction.raw.startswith('010000000001' + '03' + '44' * 32 + '03000000' + '00')
+    # witness of P2TR input (one item of 64 bytes), P2WPKH input (two items), P2PKH input (empty)
+    witnesses = '0140' + p2tr_input.witness[0].hex() + '02'
+    assert witnesses in transaction.raw
+    assert transaction.raw.endswith('00' + '00000000')
+    # Transaction id doesn't depend on witness data
+    raw_without_witness = (
+        transaction.raw[:8] + transaction.raw[12 : transaction.raw.index(witnesses)] + '00000000'
+    )
+    assert transaction.id == reverse_byte_hex(
+        double_sha256(bytes.fromhex(raw_without_witness)).hexdigest()
+    )
+
+
+@patch('multicrypto.schnorr.urandom', return_value=b'\x00' * 32)
+def test_create_p2tr_transaction(_urandom):
+    """Transaction spending P2TR input to P2PKH output with change sent back to P2TR address"""
+    outputs = [
+        {'address': '15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4', 'satoshis': 300000},
+        {
+            'address': 'bc1pfcecapqgdcsqxp6njt628ldr47h6kfawwny5d5x3267pgzqdjn5q89mmf0',
+            'satoshis': 99000,
+        },
+    ]
+    transaction = Transaction(coin=coins['BTC'], inputs=[P2TR_INPUT], outputs=outputs)
+    message = transaction.get_taproot_data_to_sign(0)
+
+    transaction.create()
+
+    signature = transaction.inputs[0].witness[0]
+    assert schnorr_verify(
+        tagged_hash('TapSighash', message),
+        bytes.fromhex(P2TR_INPUT['locking_script'][4:]),
+        signature,
+    )
+    # version, segwit marker and flag, one input with empty unlocking script
+    raw_inputs = '01000000' + '0001' + '01' + '44' * 32 + '03000000' + '00' + 'ffffffff'
+    raw_outputs = (
+        '02'
+        + 'e093040000000000'
+        + '1976a9143203f9559360daea3ed68ea0bdecee39c8a78baa88ac'
+        + 'b882010000000000'
+        + '22'
+        + P2TR_INPUT['locking_script']
+    )
+    # one witness item with 64 bytes signature and lock time
+    raw_witness = '01' + '40' + signature.hex() + '00000000'
+    assert transaction.raw == raw_inputs + raw_outputs + raw_witness

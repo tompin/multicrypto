@@ -239,6 +239,45 @@ def test_sweepaddress_p2sh_p2wpkh(sys_stdout):
     assert sys_stdout.getvalue() == '{"txid": "abc"}\n'
 
 
+@responses.activate
+@patch.object(
+    sys,
+    'argv',
+    [
+        '',
+        '-c',
+        'TBTC',
+        '-p',
+        'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo',
+        '-t',
+        'p2tr',
+    ],
+)
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_p2tr(sys_stdout):
+    source_address = 'tb1p5z79qpqcp9wf02p2zd5dtz89pxla4qu3zuz5w5hxhz7ds58cce4s9ztvgh'
+    api_url = get_api(coins['TBTC']).base_url
+    responses.add(
+        responses.GET,
+        f'{api_url}/address/{source_address}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+    responses.add(responses.POST, f'{api_url}/tx', body='abc', status=200)
+
+    main()
+
+    raw_transaction = responses.calls[1].request.body
+    # P2TR input has empty unlocking script
+    assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
+    # all funds minus default fee sent back to the source address
+    p2tr_script = '5120a0bc500418095c97a82a1368d588e509bfda839117054752e6b8bcd850f8c66b'
+    assert '01' + '905f010000000000' + '22' + p2tr_script in raw_transaction
+    # witness with one 64 bytes Schnorr signature and lock time
+    assert raw_transaction[-140:-136] == '0140'
+    assert sys_stdout.getvalue() == '{"txid": "abc"}\n'
+
+
 @patch.object(
     sys,
     'argv',

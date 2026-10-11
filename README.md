@@ -69,8 +69,10 @@ sendcrypto -a 2NDN55zZ6BtStckQWnhGJejBdM5EaGcNn7h -c TBTC -i 2NAMu8JCTLXtTv2LRQk
 ```
 Segwit is supported for BTC, LTC and their testnets (TBTC, TLTC). Funds can be sent to bech32 addresses
 (native segwit `bc1q...` and taproot `bc1p...`), and with `--address_type` (`-t`) to spend funds from the
-nested segwit (`p2sh-p2wpkh`, `3...`) or native segwit (`p2wpkh`, `bc1q...`) address of the private key
-(default is `p2pkh`, the change is sent back to the same address). This is also available in `sweepaddress`.
+nested segwit (`p2sh-p2wpkh`, `3...`), native segwit (`p2wpkh`, `bc1q...`) or taproot (`p2tr`, `bc1p...`)
+address of the private key (default is `p2pkh`, the change is sent back to the same address). Taproot address
+is derived from the private key according to BIP-86 (key path only, without script tree) and inputs are signed
+with Schnorr signatures (BIP-340). This is also available in `sweepaddress`.
 Sending 0.25 BTC from the native segwit address of the private key to bech32 address:
 ```bash
 sendcrypto -c BTC -s 25000000 -a bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4 -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -t p2wpkh
@@ -169,8 +171,8 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 | Litecoin testnet | TLTC | Yes | Yes | Yes | Yes |
 
 Transactions require a block explorer API, coins without it support only address generation and translation.
-Segwit spending is supported from P2SH-P2WPKH and P2WPKH addresses, spending from taproot (P2TR) and
-P2WSH addresses is not supported (sending to them works).
+Segwit spending is supported from P2SH-P2WPKH, P2WPKH and taproot P2TR (key path) addresses, spending from
+P2WSH addresses and taproot script path is not supported (sending to them works).
 
 ### Peer-to-peer network
 Module `multicrypto.network` connects directly to nodes of the coin network (without block explorer),
@@ -265,7 +267,7 @@ Optional `address_types` lists address types which can be derived from a private
 from chainparams.cpp), for Bitcoin:
 ```python
 'bech32_hrp': 'bc',
-'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH),
+'address_types': (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR),
 ```
 Entries in `apis` use the Insight API by default. Block explorers with the Esplora API (e.g.
 mempool.space, blockstream.info) need `'type': 'esplora'`, for Bitcoin:

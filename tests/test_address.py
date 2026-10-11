@@ -11,7 +11,7 @@ from multicrypto.address import (
     validate_wif_private_key,
 )
 from multicrypto.base58 import BASE58_ALPHABET
-from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2WPKH, coins
+from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins
 
 
 def test_convert_private_key_to_address():
@@ -127,12 +127,25 @@ def test_validate_wif_private_key_uncompressed_failure():
         ('LTC', P2WPKH, 'ltc1qw508d6qejxtdg4y5r3zarvary0c5xw7kgmn4n9'),
         ('TLTC', P2WPKH, 'tltc1qw508d6qejxtdg4y5r3zarvary0c5xw7klfsuq0'),
         ('LTC', P2PKH, 'LVuDpNCSSj6pQ7t9Pv6d6sUkLKoqDEVUnJ'),
+        ('BTC', P2TR, 'bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9'),
+        ('TBTC', P2TR, 'tb1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5ssk79hv2'),
+        ('LTC', P2TR, 'ltc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sszjagvq'),
+        ('TLTC', P2TR, 'tltc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5ssfaekn4'),
     ],
 )
 def test_convert_private_key_to_coin_address(coin_symbol, address_type, expected_address):
     address = convert_private_key_to_coin_address(1, coins[coin_symbol], True, address_type)
 
     assert address == expected_address
+
+
+def test_convert_private_key_to_p2tr_address_bip341():
+    """Key path only output from BIP-341 wallet test vectors"""
+    private_key = 0x6B973D88838F27366ED61C9AD6367663045CB456E28335C109E30717AE0C6BAA
+
+    address = convert_private_key_to_coin_address(private_key, coins['BTC'], True, P2TR)
+
+    assert address == 'bc1p2wsldez5mud2yam29q22wgfh9439spgduvct83k3pm50fcxa5dps59h4z5'
 
 
 @pytest.mark.parametrize(
@@ -142,7 +155,9 @@ def test_convert_private_key_to_coin_address(coin_symbol, address_type, expected
         ('BTC', False, P2SH_P2WPKH, 'Segwit addresses require compressed public key'),
         ('ZEC', True, P2WPKH, 'Address type p2wpkh is not supported for zcash'),
         ('ZEC', True, P2SH_P2WPKH, 'supported types: p2pkh'),
-        ('BTC', True, 'p2tr', 'Unknown address type p2tr'),
+        ('BTC', False, P2TR, 'Segwit addresses require compressed public key'),
+        ('ZEC', True, P2TR, 'Address type p2tr is not supported for zcash'),
+        ('BTC', True, 'p2wsh', 'Unknown address type p2wsh'),
     ],
 )
 def test_convert_private_key_to_coin_address_failure(coin_symbol, compressed, address_type, error):

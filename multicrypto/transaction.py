@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import time
 
@@ -5,11 +6,18 @@ from multicrypto.address import calculate_public_key_hash, encode_point
 from multicrypto.consts import OP_0
 from multicrypto.ecdsa import sign
 from multicrypto.ellipticcurve import secp256k1
+from multicrypto.schnorr import (
+    schnorr_sign,
+    tagged_hash,
+    taproot_output_key,
+    taproot_tweak_private_key,
+)
 from multicrypto.scripts import (
     P2PKH_SCRIPT,
     P2WPKH_SCRIPT,
     address_to_script,
     is_p2sh,
+    is_p2tr,
     is_p2wpkh,
 )
 from multicrypto.utils import (
@@ -23,6 +31,10 @@ from multicrypto.utils import (
 )
 
 SEGWIT_MARKER_AND_FLAG = b'\x00\x01'
+# Taproot signature hash types (BIP-341) committing to all inputs and outputs, SIGHASH_DEFAULT
+# signature has 64 bytes, SIGHASH_ALL signature has hash type byte appended
+SIGHASH_DEFAULT = 0
+SIGHASH_ALL = 1
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +60,15 @@ class TransactionInput:
         self.transaction_id = hex_to_bytes(transaction_id, byteorder='big')
         self.output_index = output_index.to_bytes(4, byteorder='little')
         self.script = hex_to_bytes(locking_script, byteorder='big')
+        # Script is replaced with unlocking script during signing, taproot signature hash
+        # commits to locking scripts of all inputs
+        self.locking_script = self.script
         self.script_length = int_to_bytes(len(self.script), byteorder='little')
         self.satoshis = satoshis.to_bytes(8, byteorder='little')
-        # Public key hash of P2WPKH or P2SH-P2WPKH input, None for non segwit inputs
+        # Public key hash of P2WPKH or P2SH-P2WPKH input (witness version 0), output key of P2TR
+        # input (witness version 1), None for non segwit inputs
         self.witness_program = None
+        self.witness_version = None
         self.witness = []
         if private_key:
             self.private_key = private_key
@@ -61,8 +78,14 @@ class TransactionInput:
                 self.public_key, compressed=True, segwit=True
             )
             is_nested_segwit = is_p2sh(self.script) and self.script[2:22] == nested_segwit_hash
-            if is_p2wpkh(self.script) or is_nested_segwit:
+            if is_p2tr(self.script) and self.script[2:] == taproot_output_key(private_key):
+                # Taproot key path spend (BIP-86), public key is not revealed in the witness
+                self.witness_version = 1
+                self.witness_program = self.script[2:]
+                is_compressed_public_key = True
+            elif is_p2wpkh(self.script) or is_nested_segwit:
                 # Segwit requires compressed public keys
+                self.witness_version = 0
                 self.witness_program = compressed_public_key_hash
                 is_compressed_public_key = True
             elif compressed_public_key_hash.hex() not in locking_script:
@@ -213,6 +236,28 @@ class Transaction:
             inp.script = b''
         inp.script_length = int_to_varint(len(inp.script))
 
+    def get_taproot_data_to_sign(self, position):
+        return get_taproot_signature_message(
+            version=self.version,
+            lock_time=self.lock_time,
+            prevouts=[inp.transaction_id + inp.output_index for inp in self.inputs],
+            amounts=[inp.satoshis for inp in self.inputs],
+            locking_scripts=[inp.locking_script for inp in self.inputs],
+            sequences=[self.sequence] * len(self.inputs),
+            encoded_outputs=self.get_encoded_outputs(),
+            position=position,
+        )
+
+    def sign_taproot_input(self, position):
+        inp = self.inputs[position]
+        message = self.get_taproot_data_to_sign(position)
+        private_key = taproot_tweak_private_key(inp.private_key)
+        # SIGHASH_DEFAULT signature has no hash type byte appended
+        inp.witness = [schnorr_sign(tagged_hash('TapSighash', message), private_key)]
+        # P2TR: unlocking script is empty
+        inp.script = b''
+        inp.script_length = int_to_varint(len(inp.script))
+
     def get_encoded_witnesses(self):
         witness_block = b''
         for inp in self.inputs:
@@ -223,6 +268,9 @@ class Transaction:
 
     def sign_input(self, position):
         inp = self.inputs[position]
+        if inp.witness_version == 1:
+            self.sign_taproot_input(position)
+            return
         if inp.is_segwit:
             self.sign_segwit_input(position)
             return
@@ -269,6 +317,51 @@ class Transaction:
         self.raw = raw_transaction_data.hex()
         logger.info('Created transaction with id: %s\nRaw data: %s', self.id, self.raw)
         return self.raw
+
+
+def get_taproot_signature_message(
+    version,
+    lock_time,
+    prevouts,
+    amounts,
+    locking_scripts,
+    sequences,
+    encoded_outputs,
+    position,
+    hash_type=SIGHASH_DEFAULT,
+):
+    """Signature message (with epoch prefix) for taproot key path spending according to
+    BIP-341, hashed with tagged hash 'TapSighash' gives signed message. Only SIGHASH_DEFAULT
+    and SIGHASH_ALL without annex are supported.
+
+    :param prevouts: Outpoints (transaction id and output index) of all inputs
+    :param amounts: Amounts (8 bytes little-endian) of all inputs
+    :param locking_scripts: Locking scripts of all inputs
+    :param sequences: Sequences of all inputs
+    :param encoded_outputs: Serialized outputs of the transaction
+    :param position: Index of the signed input
+    """
+    if hash_type not in (SIGHASH_DEFAULT, SIGHASH_ALL):
+        raise ValueError(f'Unsupported taproot signature hash type {hash_type}')
+
+    def sha256(data):
+        return hashlib.sha256(data).digest()
+
+    return (
+        # Epoch
+        b'\x00'
+        + hash_type.to_bytes(1, byteorder='little')
+        + version
+        + lock_time
+        + sha256(b''.join(prevouts))
+        + sha256(b''.join(amounts))
+        + sha256(b''.join(int_to_varint(len(script)) + script for script in locking_scripts))
+        + sha256(b''.join(sequences))
+        + sha256(encoded_outputs)
+        # Spend type: key path spending without annex
+        + b'\x00'
+        + position.to_bytes(4, byteorder='little')
+    )
 
 
 class POSTransaction(Transaction):

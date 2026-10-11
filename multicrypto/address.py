@@ -12,9 +12,11 @@ from multicrypto.coins import (
     ADDRESS_TYPES,
     P2PKH,
     P2SH_P2WPKH,
+    P2TR,
     coins,
     get_address_types,
 )
+from multicrypto.schnorr import taproot_output_key
 from multicrypto.utils import double_sha256, encode_point, hash160
 
 G = secp256k1.G  # generator point
@@ -53,6 +55,8 @@ def convert_private_key_to_coin_address(private_key, coin, compressed=True, addr
         return convert_private_key_to_address(
             private_key, coin['script_prefix_bytes'], compressed, segwit=True
         )
+    if address_type == P2TR:
+        return encode(coin['bech32_hrp'], 1, taproot_output_key(private_key))
     public_key_hash = calculate_public_key_hash(G * private_key, compressed=True)
     return encode(coin['bech32_hrp'], 0, public_key_hash)
 

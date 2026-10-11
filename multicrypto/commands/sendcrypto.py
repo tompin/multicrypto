@@ -104,7 +104,8 @@ def get_args():
         default=P2PKH,
         help=(
             'Type of the address derived from the private keys, from which funds will be sent: '
-            'p2pkh (legacy), p2sh-p2wpkh (nested segwit) or p2wpkh (native segwit, bech32). '
+            'p2pkh (legacy), p2sh-p2wpkh (nested segwit), p2wpkh (native segwit, bech32) or '
+            'p2tr (taproot, bech32m). '
             f'Default is {P2PKH}'
         ),
     )

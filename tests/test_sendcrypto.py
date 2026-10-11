@@ -212,6 +212,54 @@ def test_sendcrypto_from_p2wpkh_address(broadcast_transaction, sys_stdout):
     assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
 
 
+@responses.activate
+@patch.object(
+    sys,
+    'argv',
+    [
+        '',
+        '-a',
+        'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n',
+        '-c',
+        'TBTC',
+        '-s',
+        '60000',
+        '-f',
+        '1000',
+        '-p',
+        'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo',
+        '-t',
+        'p2tr',
+    ],
+)
+@patch('sys.stdout', new_callable=StringIO)
+def test_sendcrypto_from_p2tr_address(sys_stdout):
+    source_address = 'tb1p5z79qpqcp9wf02p2zd5dtz89pxla4qu3zuz5w5hxhz7ds58cce4s9ztvgh'
+    api_url = get_api(coins['TBTC']).base_url
+    responses.add(
+        responses.GET,
+        f'{api_url}/address/{source_address}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+    responses.add(responses.POST, f'{api_url}/tx', body=TXID, status=200)
+
+    main()
+
+    raw_transaction = responses.calls[1].request.body
+    # version, segwit marker and flag, one input with empty unlocking script
+    assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
+    # destination output and change sent back to the source taproot address
+    assert '60ea000000000000' + '16' + '0014925d4028880bd0c9d68fbc7fc7dfee976698629c' in (
+        raw_transaction
+    )
+    p2tr_script = '5120a0bc500418095c97a82a1368d588e509bfda839117054752e6b8bcd850f8c66b'
+    assert '5898000000000000' + '22' + p2tr_script in raw_transaction
+    # witness with one 64 bytes Schnorr signature
+    assert raw_transaction[-140:-136] == '0140'
+    assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
+
+
 @patch.object(sys, 'argv', ARGS + ['-t', 'p2wpkh'])
 @patch('sys.stdout', new_callable=StringIO)
 def test_sendcrypto_address_type_not_supported(sys_stdout, caplog):
