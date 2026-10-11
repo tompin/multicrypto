@@ -2,7 +2,7 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/tompin/multicrypto/badge.svg?branch=master)](https://coveralls.io/github/tompin/multicrypto?branch=master)
 [![Latest Version](https://img.shields.io/pypi/v/multicrypto.svg)](https://pypi.python.org/pypi/multicrypto/)
-[![Python Version](https://img.shields.io/pypi/pyversions/multicrypto.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Highly experimental, pure python tool for cryptocurrencies.
