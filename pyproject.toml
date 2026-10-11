@@ -1,6 +1,6 @@
 [project]
 name = "multicrypto"
-version = "0.1.17"
+version = "0.2.0"
 description = "Tool for translating and creating custom addresses for various cryptocurrencies"
 readme = "README.md"
 authors = [{ name = "tompin", email = "tompin@tuta.io" }]
