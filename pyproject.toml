@@ -21,10 +21,10 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "pycryptodome==3.19",
+    "pycryptodome==3.24.0",
     "pypng==0.0.21",
     "PyQRCode==1.2.1",
-    "requests==2.32.2",
+    "requests==2.33.0",
 ]
 
 [project.urls]
@@ -43,7 +43,7 @@ verifymessage = "multicrypto.commands.verifymessage:main"
 [dependency-groups]
 dev = [
     "coverage==7.3.2",
-    "pytest==7.4.3",
+    "pytest==9.0.3",
     "pytest-cov==4.0.0",
     "responses==0.12.1",
     "ruff==0.17.0",
