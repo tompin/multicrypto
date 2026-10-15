@@ -238,10 +238,10 @@ uv run ruff format .
 
 ### Managing dependencies
 ```bash
-uv add requests                    # add runtime dependency
-uv add --dev pytest-mock           # add development dependency
-uv remove requests                 # remove dependency
-uv lock --upgrade-package requests # upgrade single locked package
+uv add pypng                           # add runtime dependency
+uv add --dev pytest-mock               # add development dependency
+uv remove pypng                        # remove dependency
+uv lock --upgrade-package pycryptodome # upgrade single locked package
 ```
 Always commit `pyproject.toml` together with the updated `uv.lock`.
 

@@ -2,7 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-import responses
+from tests import http_mock
 
 from multicrypto.api import InsightAPI, get_api
 from multicrypto.coins import coins
@@ -152,7 +152,7 @@ data = [
 ]
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(
     sys,
     'argv',
@@ -165,23 +165,23 @@ def test_sweepaddress_succes(sys_stdout):
     send_url = '{}/tx/send'.format(api_url)
     address_url = '{}/addr/{}/utxo'.format(api_url, 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
 
-    responses.add(responses.GET, address_url, json=data, status=200)
-    responses.add(
-        responses.POST,
+    http_mock.add(http_mock.GET, address_url, json=data, status=200)
+    http_mock.add(
+        http_mock.POST,
         send_url,
         content_type='application/json',
         status=200,
         json={'txid': '480048710f7443a1fbfe9038e846cd8e30a94dde9b3e9f4507fea923f62c662f'},
     )
-    responses.add(
-        responses.POST,
+    http_mock.add(
+        http_mock.POST,
         send_url,
         content_type='application/json',
         status=200,
         json={'txid': '7c8cfe3ceceba3e03457d62fbcbe272012ecafcd8006e3a4b366efdaf726ac98'},
     )
-    responses.add(
-        responses.POST,
+    http_mock.add(
+        http_mock.POST,
         send_url,
         content_type='application/json',
         status=200,
@@ -198,7 +198,7 @@ def test_sweepaddress_succes(sys_stdout):
     assert sys_stdout.getvalue() == res
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(
     sys,
     'argv',
@@ -216,17 +216,17 @@ def test_sweepaddress_succes(sys_stdout):
 def test_sweepaddress_p2sh_p2wpkh(sys_stdout):
     source_address = '2MuaXqvRRTAs1tuu36aeoJFzTVdqGdaevkz'
     api_url = get_api(coins['TBTC']).base_url
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{api_url}/address/{source_address}/utxo',
         json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
         status=200,
     )
-    responses.add(responses.POST, f'{api_url}/tx', body='abc', status=200)
+    http_mock.add(http_mock.POST, f'{api_url}/tx', body='abc', status=200)
 
     main()
 
-    raw_transaction = responses.calls[1].request.body
+    raw_transaction = http_mock.calls[1].request.body
     # unlocking script pushes P2WPKH redeem script
     assert raw_transaction.startswith(
         '010000000001' + '01' + '11' * 32 + '00000000'
@@ -239,7 +239,7 @@ def test_sweepaddress_p2sh_p2wpkh(sys_stdout):
     assert sys_stdout.getvalue() == '{"txid": "abc"}\n'
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(
     sys,
     'argv',
@@ -257,17 +257,17 @@ def test_sweepaddress_p2sh_p2wpkh(sys_stdout):
 def test_sweepaddress_p2tr(sys_stdout):
     source_address = 'tb1p5z79qpqcp9wf02p2zd5dtz89pxla4qu3zuz5w5hxhz7ds58cce4s9ztvgh'
     api_url = get_api(coins['TBTC']).base_url
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{api_url}/address/{source_address}/utxo',
         json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
         status=200,
     )
-    responses.add(responses.POST, f'{api_url}/tx', body='abc', status=200)
+    http_mock.add(http_mock.POST, f'{api_url}/tx', body='abc', status=200)
 
     main()
 
-    raw_transaction = responses.calls[1].request.body
+    raw_transaction = http_mock.calls[1].request.body
     # P2TR input has empty unlocking script
     assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
     # all funds minus default fee sent back to the source address
@@ -306,8 +306,8 @@ def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50):
         {'txid': f'{i:02x}' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': value}
         for i, value in enumerate(utxo_values)
     ]
-    responses.add(responses.GET, f'{api_url}/address/{source_address}/utxo', json=utxos, status=200)
-    responses.add(responses.POST, f'{api_url}/tx', body='abc', status=200)
+    http_mock.add(http_mock.GET, f'{api_url}/address/{source_address}/utxo', json=utxos, status=200)
+    http_mock.add(http_mock.POST, f'{api_url}/tx', body='abc', status=200)
     argv = [
         '',
         '-c',
@@ -325,17 +325,17 @@ def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50):
         main()
 
 
-@responses.activate
+@http_mock.activate
 @patch('sys.stdout', new_callable=StringIO)
 def test_sweepaddress_fee_equal_to_inputs(sys_stdout, caplog):
     sweep_p2wpkh([10000], fee=10000)
 
     assert sys_stdout.getvalue() == ''
     assert 'Fee 10000 is not smaller than sum of batch inputs 10000' in caplog.text
-    assert len(responses.calls) == 1
+    assert len(http_mock.calls) == 1
 
 
-@responses.activate
+@http_mock.activate
 @patch('sys.stdout', new_callable=StringIO)
 def test_sweepaddress_number_of_inputs_multiple_of_batch_size(sys_stdout, caplog):
     sweep_p2wpkh([100000, 100000], batch_size=1)
@@ -344,7 +344,7 @@ def test_sweepaddress_number_of_inputs_multiple_of_batch_size(sys_stdout, caplog
     assert caplog.text == ''
 
 
-@responses.activate
+@http_mock.activate
 @patch('sys.stdout', new_callable=StringIO)
 def test_sweepaddress_no_inputs(sys_stdout, caplog):
     sweep_p2wpkh([])

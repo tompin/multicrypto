@@ -2,7 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-import responses
+from tests import http_mock
 
 from multicrypto.api import InsightAPI, get_api
 from multicrypto.coins import coins
@@ -27,8 +27,8 @@ TXID = 'a9700b6b18559c2ee976c5a7a5b51f1f9b47daacca96148b3b0afd2b0c6da138'
 def add_utxo_responses(api_url):
     address_url1 = '{}/addr/{}/utxo'.format(api_url, 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt')
     address_url2 = '{}/addr/{}/utxo'.format(api_url, 't1TJ7cjWWBxozgekVWVKzCCXKhK4F59v4HB')
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         address_url1,
         json=[
             {
@@ -44,8 +44,8 @@ def add_utxo_responses(api_url):
         ],
         status=200,
     )
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         address_url2,
         json=[
             {
@@ -63,7 +63,7 @@ def add_utxo_responses(api_url):
     )
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(sys, 'argv', ARGS)
 @patch('sys.stdout', new_callable=StringIO)
 def test_sendcrypto_success(sys_stdout):
@@ -71,8 +71,8 @@ def test_sendcrypto_success(sys_stdout):
     api_url = InsightAPI(coin).base_url
     send_url = '{}/tx/send'.format(api_url)
     add_utxo_responses(api_url)
-    responses.add(
-        responses.POST,
+    http_mock.add(
+        http_mock.POST,
         send_url,
         json={'txid': 'a9700b6b18559c2ee976c5a7a5b51f1f9b47daacca96148b3b0afd2b0c6da138'},
         content_type='application/json',
@@ -84,7 +84,7 @@ def test_sendcrypto_success(sys_stdout):
     assert sys_stdout.getvalue() == res
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(sys, 'argv', ARGS + ['--node', '1.2.3.4', '--node', '[2001:db8::1]:18233'])
 @patch('sys.stdout', new_callable=StringIO)
 @patch('multicrypto.commands.sendcrypto.broadcast_transaction', return_value=TXID)
@@ -100,7 +100,7 @@ def test_sendcrypto_p2p_nodes(broadcast_transaction, sys_stdout):
     assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(sys, 'argv', ARGS + ['--p2p'])
 @patch('sys.stdout', new_callable=StringIO)
 @patch('multicrypto.commands.sendcrypto.broadcast_transaction', return_value=TXID)
@@ -113,7 +113,7 @@ def test_sendcrypto_p2p_discovered_nodes(broadcast_transaction, sys_stdout):
     assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(sys, 'argv', ARGS + ['--p2p'])
 @patch('sys.stdout', new_callable=StringIO)
 @patch(
@@ -164,7 +164,7 @@ def test_sendcrypto_p2p_not_supported(sys_stdout, caplog):
     assert 'No peer-to-peer network has been defined for the coin BTCZ' in caplog.text
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(
     sys,
     'argv',
@@ -190,8 +190,8 @@ def test_sendcrypto_p2p_not_supported(sys_stdout, caplog):
 def test_sendcrypto_from_p2wpkh_address(broadcast_transaction, sys_stdout):
     source_address = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
     api_url = get_api(coins['TBTC']).base_url
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{api_url}/address/{source_address}/utxo',
         json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
         status=200,
@@ -212,7 +212,7 @@ def test_sendcrypto_from_p2wpkh_address(broadcast_transaction, sys_stdout):
     assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(
     sys,
     'argv',
@@ -236,17 +236,17 @@ def test_sendcrypto_from_p2wpkh_address(broadcast_transaction, sys_stdout):
 def test_sendcrypto_from_p2tr_address(sys_stdout):
     source_address = 'tb1p5z79qpqcp9wf02p2zd5dtz89pxla4qu3zuz5w5hxhz7ds58cce4s9ztvgh'
     api_url = get_api(coins['TBTC']).base_url
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{api_url}/address/{source_address}/utxo',
         json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
         status=200,
     )
-    responses.add(responses.POST, f'{api_url}/tx', body=TXID, status=200)
+    http_mock.add(http_mock.POST, f'{api_url}/tx', body=TXID, status=200)
 
     main()
 
-    raw_transaction = responses.calls[1].request.body
+    raw_transaction = http_mock.calls[1].request.body
     # version, segwit marker and flag, one input with empty unlocking script
     assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
     # destination output and change sent back to the source taproot address
