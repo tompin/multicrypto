@@ -3,14 +3,14 @@ from io import StringIO
 from unittest.mock import patch
 
 import pytest
-import responses
+from tests import http_mock
 
 from multicrypto.api import InsightAPI
 from multicrypto.coins import coins
 from multicrypto.commands.checkaddress import main
 
 
-@responses.activate
+@http_mock.activate
 @patch.object(
     sys,
     'argv',
@@ -83,7 +83,7 @@ def test_checkaddress_success(sys_stdout):
     coin = coins['ZEC']
     api_url = InsightAPI(coin).base_url
     address_url = '{}/addr/{}/utxo'.format(api_url, 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
-    responses.add(responses.GET, address_url, json=response_data, status=200)
+    http_mock.add(http_mock.GET, address_url, json=response_data, status=200)
 
     main()
 
@@ -137,7 +137,7 @@ def test_checkadress_no_api_failure():
     assert str(exc_info.value) == 'No API has been defined for the coin ZCL'
 
 
-@responses.activate
+@http_mock.activate
 @patch(
     'multicrypto.commands.checkaddress.get_utxo_from_address',
     side_effect=Exception('Connection error'),
@@ -160,7 +160,7 @@ def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
     coin = coins['ZEC']
     api_url = InsightAPI(coin).base_url
     address_url = '{}/addr/{}/utxo'.format(api_url, 't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP')
-    responses.add(responses.GET, address_url, json=response_data, status=200)
+    http_mock.add(http_mock.GET, address_url, json=response_data, status=200)
 
     with pytest.raises(Exception) as exc_info:
         main()

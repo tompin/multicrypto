@@ -1,8 +1,8 @@
+import urllib.error
 from datetime import date, timedelta
-from unittest.mock import patch
 
 import pytest
-import responses
+from tests import http_mock
 
 from multicrypto.api import (
     EsploraAPI,
@@ -157,15 +157,15 @@ data = [
 ]
 
 
-@responses.activate
+@http_mock.activate
 def test_sendcrypto_success():
     coin = coins['SAFE']
     api_url = InsightAPI(coin).base_url
     send_url = '{}/tx/send'.format(api_url)
     address_url = '{}/addr/{}/utxo'.format(api_url, 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
-    responses.add(responses.GET, address_url, json=data, status=200)
-    responses.add(
-        responses.POST,
+    http_mock.add(http_mock.GET, address_url, json=data, status=200)
+    http_mock.add(
+        http_mock.POST,
         send_url,
         json={'txid': '904c6c12dcd011b30079c3a8646fa744b4d3da0a27f3e67194287a0d0b3bd689'},
         content_type='application/json',
@@ -195,30 +195,50 @@ def test_insight_api_uses_current_api_index():
     assert InsightAPI({**coin, 'current_api_index': 1}).base_url == 'https://second.example'
 
 
-@responses.activate
+@http_mock.activate
 def test_insight_api_get_history_block():
     coin = coins['ZEN']
     api = InsightAPI(coin, timeout=5)
     block = {'hash': '0000000003ac1a4b', 'height': 1000000}
-    responses.add(responses.GET, f'{api.base_url}/blocks', json={'blocks': [block]}, status=200)
+    http_mock.add(http_mock.GET, f'{api.base_url}/blocks', json={'blocks': [block]}, status=200)
 
     assert api.get_history_block() == block
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    assert responses.calls[0].request.url == (
+    assert http_mock.calls[0].request.url == (
         f'{api.base_url}/blocks?limit=1&blockDate={yesterday}'
     )
 
 
-def test_insight_api_passes_timeout_to_requests():
+@http_mock.activate
+def test_insight_api_passes_timeout_to_urlopen():
     api = InsightAPI(coins['SAFE'], timeout=5)
-    with patch('multicrypto.api.requests.get') as get_mock:
-        get_mock.return_value.json.return_value = []
+    address_url = f'{api.base_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo'
+    http_mock.add(http_mock.GET, address_url, json=[])
 
-        api.get_utxo('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+    assert api.get_utxo('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM') == []
 
-    get_mock.assert_called_once_with(
-        f'{api.base_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo', timeout=5
-    )
+    request = http_mock.calls[0].request
+    assert (request.method, request.url, request.body) == ('GET', address_url, None)
+    assert request.headers['user-agent'] == 'multicrypto'
+    assert http_mock.calls[0].timeout == 5
+
+
+@http_mock.activate
+def test_insight_api_send_raw_transaction_sends_json():
+    api = InsightAPI(coins['SAFE'])
+    http_mock.add(http_mock.POST, f'{api.base_url}/tx/send', body='Missing inputs', status=400)
+
+    assert api.send_raw_transaction('0100') == 'Missing inputs'
+
+    request = http_mock.calls[0].request
+    assert request.body == '{"rawtx": "0100"}'
+    assert request.headers['content-type'] == 'application/json'
+
+
+@http_mock.activate
+def test_insight_api_connection_error():
+    with pytest.raises(urllib.error.URLError, match='Connection refused'):
+        InsightAPI(coins['SAFE']).get_utxo('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
 
 
 def test_send_from_private_keys_without_inputs():
@@ -234,12 +254,12 @@ def test_send_from_private_keys_without_inputs():
         )
 
 
-@responses.activate
+@http_mock.activate
 def test_send_from_private_keys_insufficient_funds():
     coin = coins['SAFE']
     api_url = InsightAPI(coin).base_url
     address_url = f'{api_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo'
-    responses.add(responses.GET, address_url, json=data[:1], status=200)
+    http_mock.add(http_mock.GET, address_url, json=data[:1], status=200)
 
     with pytest.raises(InsufficientFundsError, match='Sum of inputs is 52637874459'):
         send_from_private_keys(
@@ -266,10 +286,10 @@ def test_get_api_selects_client_by_type():
     assert get_api({**coin, 'current_api_index': 1}).base_url == 'https://blockstream.info/api'
 
 
-@responses.activate
+@http_mock.activate
 def test_esplora_api_get_utxo():
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
         json=[
             {
@@ -282,7 +302,7 @@ def test_esplora_api_get_utxo():
         ],
         status=200,
     )
-    responses.add(responses.GET, f'{ESPLORA_URL}/blocks/tip/height', body='900009', status=200)
+    http_mock.add(http_mock.GET, f'{ESPLORA_URL}/blocks/tip/height', body='900009', status=200)
 
     utxos = EsploraAPI(coins['BTC']).get_utxo(SEGWIT_ADDRESS)
 
@@ -311,10 +331,10 @@ def test_esplora_api_get_utxo():
     ]
 
 
-@responses.activate
+@http_mock.activate
 def test_esplora_api_get_utxo_error():
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
         body='Too many unspent outputs',
         status=400,
@@ -324,35 +344,36 @@ def test_esplora_api_get_utxo_error():
         EsploraAPI(coins['BTC']).get_utxo(SEGWIT_ADDRESS)
 
 
-@responses.activate
+@http_mock.activate
 def test_esplora_api_send_raw_transaction():
-    responses.add(responses.POST, f'{ESPLORA_URL}/tx', body='ab' * 32, status=200)
+    http_mock.add(http_mock.POST, f'{ESPLORA_URL}/tx', body='ab' * 32, status=200)
 
     result = EsploraAPI(coins['BTC']).send_raw_transaction('0100')
 
     assert result == '{"txid": "%s"}' % ('ab' * 32)
-    assert responses.calls[0].request.body == '0100'
+    assert http_mock.calls[0].request.body == '0100'
+    assert http_mock.calls[0].request.headers['content-type'] == 'text/plain'
 
 
-@responses.activate
+@http_mock.activate
 def test_esplora_api_send_raw_transaction_rejected():
-    responses.add(
-        responses.POST, f'{ESPLORA_URL}/tx', body='sendrawtransaction RPC error', status=400
+    http_mock.add(
+        http_mock.POST, f'{ESPLORA_URL}/tx', body='sendrawtransaction RPC error', status=400
     )
 
     with pytest.raises(ValueError, match='Transaction rejected: sendrawtransaction RPC error'):
         EsploraAPI(coins['BTC']).send_raw_transaction('0100')
 
 
-@responses.activate
+@http_mock.activate
 def test_send_from_private_keys_esplora_p2wpkh():
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
         json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
         status=200,
     )
-    responses.add(responses.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
+    http_mock.add(http_mock.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
 
     result = send_from_private_keys(
         coin=coins['BTC'],
@@ -366,19 +387,19 @@ def test_send_from_private_keys_esplora_p2wpkh():
     )
 
     assert result == '{"txid": "%s"}' % ('cd' * 32)
-    raw_transaction = responses.calls[1].request.body
+    raw_transaction = http_mock.calls[1].request.body
     assert raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000' + '00')
 
 
 def send_p2wpkh_with_change(satoshis):
     """Send from P2WPKH address with single 100000 satoshis input and 1000 satoshis fee."""
-    responses.add(
-        responses.GET,
+    http_mock.add(
+        http_mock.GET,
         f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
         json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
         status=200,
     )
-    responses.add(responses.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
+    http_mock.add(http_mock.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
     send_from_private_keys(
         coin=coins['BTC'],
         wif_private_keys=['KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'],
@@ -389,7 +410,7 @@ def send_p2wpkh_with_change(satoshis):
         fee=1000,
         address_type='p2wpkh',
     )
-    raw_transaction = responses.calls[1].request.body
+    raw_transaction = http_mock.calls[1].request.body
     inputs = '01' + '11' * 32 + '00000000' + '00' + 'ffffffff'
     assert raw_transaction.startswith('010000000001' + inputs)
     return raw_transaction[len('010000000001' + inputs) :]
@@ -398,7 +419,7 @@ def send_p2wpkh_with_change(satoshis):
 CHANGE_P2WPKH_SCRIPT = '16' + '0014925d4028880bd0c9d68fbc7fc7dfee976698629c'
 
 
-@responses.activate
+@http_mock.activate
 def test_send_from_private_keys_dust_change_added_to_fee(caplog):
     caplog.set_level('INFO')
 
@@ -409,7 +430,7 @@ def test_send_from_private_keys_dust_change_added_to_fee(caplog):
     assert 'Change 293 is below dust threshold 294 and was added to the fee' in caplog.text
 
 
-@responses.activate
+@http_mock.activate
 def test_send_from_private_keys_change_at_dust_threshold():
     outputs = send_p2wpkh_with_change(satoshis=98706)  # 294 satoshis change
 

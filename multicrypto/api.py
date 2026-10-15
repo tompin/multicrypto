@@ -12,10 +12,12 @@ The module consists of two layers:
 import itertools
 import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
-
-import requests
 
 from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
 from multicrypto.coins import P2PKH
@@ -30,10 +32,54 @@ Utxo = Dict[str, Any]
 Broadcast = Callable[[str], str]
 
 DEFAULT_TIMEOUT = 30  # in seconds
+# Some APIs behind Cloudflare reject the default Python-urllib user agent
+USER_AGENT = 'multicrypto'
 
 
 class InsufficientFundsError(Exception):
     """Raised when the sum of available inputs does not cover the amount and the fee."""
+
+
+@dataclass(frozen=True)
+class HttpResponse:
+    status: int
+    text: str
+
+    @property
+    def ok(self) -> bool:
+        return self.status < 400
+
+    def json(self) -> Any:
+        return json.loads(self.text)
+
+
+def http_request(
+    url: str,
+    timeout: float,
+    params: Optional[Dict[str, Any]] = None,
+    data: Optional[str] = None,
+    json_data: Any = None,
+) -> HttpResponse:
+    """Send GET request, or POST request when data or json_data is given.
+
+    Unlike urlopen, HTTP error statuses don't raise exceptions, they are returned in the response.
+    """
+    if params:
+        url = f'{url}?{urllib.parse.urlencode(params)}'
+    headers = {'User-Agent': USER_AGENT}
+    if json_data is not None:
+        data = json.dumps(json_data)
+        headers['Content-Type'] = 'application/json'
+    elif data is not None:
+        headers['Content-Type'] = 'text/plain'
+    body = data.encode() if data is not None else None
+    request = urllib.request.Request(url, data=body, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return HttpResponse(response.status, response.read().decode())
+    except urllib.error.HTTPError as error:
+        with error:
+            return HttpResponse(error.code, error.read().decode())
 
 
 class InsightAPI:
@@ -45,19 +91,19 @@ class InsightAPI:
         self.timeout = timeout
 
     def get_utxo(self, address: str) -> List[Utxo]:
-        response = requests.get(f'{self.base_url}/addr/{address}/utxo', timeout=self.timeout)
+        response = http_request(f'{self.base_url}/addr/{address}/utxo', timeout=self.timeout)
         return response.json()
 
     def send_raw_transaction(self, raw_transaction: str) -> str:
-        response = requests.post(
-            f'{self.base_url}/tx/send', json={'rawtx': raw_transaction}, timeout=self.timeout
+        response = http_request(
+            f'{self.base_url}/tx/send', json_data={'rawtx': raw_transaction}, timeout=self.timeout
         )
         return response.text
 
     def get_history_block(self) -> Dict[str, Any]:
         """Return the first block mined yesterday, required by coins with replay protection."""
         yesterday = date.today() - timedelta(days=1)
-        response = requests.get(
+        response = http_request(
             f'{self.base_url}/blocks',
             params={'limit': 1, 'blockDate': yesterday.isoformat()},
             timeout=self.timeout,
@@ -75,8 +121,8 @@ class EsploraAPI:
         self.base_url = definition['url']
         self.timeout = timeout
 
-    def _get(self, path: str) -> requests.Response:
-        response = requests.get(f'{self.base_url}/{path}', timeout=self.timeout)
+    def _get(self, path: str) -> HttpResponse:
+        response = http_request(f'{self.base_url}/{path}', timeout=self.timeout)
         if not response.ok:
             raise ValueError(f'API error: {response.text}')
         return response
@@ -106,7 +152,7 @@ class EsploraAPI:
         return utxos
 
     def send_raw_transaction(self, raw_transaction: str) -> str:
-        response = requests.post(f'{self.base_url}/tx', data=raw_transaction, timeout=self.timeout)
+        response = http_request(f'{self.base_url}/tx', data=raw_transaction, timeout=self.timeout)
         if not response.ok:
             raise ValueError(f'Transaction rejected: {response.text}')
         return json.dumps({'txid': response.text})

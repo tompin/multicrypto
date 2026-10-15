@@ -26,7 +26,6 @@ dependencies = [
     "pycryptodome>=3.19.1,<4",
     "pypng>=0.0.20",
     "PyQRCode>=1.2.1,<2",
-    "requests>=2.32.4,<3",
 ]
 
 [project.urls]
@@ -47,7 +46,6 @@ dev = [
     "coverage==7.3.2",
     "pytest==9.0.3",
     "pytest-cov==4.0.0",
-    "responses==0.12.1",
     "ruff==0.17.0",
     "validators==0.18.1",
 ]
