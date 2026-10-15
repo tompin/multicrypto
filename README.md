@@ -241,7 +241,7 @@ uv run ruff format .
 uv add pypng                           # add runtime dependency
 uv add --dev pytest-mock               # add development dependency
 uv remove pypng                        # remove dependency
-uv lock --upgrade-package pycryptodome # upgrade single locked package
+uv lock --upgrade-package pyqrcode     # upgrade single locked package
 ```
 Always commit `pyproject.toml` together with the updated `uv.lock`.
 
