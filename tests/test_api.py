@@ -8,7 +8,10 @@ from multicrypto.api import (
     EsploraAPI,
     InsightAPI,
     InsufficientFundsError,
+    PreparedTransaction,
+    broadcast_prepared,
     get_api,
+    prepare_from_private_keys,
     send_from_private_keys,
 )
 from multicrypto.coins import coins
@@ -436,3 +439,74 @@ def test_send_from_private_keys_change_at_dust_threshold():
 
     assert outputs.startswith('02' + '9281010000000000' + '1976a914')
     assert '2601000000000000' + CHANGE_P2WPKH_SCRIPT in outputs
+
+
+P2WPKH_SEND_ARGS = dict(
+    coin=coins['BTC'],
+    wif_private_keys=['KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'],
+    input_addresses=None,
+    unlocking_scripts=None,
+    destination_address='15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4',
+    satoshis=60000,
+    fee=1000,
+    address_type='p2wpkh',
+)
+
+
+def add_p2wpkh_responses():
+    http_mock.add(
+        http_mock.GET,
+        f'{ESPLORA_URL}/address/{SEGWIT_ADDRESS}/utxo',
+        json=[{'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 100000}],
+        status=200,
+    )
+    http_mock.add(http_mock.POST, f'{ESPLORA_URL}/tx', body='cd' * 32, status=200)
+
+
+@http_mock.activate
+def test_prepare_from_private_keys_does_not_broadcast():
+    add_p2wpkh_responses()
+
+    prepared = prepare_from_private_keys(**P2WPKH_SEND_ARGS)
+
+    assert [call.request.method for call in http_mock.calls] == ['GET']
+    assert prepared.input_satoshis == 100000
+    assert prepared.fee == 1000
+    assert prepared.change_added_to_fee == 0
+    assert len(prepared.inputs) == 1
+    assert prepared.outputs == [
+        {'address': '15ZTYi2AhyAAqzfhbFnsRMMXXZnwiymnU4', 'satoshis': 60000},
+        {'address': SEGWIT_ADDRESS, 'satoshis': 39000},
+    ]
+    assert prepared.raw_transaction.startswith('010000000001' + '01' + '11' * 32 + '00000000')
+
+
+@http_mock.activate
+def test_broadcast_prepared_sends_the_same_transaction_as_send_from_private_keys():
+    add_p2wpkh_responses()
+
+    prepared = prepare_from_private_keys(**P2WPKH_SEND_ARGS)
+    result = broadcast_prepared(coins['BTC'], prepared)
+    send_from_private_keys(**P2WPKH_SEND_ARGS)
+
+    assert result == '{"txid": "%s"}' % ('cd' * 32)
+    assert http_mock.calls[1].request.body == prepared.raw_transaction
+    assert http_mock.calls[3].request.body == prepared.raw_transaction
+
+
+def test_broadcast_prepared_with_broadcast_function():
+    prepared = PreparedTransaction('0100', [], [], 0, 0)
+
+    result = broadcast_prepared(coins['BTC'], prepared, broadcast=lambda raw: f'sent {raw}')
+
+    assert result == 'sent 0100'
+
+
+@http_mock.activate
+def test_prepare_from_private_keys_reports_change_added_to_fee():
+    add_p2wpkh_responses()
+
+    prepared = prepare_from_private_keys(**{**P2WPKH_SEND_ARGS, 'satoshis': 98707})
+
+    assert prepared.change_added_to_fee == 293
+    assert len(prepared.outputs) == 1
