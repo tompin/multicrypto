@@ -33,6 +33,7 @@ Homepage = "https://github.com/tompin/multicrypto"
 [project.scripts]
 checkaddress = "multicrypto.commands.checkaddress:main"
 genaddress = "multicrypto.commands.genaddress:main"
+multicrypto-gui = "multicrypto.gui.app:main"
 sendcrypto = "multicrypto.commands.sendcrypto:main"
 signmessage = "multicrypto.commands.signmessage:main"
 sweepaddress = "multicrypto.commands.sweepaddress:main"
