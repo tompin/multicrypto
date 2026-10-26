@@ -40,9 +40,15 @@ transaddress = "multicrypto.commands.transaddress:main"
 transprivkey = "multicrypto.commands.transprivkey:main"
 verifymessage = "multicrypto.commands.verifymessage:main"
 
+[project.optional-dependencies]
+gui = [
+    "pynacl>=1.5",
+]
+
 [dependency-groups]
 dev = [
     "coverage==7.3.2",
+    "pynacl==1.6.2",
     "pytest==9.0.3",
     "pytest-cov==4.0.0",
     "ruff==0.17.0",
