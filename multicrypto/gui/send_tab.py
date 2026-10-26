@@ -48,7 +48,7 @@ class SendTab:
             advanced, text='Send directly to the peer-to-peer network', variable=self.p2p
         ).grid(row=3, column=0, columnspan=2, sticky='w', pady=2)
         self.nodes = self._add_row(advanced, 4, 'Nodes host[:port] (optional)', width=74)
-        self.button = ttk.Button(self.frame, text='Prepare transaction…', command=self.prepare)
+        self.button = ttk.Button(self.frame, text='Prepare transaction...', command=self.prepare)
         self.button.pack(anchor='e')
 
     @staticmethod
