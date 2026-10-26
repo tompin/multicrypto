@@ -25,6 +25,13 @@ The package contains below commands:
  6. `genaddress` - generates vanity address for given coin
  7. `signmessage`- signs message using ECDSA
  8. `verifymessage` - verifies ECDSA signed message
+ 9. `multicrypto-gui` - graphical user interface with private keys kept in encrypted wallet file
+
+The GUI requires optional dependency PyNaCl and tkinter (on some Linux distributions tkinter has to be
+installed with the system package manager, e.g. `apt install python3-tk`):
+```bash
+pip install "multicrypto[gui]"
+```
 
 ## USAGE
 Before running any commands it is advised to disable shell history. For example on linux it should 
@@ -147,6 +154,24 @@ is signed `Hello World!` message by owner of BTC address 1HCfFoucNXgYLvpcN2X4Twm
 ```bash
 verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=
 ```
+
+9. Graphical user interface:
+```bash
+multicrypto-gui --wallet=<WALLET FILE> --auto_lock=<MINUTES>
+```
+The GUI keeps private keys in a single wallet file (by default `~/.multicrypto/wallet.mcw`) encrypted
+with XChaCha20-Poly1305 using the key derived from the password with Argon2id. Labels and coins of the
+addresses are encrypted as well. Tabs:
+- **Wallet** - import private key in WIF format, generate new one, copy address, show private key
+  (after entering the password again) and remove it,
+- **Balance** - unspent outputs of the wallet address or any other address (like `checkaddress`),
+- **Send** - send funds from one or more wallet addresses (like `sendcrypto`), the transaction is
+  shown for confirmation before it is broadcast.
+
+The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
+data from memory, so private keys of the unlocked wallet stay in memory of the process until it is
+locked. Keep a backup of the wallet file and remember the password - the private keys cannot be
+recovered without them.
 
 ### Supported coins
 | Coin | Symbol | Address generation | P2PKH transactions | P2SH transactions | Segwit transactions |
