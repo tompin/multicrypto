@@ -227,7 +227,24 @@ def get_utxo_from_private_keys(
             yield utxo
 
 
-def send_inputs(
+@dataclass(frozen=True)
+class PreparedTransaction:
+    """Signed transaction which has not been broadcast yet.
+
+    :param inputs: Transaction inputs (including private keys used to sign them)
+    :param outputs: Destination output and optional change output sent back to the source address
+    :param change_added_to_fee: Change below the dust threshold, which was added to the fee
+    """
+
+    raw_transaction: str
+    inputs: List[Dict[str, Any]]
+    outputs: List[Dict[str, Any]]
+    input_satoshis: int
+    fee: int
+    change_added_to_fee: int = 0
+
+
+def build_transaction(
     coin: Coin,
     inputs: List[Dict[str, Any]],
     destination_address: str,
@@ -235,34 +252,42 @@ def send_inputs(
     input_satoshis: int,
     satoshis: int,
     fee: int,
-    broadcast: Optional[Broadcast] = None,
-) -> str:
-    """Create transaction and broadcast it.
-
-    :param broadcast: Function sending raw transaction (hex) and returning the result, by default
-                      the transaction is sent to the coin Insight API
-    """
+) -> PreparedTransaction:
+    """Create signed transaction, the change is sent back to the source address."""
     outputs = [{'address': destination_address, 'satoshis': satoshis}]
     change = input_satoshis - satoshis - fee
+    change_added_to_fee = 0
     dust_threshold = get_dust_threshold(address_to_script(source_address, coin))
     if change >= dust_threshold:
         outputs.append({'address': source_address, 'satoshis': change})
     elif change > 0:
+        change_added_to_fee = change
         logger.info(
             'Change %s is below dust threshold %s and was added to the fee', change, dust_threshold
         )
-    api = get_api(coin)
     history_block = {}
     if 'check_block_at_height' in coin.get('params', {}):
-        history_block = api.get_history_block()
+        history_block = get_api(coin).get_history_block()
     transaction = Transaction(coin, inputs, outputs, check_block_at_height=history_block)
-    raw_transaction = transaction.create()
+    return PreparedTransaction(
+        transaction.create(), inputs, outputs, input_satoshis, fee, change_added_to_fee
+    )
+
+
+def broadcast_prepared(
+    coin: Coin, prepared: PreparedTransaction, broadcast: Optional[Broadcast] = None
+) -> str:
+    """Broadcast the prepared transaction.
+
+    :param broadcast: Function sending raw transaction (hex) and returning the result, by default
+                      the transaction is sent to the coin block explorer API
+    """
     if broadcast is None:
-        return api.send_raw_transaction(raw_transaction)
-    return broadcast(raw_transaction)
+        return get_api(coin).send_raw_transaction(prepared.raw_transaction)
+    return broadcast(prepared.raw_transaction)
 
 
-def send_from_private_keys(
+def prepare_from_private_keys(
     coin: Coin,
     wif_private_keys: Optional[List[str]],
     input_addresses: Optional[List[str]],
@@ -273,9 +298,8 @@ def send_from_private_keys(
     minimum_input_threshold: Optional[int] = None,
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
-    broadcast: Optional[Broadcast] = None,
     address_type: str = P2PKH,
-) -> str:
+) -> PreparedTransaction:
     if not input_addresses and not wif_private_keys:
         raise ValueError('Missing required parameters input_addresses or wif_private_keys')
     utxo_sources = []
@@ -302,17 +326,46 @@ def send_from_private_keys(
             )
         )
     utxos = itertools.chain.from_iterable(utxo_sources)
-    return send_utxos(coin, utxos, destination_address, satoshis, fee, broadcast)
+    return prepare_utxos(coin, utxos, destination_address, satoshis, fee)
 
 
-def send_utxos(
+def send_from_private_keys(
+    coin: Coin,
+    wif_private_keys: Optional[List[str]],
+    input_addresses: Optional[List[str]],
+    unlocking_scripts: Optional[List[str]],
+    destination_address: str,
+    satoshis: int,
+    fee: int,
+    minimum_input_threshold: Optional[int] = None,
+    maximum_input_threshold: Optional[int] = None,
+    limit_inputs: Optional[int] = None,
+    broadcast: Optional[Broadcast] = None,
+    address_type: str = P2PKH,
+) -> str:
+    prepared = prepare_from_private_keys(
+        coin,
+        wif_private_keys,
+        input_addresses,
+        unlocking_scripts,
+        destination_address,
+        satoshis,
+        fee,
+        minimum_input_threshold,
+        maximum_input_threshold,
+        limit_inputs,
+        address_type,
+    )
+    return broadcast_prepared(coin, prepared, broadcast)
+
+
+def prepare_utxos(
     coin: Coin,
     utxos: Iterable[Utxo],
     destination_address: str,
     satoshis: int,
     fee: int,
-    broadcast: Optional[Broadcast] = None,
-) -> str:
+) -> PreparedTransaction:
     inputs = []
     input_satoshis = 0
     for utxo in utxos:
@@ -337,7 +390,7 @@ def send_utxos(
             utxo['satoshis'],
         )
         if input_satoshis >= satoshis + fee:
-            return send_inputs(
+            return build_transaction(
                 coin,
                 inputs,
                 destination_address,
@@ -345,10 +398,21 @@ def send_utxos(
                 input_satoshis,
                 satoshis,
                 fee,
-                broadcast,
             )
     raise InsufficientFundsError(
         f'Not enough funds in address(es).\n'
         f'Sum of inputs is {input_satoshis} which is less than '
         f'{satoshis + fee} ({satoshis} + {fee})'
     )
+
+
+def send_utxos(
+    coin: Coin,
+    utxos: Iterable[Utxo],
+    destination_address: str,
+    satoshis: int,
+    fee: int,
+    broadcast: Optional[Broadcast] = None,
+) -> str:
+    prepared = prepare_utxos(coin, utxos, destination_address, satoshis, fee)
+    return broadcast_prepared(coin, prepared, broadcast)
