@@ -72,7 +72,7 @@ class EntryDialog(simpledialog.Dialog):
         self.type_box.grid(row=2, column=1, sticky='w', pady=2)
         if self.import_wif:
             ttk.Label(master, text='Private key (WIF)').grid(row=3, column=0, sticky='w')
-            ttk.Entry(master, textvariable=self.wif, show='•', width=60).grid(
+            ttk.Entry(master, textvariable=self.wif, show='*', width=60).grid(
                 row=3, column=1, sticky='w', pady=2
             )
         ttk.Label(master, text='Address').grid(row=4, column=0, sticky='w', padx=(0, 8))
@@ -124,11 +124,11 @@ class WalletTab:
         self.frame = ttk.Frame(notebook, padding=8)
         buttons = ttk.Frame(self.frame)
         for text, command in (
-            ('Import WIF…', self.import_wif),
-            ('Generate new…', self.generate),
+            ('Import WIF...', self.import_wif),
+            ('Generate new...', self.generate),
             ('Copy address', self.copy_address),
-            ('Show WIF…', self.show_wif),
-            ('Remove…', self.remove),
+            ('Show WIF...', self.show_wif),
+            ('Remove...', self.remove),
         ):
             ttk.Button(buttons, text=text, command=command).pack(side='left', padx=(0, 6))
         buttons.pack(side='bottom', fill='x', pady=(8, 0))

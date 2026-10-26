@@ -19,11 +19,11 @@ class PasswordDialog(simpledialog.Dialog):
 
     def body(self, master):
         ttk.Label(master, text=self.prompt).grid(row=0, column=0, sticky='w')
-        self.password = ttk.Entry(master, show='•', width=40)
+        self.password = ttk.Entry(master, show='*', width=40)
         self.password.grid(row=1, column=0, pady=(4, 8))
         if self.new_password:
             ttk.Label(master, text='Repeat the password').grid(row=2, column=0, sticky='w')
-            self.confirmation = ttk.Entry(master, show='•', width=40)
+            self.confirmation = ttk.Entry(master, show='*', width=40)
             self.confirmation.grid(row=3, column=0, pady=(4, 8))
         return self.password
 
