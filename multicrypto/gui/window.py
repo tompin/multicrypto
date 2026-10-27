@@ -26,6 +26,7 @@ from multicrypto.gui.forms import describe_error
 from multicrypto.gui.send_tab import SendTab
 from multicrypto.gui.sign_tab import SignTab
 from multicrypto.gui.sweep_tab import SweepTab
+from multicrypto.gui.translate_tab import TranslateTab
 from multicrypto.gui.wallet_tab import WalletTab
 from multicrypto.gui.worker import Worker
 from multicrypto.wallet import MIN_PASSWORD_LENGTH, Wallet, WalletFile
@@ -56,16 +57,20 @@ class MainWindow(QMainWindow):
         self.send_tab = SendTab(self)
         self.sweep_tab = SweepTab(self)
         self.sign_tab = SignTab(self)
+        self.translate_tab = TranslateTab(self)
         self.tabs = (
             self.wallet_tab,
             self.balance_tab,
             self.send_tab,
             self.sweep_tab,
             self.sign_tab,
+            self.translate_tab,
         )
         self.tab_widget = QTabWidget()
         for tab, title in zip(
-            self.tabs, ('Wallet', 'Balance', 'Send', 'Sweep', 'Sign / Verify'), strict=True
+            self.tabs,
+            ('Wallet', 'Balance', 'Send', 'Sweep', 'Sign / Verify', 'Translate'),
+            strict=True,
         ):
             self.tab_widget.addTab(tab, title)
         self.locked_message = QLabel()
