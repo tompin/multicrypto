@@ -122,7 +122,8 @@ def search_worker(coin_symbol, address_type, pattern, compressed, stop, attempts
 
 class VanitySearch:
     """Search for the vanity address in processes. They are started with spawn, which is safe in
-    programs with threads (e.g. Qt GUI), and the result is passed back in memory."""
+    programs with threads (e.g. Qt GUI), and the result is passed back in memory. Spawned processes
+    import the main module again, so the program has to start in `if __name__ == '__main__':`."""
 
     def __init__(
         self,
