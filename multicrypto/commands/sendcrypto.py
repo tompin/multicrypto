@@ -12,7 +12,12 @@ from multicrypto.api import send_from_private_keys
 from multicrypto.coins import ADDRESS_TYPES, P2PKH, coins, get_coins_with_api
 from multicrypto.network import NetworkError, broadcast_transaction, parse_node_address
 from multicrypto.scripts import validate_hex_script
-from multicrypto.validators import check_coin_symbol, check_non_negative, check_positive
+from multicrypto.validators import (
+    check_coin_symbol,
+    check_non_negative,
+    check_positive,
+    check_positive_number,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +68,22 @@ def get_args():
         required=True,
         help='How many satoshis you want to send',
     )
-    parser.add_argument(
+    fee_group = parser.add_mutually_exclusive_group()
+    fee_group.add_argument(
         '-f',
         '--fee',
         type=check_non_negative,
         required=False,
         default=10000,
-        help='Transaction fee',
+        help='Transaction fee in satoshis (default 10000)',
+    )
+    fee_group.add_argument(
+        '-r',
+        '--fee_rate',
+        type=check_positive_number,
+        required=False,
+        help='Fee rate in satoshis per virtual byte, the fee is calculated from the size of '
+        'the transaction',
     )
     parser.add_argument(
         '-n',
@@ -139,7 +153,7 @@ def send_crypto(args):
     unlocking_scripts = args.unlocking_scripts.split(',') if args.unlocking_scripts else []
     wif_private_keys = args.wif_private_keys.split(',') if args.wif_private_keys else []
     satoshis = args.satoshis
-    fee = args.fee
+    fee = None if args.fee_rate else args.fee
     minimum_input_threshold = args.minimum_input_threshold
     maximum_input_threshold = args.maximum_input_threshold
     limit_inputs = args.limit_inputs
@@ -198,6 +212,7 @@ def send_crypto(args):
         limit_inputs=limit_inputs,
         broadcast=broadcast,
         address_type=args.address_type,
+        fee_rate=args.fee_rate,
     )
 
     return result

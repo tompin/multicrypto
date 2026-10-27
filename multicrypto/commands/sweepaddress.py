@@ -11,7 +11,7 @@ from multicrypto.address import (
 )
 from multicrypto.api import broadcast_prepared, get_utxo_from_private_keys, prepare_sweep
 from multicrypto.coins import ADDRESS_TYPES, P2PKH, coins, get_coins_with_api
-from multicrypto.validators import check_positive, check_coin_symbol
+from multicrypto.validators import check_coin_symbol, check_positive, check_positive_number
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,8 @@ def get_args():
         required=True,
         help='Symbol of the coin for which we want to make money transfer',
     )
-    parser.add_argument(
+    fee_group = parser.add_mutually_exclusive_group()
+    fee_group.add_argument(
         '-f',
         '--fee',
         type=check_positive,
@@ -61,6 +62,14 @@ def get_args():
         default=DEFAULT_TX_FEE,
         help='Transaction fee which will be used in each transaction. '
         f'Default {DEFAULT_TX_FEE} satoshi.',
+    )
+    fee_group.add_argument(
+        '-r',
+        '--fee_rate',
+        type=check_positive_number,
+        required=False,
+        help='Fee rate in satoshis per virtual byte, the fee is calculated from the size of '
+        'the transaction',
     )
     parser.add_argument(
         '-n',
@@ -109,7 +118,7 @@ def sweep_address(args):
     coin_symbol = args.coin_symbol
     destination_address = args.address
     wif_private_key = args.wif_private_key
-    fee = args.fee
+    fee = None if args.fee_rate else args.fee
     minimum_input_threshold = args.minimum_input_threshold
     maximum_input_threshold = args.maximum_input_threshold
     batch_size = args.batch_size
@@ -146,7 +155,9 @@ def sweep_address(args):
             minimum_input_threshold=minimum_input_threshold,
             maximum_input_threshold=maximum_input_threshold,
         )
-        for prepared in prepare_sweep(coin, list(utxos), destination_address, fee, batch_size):
+        for prepared in prepare_sweep(
+            coin, list(utxos), destination_address, fee, batch_size, fee_rate=args.fee_rate
+        ):
             print(broadcast_prepared(coin, prepared))
     except ValueError as exc:
         logger.exception(exc)

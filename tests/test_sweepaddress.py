@@ -2,6 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
 from tests import http_mock
 
 from multicrypto.api import InsightAPI, get_api
@@ -299,7 +300,7 @@ def test_sweepaddress_address_type_not_supported(sys_stdout, caplog):
     assert 'Address type p2sh-p2wpkh is not supported for safecoin' in caplog.text
 
 
-def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50):
+def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50, fee_rate=None):
     source_address = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
     api_url = get_api(coins['TBTC']).base_url
     utxos = [
@@ -316,11 +317,10 @@ def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50):
         'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo',
         '-t',
         'p2wpkh',
-        '-f',
-        str(fee),
         '-b',
         str(batch_size),
     ]
+    argv += ['-r', str(fee_rate)] if fee_rate else ['-f', str(fee)]
     with patch.object(sys, 'argv', argv):
         main()
 
@@ -351,3 +351,23 @@ def test_sweepaddress_no_inputs(sys_stdout, caplog):
 
     assert sys_stdout.getvalue() == ''
     assert 'No inputs found for the private key' in caplog.text
+
+
+@http_mock.activate
+@patch('sys.stdout', new_callable=StringIO)
+def test_sweepaddress_fee_rate(sys_stdout, caplog):
+    sweep_p2wpkh([100000], fee_rate=2)
+
+    raw_transaction = http_mock.calls[1].request.body
+    # 1 input and 1 output P2WPKH transaction has 110 vB, so the fee is 220 satoshis
+    assert (100000 - 220).to_bytes(8, 'little').hex() in raw_transaction
+    assert caplog.text == ''
+
+
+@patch('sys.stderr', new_callable=StringIO)
+def test_sweepaddress_fee_and_fee_rate_are_exclusive(sys_stderr):
+    argv = ['', '-c', 'TBTC', '-p', 'x', '-f', '100', '-r', '2']
+    with patch.object(sys, 'argv', argv), pytest.raises(SystemExit):
+        main()
+
+    assert 'not allowed with argument' in sys_stderr.getvalue()

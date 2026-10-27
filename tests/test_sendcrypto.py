@@ -2,6 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
 from tests import http_mock
 
 from multicrypto.api import InsightAPI, get_api
@@ -267,3 +268,12 @@ def test_sendcrypto_address_type_not_supported(sys_stdout, caplog):
 
     assert sys_stdout.getvalue() == ''
     assert 'Address type p2wpkh is not supported for zcash, supported types: p2pkh' in caplog.text
+
+
+@patch('sys.stderr', new_callable=StringIO)
+def test_sendcrypto_fee_and_fee_rate_are_exclusive(sys_stderr):
+    argv = ['', '-c', 'TBTC', '-a', 'x', '-s', '1000', '-p', 'x', '-f', '100', '-r', '2']
+    with patch.object(sys, 'argv', argv), pytest.raises(SystemExit):
+        main()
+
+    assert 'not allowed with argument' in sys_stderr.getvalue()
