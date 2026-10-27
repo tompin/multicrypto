@@ -36,3 +36,26 @@ def test_segwit_coins():
     }
 
     assert segwit_coins == {'BTC', 'TBTC', 'LTC', 'TLTC'}
+
+
+def test_slip44_coin_types():
+    assert {symbol: coin.get('slip44') for symbol, coin in coins.items()} == {
+        'BTC': 0,
+        'BTG': 156,
+        'BTCH': None,
+        'BTCZ': 177,
+        'DASH': 5,
+        'DOGE': 3,
+        'LTC': 2,
+        'SAFE': 19165,
+        'TENT': 410,
+        'SMART': 224,
+        'TBTC': 1,
+        'TBCH': 1,
+        'TLTC': 1,
+        'ZEC': 133,
+        'ZCL': 147,
+        'ZEIT': None,
+        'ZEN': 121,
+        'ZERO': 323,
+    }
