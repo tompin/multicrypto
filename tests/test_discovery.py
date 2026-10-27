@@ -8,6 +8,7 @@ from multicrypto.discovery import (
     discover,
     scan_chain,
 )
+from multicrypto.api import RateLimitError
 from multicrypto.wallet import CHANGE_CHAIN, RECEIVE_CHAIN, HDAccount, Wallet
 
 MNEMONIC = ' '.join(['abandon'] * 11 + ['about'])
@@ -106,3 +107,39 @@ def test_add_discovered():
         0,
     )
     assert [address.label for address in wallet.account_addresses(added)] == ['Change 2']
+
+
+def test_discover_retries_rate_limited_requests(monkeypatch):
+    delays = []
+    monkeypatch.setattr(discovery.time, 'sleep', delays.append)
+    failures = iter([RateLimitError('429'), RateLimitError('429')])
+
+    def tx_count(address):
+        error = next(failures, None)
+        if error:
+            raise error
+        return 0
+
+    found = discover(
+        Wallet.create(MNEMONIC, ''), 'TBTC', lambda count: None, lambda: False, tx_count
+    )
+
+    assert found == []
+    assert delays == [1, 2]
+
+
+def test_discover_cancelled_while_rate_limited(monkeypatch):
+    monkeypatch.setattr(discovery.time, 'sleep', lambda seconds: None)
+    cancelled = iter([False, True])
+
+    def tx_count(address):
+        raise RateLimitError('429')
+
+    with pytest.raises(Cancelled):
+        discover(
+            Wallet.create(MNEMONIC, ''),
+            'TBTC',
+            lambda count: None,
+            lambda: next(cancelled, True),
+            tx_count,
+        )

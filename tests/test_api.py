@@ -10,6 +10,7 @@ from multicrypto.api import (
     InsightAPI,
     InsufficientFundsError,
     PreparedTransaction,
+    RateLimitError,
     broadcast_prepared,
     estimate_fee_rates,
     get_api,
@@ -700,3 +701,16 @@ def test_estimate_fee_rates_not_available():
 
     with pytest.raises(ValueError, match='Fee estimate is not available for bitcoin gold'):
         estimate_fee_rates(INSIGHT_COIN)
+
+
+@http_mock.activate
+def test_rate_limit_error():
+    http_mock.add(
+        http_mock.GET, f'{ESPLORA_TBTC_URL}/address/{SWEEP_ADDRESS}', body='Too Many', status=429
+    )
+    http_mock.add(http_mock.GET, f'{INSIGHT_URL}/addr/{BTG_ADDRESS}', body='Too Many', status=429)
+
+    with pytest.raises(RateLimitError):
+        get_api(coins['TBTC']).get_tx_count(SWEEP_ADDRESS)
+    with pytest.raises(RateLimitError):
+        get_api(INSIGHT_COIN).get_tx_count(BTG_ADDRESS)

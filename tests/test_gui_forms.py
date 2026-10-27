@@ -287,7 +287,11 @@ def test_fetch_balances():
         ]
     )
 
-    assert balances == {'a': 3000, 'b': 'error: API error: limit', 'c': 'no API'}
+    assert balances == {
+        'a': 3000,
+        'b': 'error: Too many requests to https://mempool.space/api, try again later',
+        'c': 'no API',
+    }
 
 
 SWEEP_WIF = 'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo'

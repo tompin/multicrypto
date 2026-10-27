@@ -42,6 +42,21 @@ SATOSHIS_PER_COIN = 10**8
 USER_AGENT = 'multicrypto'
 
 
+class RateLimitError(ValueError):
+    """Raised when the API rejects the request because of too many requests (HTTP 429)."""
+
+
+TOO_MANY_REQUESTS = 429
+
+
+def check_response(response: 'HttpResponse', base_url: str) -> 'HttpResponse':
+    if response.status == TOO_MANY_REQUESTS:
+        raise RateLimitError(f'Too many requests to {base_url}, try again later')
+    if not response.ok:
+        raise ValueError(f'API error: {response.text}')
+    return response
+
+
 class InsufficientFundsError(Exception):
     """Raised when the sum of available inputs does not cover the amount and the fee."""
 
@@ -104,9 +119,7 @@ class InsightAPI:
         response = http_request(
             f'{self.base_url}/addr/{address}', params={'noTxList': 1}, timeout=self.timeout
         )
-        if not response.ok:
-            raise ValueError(f'API error: {response.text}')
-        data = response.json()
+        data = check_response(response, self.base_url).json()
         return data['txApperances'] + data.get('unconfirmedTxApperances', 0)
 
     def estimate_fee_rates(self) -> Dict[int, float]:
@@ -154,9 +167,7 @@ class EsploraAPI:
 
     def _get(self, path: str) -> HttpResponse:
         response = http_request(f'{self.base_url}/{path}', timeout=self.timeout)
-        if not response.ok:
-            raise ValueError(f'API error: {response.text}')
-        return response
+        return check_response(response, self.base_url)
 
     def get_utxo(self, address: str) -> List[Utxo]:
         esplora_utxos = self._get(f'address/{address}/utxo').json()
