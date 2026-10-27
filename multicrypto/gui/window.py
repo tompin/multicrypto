@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from multicrypto.gui.background_scan import BackgroundScan
 from multicrypto.gui.balance_tab import BalanceTab
 from multicrypto.gui.create_wizard import CreateWalletWizard
 from multicrypto.gui.dialogs import SecretDialog, UnlockDialog, ask_password, mnemonic_grid
@@ -98,6 +99,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stack)
         self.status = QLabel()
         self.statusBar().addWidget(self.status, 1)
+        self.background_scan = BackgroundScan(self)
         self._create_menu()
         QApplication.instance().installEventFilter(self)
         self.timer = QTimer(self)
