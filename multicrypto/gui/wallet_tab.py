@@ -1,6 +1,6 @@
 """Wallet tab: HD accounts with their addresses and imported private keys."""
 
-from typing import Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -444,12 +444,30 @@ class WalletTab(QWidget):
         self.refresh_button.setEnabled(True)
         self.app.show_error(error)
 
+    def _account_actions(self, account) -> Dict[str, Callable[[], None]]:
+        actions = {'New address...': self.new_address}
+        if coins[account.coin].get('apis'):
+            actions['Scan for used addresses'] = lambda: self.app.background_scan.start_account(
+                account
+            )
+        return actions
+
     def _show_menu(self, position):
         item = self.tree.itemAt(position)
-        if not item or item.data(0, ITEM_ROLE)[0] != ADDRESS:
+        if not item:
+            return
+        kind, item_id = item.data(0, ITEM_ROLE)
+        if kind == ACCOUNT:
+            self.tree.setCurrentItem(item)
+            menu = QMenu(self)
+            for text, action in self._account_actions(self.app.wallet.get_account(item_id)).items():
+                menu.addAction(text, action)
+            menu.exec(self.tree.viewport().mapToGlobal(position))
+            return
+        if kind != ADDRESS:
             return
         self.tree.setCurrentItem(item)
-        address = self.app.wallet.get_address(item.data(0, ITEM_ROLE)[1])
+        address = self.app.wallet.get_address(item_id)
         menu = QMenu(self)
         menu.addAction('Copy address', self.copy_address)
         menu.addAction('Show QR...', self.show_qr)

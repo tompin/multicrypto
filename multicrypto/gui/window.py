@@ -248,7 +248,7 @@ class MainWindow(QMainWindow):
             f'{wallet.fingerprint}.',
         )
         if restored:
-            self.scan_addresses()
+            self.background_scan.start_coin('BTC')
 
     def scan_addresses(self):
         if self.wallet is not None:

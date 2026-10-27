@@ -666,14 +666,25 @@ def test_scan_dialog_cancelled_when_wallet_is_locked(qapp, window, monkeypatch):
     assert not dialog.add_button.isEnabled()
 
 
-def test_restored_wallet_is_scanned(window, monkeypatch):
-    scanned = []
-    monkeypatch.setattr(scan_dialog_module.ScanDialog, 'exec', lambda dialog: scanned.append(1))
+def test_restored_wallet_is_scanned_in_background(window, monkeypatch):
+    started = []
+    monkeypatch.setattr(window.background_scan, 'start_coin', started.append)
     monkeypatch.setattr('multicrypto.gui.window.QMessageBox.information', lambda *args: None)
 
     window._created(window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE), restored=True)
 
-    assert scanned == [1]
+    assert started == ['BTC']
+
+
+def test_account_menu_scans_account(window, monkeypatch):
+    unlock(window)
+    started = []
+    monkeypatch.setattr(window.background_scan, 'start_account', started.append)
+
+    actions = window.wallet_tab._account_actions(window.wallet.accounts[0])
+    actions['Scan for used addresses']()
+
+    assert started == [window.wallet.accounts[0]]
 
 
 def test_wallet_tab_shows_change_path(window):
