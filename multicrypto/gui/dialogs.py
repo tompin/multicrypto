@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -206,5 +207,26 @@ def show_text(parent, title: str, label: str, text: str) -> None:
     layout = QVBoxLayout(dialog)
     layout.addWidget(QLabel(label))
     layout.addWidget(secret_line(text))
+    layout.addWidget(buttons)
+    dialog.exec()
+
+
+def show_lines(parent, title: str, label: str, lines: List[str]) -> None:
+    """Show the lines (e.g. transaction ids) with the button copying them to the clipboard."""
+    text = '\n'.join(lines)
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title)
+    view = QPlainTextEdit(text)
+    view.setReadOnly(True)
+    view.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+    view.setMinimumWidth(view.fontMetrics().horizontalAdvance(max(lines, key=len)) + 48)
+    copy_button = QPushButton('Copy')
+    copy_button.clicked.connect(lambda: QApplication.clipboard().setText(text))
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+    buttons.addButton(copy_button, QDialogButtonBox.ButtonRole.ActionRole)
+    buttons.rejected.connect(dialog.reject)
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(QLabel(label))
+    layout.addWidget(view)
     layout.addWidget(buttons)
     dialog.exec()

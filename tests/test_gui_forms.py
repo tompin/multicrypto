@@ -8,11 +8,13 @@ from multicrypto.gui.forms import (
     check_confirmation_words,
     check_passphrase_confirmation,
     check_password_confirmation,
+    check_signable,
     check_sources,
     choose_word_positions,
     coins_with_api,
     coins_with_slip44,
     describe_error,
+    describe_sweep,
     describe_transaction,
     extract_txid,
     fetch_balances,
@@ -22,6 +24,7 @@ from multicrypto.gui.forms import (
     parse_int,
     parse_nodes,
     parse_thresholds,
+    parse_wif,
 )
 from multicrypto.network import PeerAddress
 from multicrypto.wallet import WalletAddress, WalletError
@@ -263,3 +266,52 @@ def test_fetch_balances():
     )
 
     assert balances == {'a': 3000, 'b': 'error: API error: limit', 'c': 'no API'}
+
+
+SWEEP_WIF = 'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo'
+
+
+def test_parse_wif():
+    assert parse_wif(f'  {SWEEP_WIF} ', 'TBTC', 'p2wpkh') == (
+        SWEEP_WIF,
+        'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n',
+    )
+    with pytest.raises(ValueError, match='Enter the private key'):
+        parse_wif(' ', 'TBTC', 'p2wpkh')
+    with pytest.raises(ValueError, match='not in WIF format of BTC'):
+        parse_wif(SWEEP_WIF, 'BTC', 'p2wpkh')
+    with pytest.raises(ValueError, match='require compressed public key'):
+        parse_wif('5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss', 'BTC', 'p2wpkh')
+
+
+def test_check_signable():
+    check_signable(make_address())
+    with pytest.raises(ValueError, match='Taproot addresses cannot sign messages'):
+        check_signable(make_address(address_type='p2tr'))
+
+
+def test_describe_sweep():
+    prepared = [
+        PreparedTransaction(
+            '00' * 200, [{}, {}], [{'address': 'dest', 'satoshis': 299000}], 300000, 1000
+        ),
+        PreparedTransaction(
+            '00' * 120, [{}], [{'address': 'dest', 'satoshis': 99000}], 100000, 1000
+        ),
+    ]
+
+    rows = describe_sweep(prepared, 'BTC', 'src', 'dest')
+
+    assert rows == [
+        ('From', 'src'),
+        ('To', 'dest'),
+        ('Transactions', '2'),
+        ('Inputs', '3 (0.00400000 BTC)'),
+        ('Fee', '0.00002000 BTC'),
+        ('Received', '0.00398000 BTC'),
+        (
+            'Batches',
+            '1. inputs: 2, amount: 0.00299000 BTC, fee: 0.00001000 BTC, size: 200 bytes\n'
+            '2. inputs: 1, amount: 0.00099000 BTC, fee: 0.00001000 BTC, size: 120 bytes',
+        ),
+    ]
