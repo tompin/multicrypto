@@ -1,13 +1,28 @@
 """Send tab: preparing, confirming and broadcasting transactions (sendcrypto)."""
 
 import json
-import tkinter as tk
-from tkinter import ttk
+from typing import List
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from multicrypto.api import broadcast_prepared, prepare_from_private_keys
 from multicrypto.coins import coins
-from multicrypto.gui.dialogs import TextDialog, confirm
+from multicrypto.gui.dialogs import confirm, show_text
 from multicrypto.gui.forms import (
+    address_description,
     check_sources,
     describe_transaction,
     extract_txid,
@@ -17,78 +32,111 @@ from multicrypto.gui.forms import (
     parse_nodes,
     parse_thresholds,
 )
-from multicrypto.gui.wallet_tab import create_entries_tree, show_entries
 from multicrypto.network import broadcast_transaction
+from multicrypto.wallet import WalletAddress
 
 DEFAULT_FEE = 10000
+ID_ROLE = Qt.ItemDataRole.UserRole
 
 
-class SendTab:
-    def __init__(self, notebook, app):
+class SendTab(QWidget):
+    def __init__(self, app):
+        super().__init__()
         self.app = app
-        self.frame = ttk.Frame(notebook, padding=8)
-        ttk.Label(
-            self.frame, text='From (one or more addresses with the same coin and address type)'
-        ).pack(anchor='w')
-        self.sources = create_entries_tree(self.frame, selectmode='extended', height=5)
-        self.sources.pack(fill='both', expand=True, pady=(2, 8))
-        form = ttk.Frame(self.frame)
-        form.pack(fill='x')
-        self.destination = self._add_row(form, 0, 'To address', width=74)
-        self.amount = self._add_row(form, 1, 'Amount', width=20)
-        self.fee = self._add_row(form, 2, 'Fee (satoshis)', width=20)
-        self.fee.insert(0, str(DEFAULT_FEE))
-        advanced = ttk.LabelFrame(self.frame, text='Advanced', padding=8)
-        advanced.pack(fill='x', pady=8)
-        self.minimum = self._add_row(advanced, 0, 'Minimum input (satoshis)', width=20)
-        self.maximum = self._add_row(advanced, 1, 'Maximum input (satoshis)', width=20)
-        self.limit = self._add_row(advanced, 2, 'Limit of inputs', width=20)
-        self.p2p = tk.BooleanVar()
-        ttk.Checkbutton(
-            advanced, text='Send directly to the peer-to-peer network', variable=self.p2p
-        ).grid(row=3, column=0, columnspan=2, sticky='w', pady=2)
-        self.nodes = self._add_row(advanced, 4, 'Nodes host[:port] (optional)', width=74)
-        self.button = ttk.Button(self.frame, text='Prepare transaction...', command=self.prepare)
-        self.button.pack(anchor='e')
-
-    @staticmethod
-    def _add_row(parent, row: int, text: str, width: int) -> ttk.Entry:
-        ttk.Label(parent, text=text).grid(row=row, column=0, sticky='w', padx=(0, 8), pady=2)
-        entry = ttk.Entry(parent, width=width)
-        entry.grid(row=row, column=1, sticky='w', pady=2)
-        return entry
+        self.sources = QListWidget()
+        self.sources.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.destination = QLineEdit()
+        self.destination_status = QLabel()
+        self.amount = QLineEdit()
+        self.amount.setPlaceholderText('in coin units, e.g. 0.001')
+        self.fee = QLineEdit(str(DEFAULT_FEE))
+        self.minimum = QLineEdit()
+        self.maximum = QLineEdit()
+        self.limit = QLineEdit()
+        self.p2p = QCheckBox('Send directly to the peer-to-peer network')
+        self.nodes = QLineEdit()
+        self.nodes.setPlaceholderText('optional, host[:port] separated with commas')
+        self.prepare_button = QPushButton('Prepare transaction...')
+        self.prepare_button.clicked.connect(lambda _checked=False: self.prepare())
+        form = QFormLayout()
+        form.addRow('To address', self.destination)
+        form.addRow('', self.destination_status)
+        form.addRow('Amount', self.amount)
+        form.addRow('Fee (satoshis)', self.fee)
+        advanced = QGroupBox('Advanced')
+        advanced_form = QFormLayout(advanced)
+        advanced_form.addRow('Minimum input (satoshis)', self.minimum)
+        advanced_form.addRow('Maximum input (satoshis)', self.maximum)
+        advanced_form.addRow('Limit of inputs', self.limit)
+        advanced_form.addRow(self.p2p)
+        advanced_form.addRow('Nodes', self.nodes)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel('From (one or more addresses with the same coin and address type)'))
+        layout.addWidget(self.sources)
+        layout.addLayout(form)
+        layout.addWidget(advanced)
+        layout.addWidget(self.prepare_button, alignment=Qt.AlignmentFlag.AlignRight)
+        self.destination.textChanged.connect(self._validate_destination)
+        self.sources.itemSelectionChanged.connect(self._validate_destination)
 
     def refresh(self):
-        show_entries(self.sources, self.app.wallet.entries)
+        selected = {item.data(ID_ROLE) for item in self.sources.selectedItems()}
+        self.sources.clear()
+        for address in self.app.wallet.addresses():
+            item = QListWidgetItem(address_description(address), self.sources)
+            item.setData(ID_ROLE, address.id)
+            item.setSelected(address.id in selected)
 
     def clear(self):
-        self.sources.delete(*self.sources.get_children())
-        self.destination.delete(0, 'end')
-        self.amount.delete(0, 'end')
+        self.sources.clear()
+        self.destination.clear()
+        self.amount.clear()
 
-    def select_source(self, entry):
-        self.sources.selection_set([entry.id])
-        self.app.notebook.select(self.frame)
+    def select_source(self, address: WalletAddress):
+        for index in range(self.sources.count()):
+            item = self.sources.item(index)
+            item.setSelected(item.data(ID_ROLE) == address.id)
+        self.app.select_tab(self)
+
+    def _selected_addresses(self) -> List[WalletAddress]:
+        return [
+            self.app.wallet.get_address(item.data(ID_ROLE)) for item in self.sources.selectedItems()
+        ]
+
+    def _validate_destination(self):
+        text = self.destination.text()
+        if not text.strip() or self.app.wallet is None:
+            self.destination_status.setText('')
+            return
+        try:
+            coin_symbol, _ = check_sources(self._selected_addresses())
+            parse_address(text, coin_symbol)
+        except ValueError as error:
+            self.destination_status.setText(f'<span style="color: #c62828">{error}</span>')
+        else:
+            self.destination_status.setText(
+                f'<span style="color: #2e7d32">Correct {coin_symbol} address</span>'
+            )
 
     def prepare(self):
         try:
-            entries = [self.app.wallet.get(item) for item in self.sources.selection()]
-            coin_symbol, address_type = check_sources(entries)
+            addresses = self._selected_addresses()
+            coin_symbol, address_type = check_sources(addresses)
             coin = coins[coin_symbol]
             if not coin.get('apis'):
                 raise ValueError(f'No API has been defined for the coin {coin_symbol}')
-            destination = parse_address(self.destination.get(), coin_symbol)
-            satoshis = parse_amount(self.amount.get())
-            fee = parse_int(self.fee.get(), 'Fee', minimum=0)
+            destination = parse_address(self.destination.text(), coin_symbol)
+            satoshis = parse_amount(self.amount.text())
+            fee = parse_int(self.fee.text(), 'Fee', minimum=0)
             minimum, maximum, limit = parse_thresholds(
-                self.minimum.get(), self.maximum.get(), self.limit.get()
+                self.minimum.text(), self.maximum.text(), self.limit.text()
             )
             broadcast, target = self._get_broadcast(coin, coin_symbol)
         except ValueError as error:
             self.app.show_error(error)
             return
-        wif_private_keys = [entry.wif for entry in entries]
-        source_addresses = [entry.address for entry in entries]
+        wif_private_keys = [self.app.wallet.private_key_wif(address) for address in addresses]
+        source_addresses = [address.address for address in addresses]
 
         def prepare_transaction():
             return prepare_from_private_keys(
@@ -105,7 +153,7 @@ class SendTab:
                 address_type=address_type,
             )
 
-        self.button.state(['disabled'])
+        self.prepare_button.setEnabled(False)
         self.app.worker.run(
             prepare_transaction,
             lambda prepared: self._confirm(
@@ -116,12 +164,11 @@ class SendTab:
 
     def _get_broadcast(self, coin, coin_symbol: str):
         """Return function broadcasting the transaction (None for the API) and its description."""
-        nodes_text = self.nodes.get()
-        if not self.p2p.get() and not nodes_text.strip():
+        if not self.p2p.isChecked() and not self.nodes.text().strip():
             return None, 'block explorer API'
         if 'network' not in coin:
             raise ValueError(f'No peer-to-peer network has been defined for the coin {coin_symbol}')
-        nodes = parse_nodes(nodes_text, coin['network']['port'])
+        nodes = parse_nodes(self.nodes.text(), coin['network']['port'])
 
         def broadcast(raw_transaction):
             return json.dumps({'txid': broadcast_transaction(coin, raw_transaction, nodes)})
@@ -129,11 +176,11 @@ class SendTab:
         return broadcast, 'peer-to-peer network'
 
     def _confirm(self, coin, coin_symbol, prepared, source_addresses, broadcast, target):
-        self.button.state(['!disabled'])
+        self.prepare_button.setEnabled(True)
         rows = describe_transaction(prepared, coin_symbol, source_addresses, target)
-        if not confirm(self.frame, 'Confirm transaction', rows, 'Send'):
+        if not confirm(self, 'Confirm transaction', rows, 'Send'):
             return
-        self.button.state(['disabled'])
+        self.prepare_button.setEnabled(False)
         self.app.worker.run(
             lambda: extract_txid(broadcast_prepared(coin, prepared, broadcast)),
             self._sent,
@@ -141,10 +188,10 @@ class SendTab:
         )
 
     def _sent(self, txid: str):
-        self.button.state(['!disabled'])
-        self.amount.delete(0, 'end')
-        TextDialog(self.frame, 'Transaction sent', 'Transaction id', txid, copy=True)
+        self.prepare_button.setEnabled(True)
+        self.amount.clear()
+        show_text(self, 'Transaction sent', 'Transaction id', txid)
 
     def _failed(self, error):
-        self.button.state(['!disabled'])
+        self.prepare_button.setEnabled(True)
         self.app.show_error(error)
