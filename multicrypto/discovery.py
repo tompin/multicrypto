@@ -1,15 +1,18 @@
 """Discovery of used accounts and addresses of the HD wallet (BIP-44 account discovery)."""
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from multicrypto.api import get_api
+from multicrypto.api import RateLimitError, get_api
 from multicrypto.coins import coins, get_address_types
 from multicrypto.wallet import CHANGE_CHAIN, RECEIVE_CHAIN, HDAccount, Wallet
 
 GAP_LIMIT = 20  # unused addresses after the last used one ending the scan of the chain
-THREADS = 4
+THREADS = 2
+# seconds of waiting before the next attempt of the request rejected because of the rate limit
+RATE_LIMIT_DELAYS = (1, 2, 4, 8, 16, 32, 60)
 MAX_ACCOUNTS = 100
 MAX_ADDRESSES = 10000
 
@@ -25,6 +28,24 @@ class DiscoveredAccount:
     account: int
     receive: List[int] = field(default_factory=list)
     change: List[int] = field(default_factory=list)
+
+
+def _retrying(
+    tx_count: Callable[[str], int], cancelled: Callable[[], bool]
+) -> Callable[[str], int]:
+    """Repeat the requests rejected because of the API rate limit after increasing delays."""
+
+    def count(address: str) -> int:
+        for delay in RATE_LIMIT_DELAYS:
+            try:
+                return tx_count(address)
+            except RateLimitError:
+                if cancelled():
+                    raise Cancelled() from None
+                time.sleep(delay)
+        return tx_count(address)
+
+    return count
 
 
 def scan_chain(
@@ -68,6 +89,7 @@ def discover(
         raise ValueError(f'{coin_symbol} cannot be scanned, it has no SLIP-44 coin type or API')
     if tx_count is None:
         tx_count = get_api(coin).get_tx_count
+    tx_count = _retrying(tx_count, cancelled)
     found = []
     with ThreadPoolExecutor(THREADS) as executor:
         for address_type in get_address_types(coin):
