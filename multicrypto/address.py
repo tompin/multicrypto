@@ -209,6 +209,19 @@ def validate_address(address, coin_symbol):
     return validate_pattern(address, coin_symbol, prefix_bytes == coin['script_prefix_bytes'])
 
 
+def detect_address_kind(address, coin_symbol):
+    """Return 'p2pkh' or 'p2sh' for the base58 address of the coin. Bech32 addresses cannot be
+    translated to another coin without the private key."""
+    coin = coins[coin_symbol]
+    if is_segwit_address(address, coin):
+        raise ValueError(
+            'Bech32 (segwit) addresses cannot be translated, they need the private key'
+        )
+    validate_address(address, coin_symbol)
+    prefix, _ = decompose_address(address, coin)
+    return 'p2sh' if prefix == coin['script_prefix_bytes'] else 'p2pkh'
+
+
 def validate_wif_private_key(wif_private_key, coin_symbol):
     private_key_data = base58_to_int(wif_private_key)
     private_key_bytes = private_key_data.to_bytes(38, byteorder='big')
