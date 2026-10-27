@@ -122,7 +122,7 @@ Nowe moduły: `gui/sweep_tab.py`, `gui/sign_tab.py`, `gui/qr.py`. Czyste funkcje
 
 - Walidacja formularzy w `forms.py` przez `ValueError` → `app.show_error`: `parse_wif(text,
   coin_symbol, address_type)` (istniejące `check_wif_private_key`, klucz nieskompresowany
-  odrzucany dla segwit), `parse_batch_size`, `check_signable(address)` (p2tr), oraz
+  odrzucany dla segwit), istniejące `parse_int` dla rozmiaru partii, `check_signable(address)` (p2tr), oraz
   `describe_sweep(prepared_list, coin_symbol, source, destination)` budujące wiersze potwierdzenia.
 - Błędy API i odrzucone transakcje przez `describe_error`. Sweep nie ponawia automatycznie —
   ponowne *Prepare* pobierze tylko pozostałe UTXO.
