@@ -4,9 +4,14 @@ from unittest.mock import Mock
 import pyqrcode
 import pytest
 from nacl import pwhash
+from tests import http_mock
+
+from multicrypto.api import get_api
+from multicrypto.coins import coins
 
 pytest.importorskip('PySide6')
 
+import multicrypto.gui.sweep_tab as sweep_tab_module  # noqa: E402
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
 from multicrypto.gui.window import MainWindow  # noqa: E402
@@ -236,3 +241,137 @@ def test_lock_clears_sign_tab(window):
     assert window.sign_tab.sign_message.toPlainText() == ''
     assert window.sign_tab.signature.text() == ''
     assert window.sign_tab.sign_address.count() == 0
+
+
+EXTERNAL_WIF = 'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo'
+EXTERNAL_ADDRESS = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
+TBTC_API = get_api(coins['TBTC']).base_url
+
+
+def esplora_utxos(values):
+    return [
+        {'txid': f'{i:02x}' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': value}
+        for i, value in enumerate(values)
+    ]
+
+
+def capture_sweep_dialogs(monkeypatch):
+    confirmations, shown, errors = [], [], []
+    monkeypatch.setattr(
+        sweep_tab_module,
+        'confirm',
+        lambda parent, title, rows, button: confirmations.append(dict(rows)) or True,
+    )
+    monkeypatch.setattr(
+        sweep_tab_module, 'show_lines', lambda parent, title, label, lines: shown.append(lines)
+    )
+    monkeypatch.setattr(
+        sweep_tab_module.QMessageBox, 'critical', lambda parent, title, text: errors.append(text)
+    )
+    return confirmations, shown, errors
+
+
+@http_mock.activate
+def test_sweep_wallet_address_to_itself_in_batches(qapp, window, monkeypatch):
+    unlock(window)
+    address = add_address(window, 'TBTC', 'p2wpkh')
+    http_mock.add(
+        http_mock.GET,
+        f'{TBTC_API}/address/{address.address}/utxo',
+        json=esplora_utxos([100000, 100000, 100000]),
+    )
+    http_mock.add(http_mock.POST, f'{TBTC_API}/tx', body='tx1')
+    http_mock.add(http_mock.POST, f'{TBTC_API}/tx', body='tx2')
+    confirmations, shown, _ = capture_sweep_dialogs(monkeypatch)
+    tab = window.sweep_tab
+
+    tab.select_source(address)
+    tab.fee.setText('1000')
+    tab.batch_size.setText('2')
+    tab.prepare()
+    wait_until(qapp, lambda: shown)
+
+    assert window.tab_widget.currentWidget() is tab
+    assert shown == [['tx1', 'tx2']]
+    assert confirmations[0]['From'] == confirmations[0]['To'] == address.address
+    assert confirmations[0]['Transactions'] == '2'
+    assert confirmations[0]['Received'] == '0.00298000 TBTC'
+    assert tab.prepare_button.isEnabled()
+
+
+@http_mock.activate
+def test_sweep_stops_after_failed_batch(qapp, window, monkeypatch):
+    unlock(window)
+    address = add_address(window, 'TBTC', 'p2wpkh')
+    http_mock.add(
+        http_mock.GET,
+        f'{TBTC_API}/address/{address.address}/utxo',
+        json=esplora_utxos([100000, 100000, 100000]),
+    )
+    http_mock.add(http_mock.POST, f'{TBTC_API}/tx', body='tx1')
+    http_mock.add(http_mock.POST, f'{TBTC_API}/tx', body='bad-txns-inputs-missing', status=400)
+    _, shown, errors = capture_sweep_dialogs(monkeypatch)
+    tab = window.sweep_tab
+
+    tab.select_source(address)
+    tab.batch_size.setText('1')
+    tab.prepare()
+    wait_until(qapp, lambda: errors)
+
+    assert 'Transaction rejected: bad-txns-inputs-missing' in errors[0]
+    assert 'tx1' in errors[0]
+    assert shown == []
+    assert len([call for call in http_mock.calls if call.request.method == 'POST']) == 2
+
+
+@http_mock.activate
+def test_sweep_external_key_to_wallet_address(qapp, window, monkeypatch):
+    unlock(window)
+    address = add_address(window, 'TBTC', 'p2wpkh')
+    http_mock.add(
+        http_mock.GET, f'{TBTC_API}/address/{EXTERNAL_ADDRESS}/utxo', json=esplora_utxos([50000])
+    )
+    http_mock.add(http_mock.POST, f'{TBTC_API}/tx', body='tx1')
+    confirmations, shown, _ = capture_sweep_dialogs(monkeypatch)
+    tab = window.sweep_tab
+
+    tab.key_source.setChecked(True)
+    tab.coin.setCurrentText('TBTC')
+    tab.address_type.setCurrentText('p2wpkh')
+    tab.wif.setText(EXTERNAL_WIF)
+    assert tab.key_address.text() == EXTERNAL_ADDRESS
+    assert not tab.same_destination.isEnabled()
+    tab.wallet_destination.setChecked(True)
+    tab.destination_box.setCurrentIndex(tab.destination_box.findData(address.id))
+    tab.prepare()
+    wait_until(qapp, lambda: shown)
+
+    assert confirmations[0]['From'] == EXTERNAL_ADDRESS
+    assert confirmations[0]['To'] == address.address
+    assert shown == [['tx1']]
+    assert tab.wif.text() == ''
+    assert window.wallet.imported == []
+
+
+def test_sweep_validates_external_key_and_destination(window):
+    unlock(window)
+    tab = window.sweep_tab
+
+    tab.key_source.setChecked(True)
+    tab.coin.setCurrentText('BTC')
+    tab.wif.setText(EXTERNAL_WIF)
+    tab.other_destination.setChecked(True)
+    tab.destination.setText('tb1qerzrlxcfu24davlur5sqmgzzgsal6wusda40er')
+
+    assert 'not in WIF format of BTC' in tab.key_address.text()
+    assert 'Incorrect' in tab.destination_status.text()
+
+
+def test_lock_clears_sweep_key(window):
+    unlock(window)
+    window.sweep_tab.wif.setText(EXTERNAL_WIF)
+
+    window.lock()
+
+    assert window.sweep_tab.wif.text() == ''
+    assert window.sweep_tab.source_box.count() == 0
