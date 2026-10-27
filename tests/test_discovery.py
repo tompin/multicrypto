@@ -7,6 +7,7 @@ from multicrypto.discovery import (
     DiscoveredAccount,
     add_discovered,
     discover,
+    scan_account,
     scan_chain,
 )
 from multicrypto.api import RateLimitError
@@ -194,3 +195,37 @@ def test_pacer_spaces_requests(monkeypatch):
         pacer.wait()
 
     assert delays == [0.25, 0.5]
+
+
+def test_scan_account():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+    used = used_addresses(
+        wallet,
+        [('BTC', 'p2wpkh', 0, RECEIVE_CHAIN, 2), ('BTC', 'p2wpkh', 0, CHANGE_CHAIN, 0)],
+    )
+    checked = []
+
+    found = scan_account(
+        wallet, account, checked.append, lambda: False, lambda address: int(address in used)
+    )
+
+    assert found == DiscoveredAccount('BTC', 'p2wpkh', 0, [2], [0])
+    assert sum(checked) == (2 + 1 + 20) + (0 + 1 + 20)
+
+
+def test_discover_keeps_accounts_found_before_error():
+    wallet = Wallet.create(MNEMONIC, '')
+    used = used_addresses(wallet, [('BTC', 'p2pkh', 0, RECEIVE_CHAIN, 0)])
+    p2sh_address = wallet.address_at(HDAccount('', 'BTC', 'p2sh-p2wpkh', 0), RECEIVE_CHAIN, 0)
+    found = []
+
+    def tx_count(address):
+        if address == p2sh_address:
+            raise ValueError('API error: broken')
+        return int(address in used)
+
+    with pytest.raises(ValueError, match='broken'):
+        discover(wallet, 'BTC', lambda count: None, lambda: False, tx_count, found=found)
+
+    assert found == [DiscoveredAccount('BTC', 'p2pkh', 0, [0], [])]
