@@ -114,22 +114,62 @@ def scan_chain(
     return used
 
 
+def _scannable_coin(coin_symbol: str):
+    coin = coins[coin_symbol]
+    if 'slip44' not in coin or not coin.get('apis'):
+        raise ValueError(f'{coin_symbol} cannot be scanned, it has no SLIP-44 coin type or API')
+    return coin
+
+
+def _scan_account(
+    wallet: Wallet,
+    account: HDAccount,
+    progress: Callable[[int], None],
+    cancelled: Callable[[], bool],
+    tx_count: Callable[[str], int],
+    mapper: Callable,
+) -> DiscoveredAccount:
+    chains = [
+        scan_chain(
+            lambda index, chain=chain: wallet.address_at(account, chain, index),
+            tx_count,
+            progress,
+            cancelled,
+            mapper,
+        )
+        for chain in (RECEIVE_CHAIN, CHANGE_CHAIN)
+    ]
+    return DiscoveredAccount(account.coin, account.address_type, account.account, *chains)
+
+
+def scan_account(
+    wallet: Wallet,
+    account: HDAccount,
+    progress: Callable[[int], None],
+    cancelled: Callable[[], bool],
+    tx_count: Optional[Callable[[str], int]] = None,
+) -> DiscoveredAccount:
+    """Used receiving and change addresses of the account."""
+    coin = _scannable_coin(account.coin)
+    tx_count = _retrying(tx_count or coin_tx_count(coin), cancelled)
+    with ThreadPoolExecutor(THREADS) as executor:
+        return _scan_account(wallet, account, progress, cancelled, tx_count, executor.map)
+
+
 def discover(
     wallet: Wallet,
     coin_symbol: str,
     progress: Callable[[int], None],
     cancelled: Callable[[], bool],
     tx_count: Optional[Callable[[str], int]] = None,
+    found: Optional[List[DiscoveredAccount]] = None,
 ) -> List[DiscoveredAccount]:
     """Used accounts of all address types of the coin: accounts are checked from 0 to the first
-    one without transactions on the receiving and change chains."""
-    coin = coins[coin_symbol]
-    if 'slip44' not in coin or not coin.get('apis'):
-        raise ValueError(f'{coin_symbol} cannot be scanned, it has no SLIP-44 coin type or API')
-    if tx_count is None:
-        tx_count = coin_tx_count(coin)
-    tx_count = _retrying(tx_count, cancelled)
-    found = []
+    one without transactions on the receiving and change chains. The accounts are appended to the
+    found list as soon as they are scanned, so they are available also when the scan fails."""
+    coin = _scannable_coin(coin_symbol)
+    tx_count = _retrying(tx_count or coin_tx_count(coin), cancelled)
+    found = [] if found is None else found
     with ThreadPoolExecutor(THREADS) as executor:
         for address_type in get_address_types(coin):
             for number in range(MAX_ACCOUNTS + 1):
@@ -138,21 +178,10 @@ def discover(
                         f'Stopped after {MAX_ACCOUNTS} accounts of {coin_symbol} {address_type}'
                     )
                 account = HDAccount('', coin_symbol, address_type, number)
-                chains = [
-                    scan_chain(
-                        lambda index, account=account, chain=chain: wallet.address_at(
-                            account, chain, index
-                        ),
-                        tx_count,
-                        progress,
-                        cancelled,
-                        executor.map,
-                    )
-                    for chain in (RECEIVE_CHAIN, CHANGE_CHAIN)
-                ]
-                if not any(chains):
+                item = _scan_account(wallet, account, progress, cancelled, tx_count, executor.map)
+                if not (item.receive or item.change):
                     break
-                found.append(DiscoveredAccount(coin_symbol, address_type, number, *chains))
+                found.append(item)
     return found
 
 
