@@ -11,7 +11,9 @@ from multicrypto.api import (
     PreparedTransaction,
     broadcast_prepared,
     get_api,
+    get_utxo_from_private_keys,
     prepare_from_private_keys,
+    prepare_sweep,
     send_from_private_keys,
 )
 from multicrypto.coins import coins
@@ -510,3 +512,56 @@ def test_prepare_from_private_keys_reports_change_added_to_fee():
 
     assert prepared.change_added_to_fee == 293
     assert len(prepared.outputs) == 1
+
+
+SWEEP_WIF = 'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo'
+SWEEP_ADDRESS = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
+SWEEP_DESTINATION = 'tb1qerzrlxcfu24davlur5sqmgzzgsal6wusda40er'
+
+
+def sweep_utxos(values):
+    api_url = get_api(coins['TBTC']).base_url
+    http_mock.add(
+        http_mock.GET,
+        f'{api_url}/address/{SWEEP_ADDRESS}/utxo',
+        json=[
+            {'txid': f'{i:02x}' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': value}
+            for i, value in enumerate(values)
+        ],
+    )
+    return list(get_utxo_from_private_keys(coins['TBTC'], [SWEEP_WIF], 'p2wpkh'))
+
+
+@http_mock.activate
+def test_prepare_sweep_splits_inputs_into_batches():
+    utxos = sweep_utxos([100000, 200000, 300000])
+
+    prepared = prepare_sweep(coins['TBTC'], utxos, SWEEP_DESTINATION, 1000, 2)
+
+    assert [len(transaction.inputs) for transaction in prepared] == [2, 1]
+    assert [transaction.outputs for transaction in prepared] == [
+        [{'address': SWEEP_DESTINATION, 'satoshis': 299000}],
+        [{'address': SWEEP_DESTINATION, 'satoshis': 299000}],
+    ]
+    assert [transaction.fee for transaction in prepared] == [1000, 1000]
+    assert len(http_mock.calls) == 1  # nothing was broadcast
+
+
+def test_prepare_sweep_without_inputs():
+    with pytest.raises(ValueError, match='No inputs found for the private key'):
+        prepare_sweep(coins['TBTC'], [], SWEEP_DESTINATION, 1000, 50)
+
+
+@pytest.mark.parametrize(
+    'value, error',
+    [
+        (10000, 'Fee 10000 is not smaller than sum of batch inputs 10000'),
+        (10100, 'Amount 100 of the batch is below the dust threshold 294'),
+    ],
+)
+@http_mock.activate
+def test_prepare_sweep_batch_cannot_be_sent(value, error):
+    utxos = sweep_utxos([value])
+
+    with pytest.raises(ValueError, match=error):
+        prepare_sweep(coins['TBTC'], utxos, SWEEP_DESTINATION, 10000, 50)
