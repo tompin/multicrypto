@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -23,6 +24,7 @@ from multicrypto.coins import coins
 from multicrypto.gui.dialogs import confirm, show_text
 from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
+    EXPECTED_ERRORS,
     address_description,
     check_sources,
     describe_transaction,
@@ -33,7 +35,7 @@ from multicrypto.gui.forms import (
     parse_thresholds,
 )
 from multicrypto.network import broadcast_transaction
-from multicrypto.wallet import WalletAddress
+from multicrypto.wallet import CHANGE_CHAIN, WalletAddress
 
 ID_ROLE = Qt.ItemDataRole.UserRole
 
@@ -142,6 +144,7 @@ class SendTab(QWidget):
             return
         wif_private_keys = [self.app.wallet.private_key_wif(address) for address in addresses]
         source_addresses = [address.address for address in addresses]
+        change = self._change_address(addresses)
 
         def prepare_transaction():
             return prepare_from_private_keys(
@@ -156,6 +159,7 @@ class SendTab(QWidget):
                 maximum_input_threshold=maximum,
                 limit_inputs=limit,
                 address_type=address_type,
+                change_address=change.address if change else None,
                 fee_rate=fee_rate,
             )
 
@@ -163,7 +167,7 @@ class SendTab(QWidget):
         self.app.worker.run(
             prepare_transaction,
             lambda prepared: self._confirm(
-                coin, coin_symbol, prepared, source_addresses, broadcast, target
+                coin, coin_symbol, prepared, source_addresses, broadcast, target, change
             ),
             self._failed,
         )
@@ -181,21 +185,49 @@ class SendTab(QWidget):
 
         return broadcast, 'peer-to-peer network'
 
-    def _confirm(self, coin, coin_symbol, prepared, source_addresses, broadcast, target):
+    def _change_address(self, addresses: List[WalletAddress]) -> Optional[WalletAddress]:
+        """Next change address of the HD account of all sources, None sends the change back to
+        the source address."""
+        account_ids = {address.account_id for address in addresses}
+        if len(account_ids) != 1 or None in account_ids:
+            return None
+        return self.app.wallet.next_change_address(account_ids.pop())
+
+    def _confirm(
+        self, coin, coin_symbol, prepared, source_addresses, broadcast, target, change=None
+    ):
         self.prepare_button.setEnabled(True)
-        rows = describe_transaction(prepared, coin_symbol, source_addresses, target)
+        has_change = change is not None and any(
+            output['address'] == change.address for output in prepared.outputs[1:]
+        )
+        change = change if has_change else None
+        rows = describe_transaction(
+            prepared, coin_symbol, source_addresses, target, change.path if change else None
+        )
         if not confirm(self, 'Confirm transaction', rows, 'Send'):
             return
         self.prepare_button.setEnabled(False)
         self.app.worker.run(
             lambda: extract_txid(broadcast_prepared(coin, prepared, broadcast)),
-            self._sent,
+            lambda txid: self._sent(txid, change),
             self._failed,
         )
 
-    def _sent(self, txid: str):
+    def _sent(self, txid: str, change: Optional[WalletAddress] = None):
         self.prepare_button.setEnabled(True)
         self.amount.clear()
+        if change is not None and self.app.wallet is not None:
+            try:
+                self.app.modify_wallet(
+                    lambda wallet: wallet.add_address(change.account_id, CHANGE_CHAIN, change.index)
+                )
+            except EXPECTED_ERRORS as error:
+                QMessageBox.warning(
+                    self,
+                    'Change address',
+                    f'The change was sent to {change.address} ({change.path}), but it could not '
+                    f'be saved in the wallet: {error}. Scan for used addresses finds it.',
+                )
         show_text(self, 'Transaction sent', 'Transaction id', txid)
 
     def _failed(self, error):

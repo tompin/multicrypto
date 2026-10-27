@@ -9,9 +9,11 @@ from tests import http_mock
 from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
 from multicrypto.api import get_api
 from multicrypto.coins import coins
+from multicrypto.scripts import address_to_script
 
 pytest.importorskip('PySide6')
 
+import multicrypto.gui.send_tab as send_tab_module  # noqa: E402
 import multicrypto.gui.sweep_tab as sweep_tab_module  # noqa: E402
 import multicrypto.gui.vanity_tab as vanity_tab_module  # noqa: E402
 import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
@@ -580,3 +582,38 @@ def test_fee_rate_estimate_not_available(qapp, window):
     wait_until(qapp, lambda: tab.fee.status.text())
 
     assert 'Fee estimate is not available' in tab.fee.status.text()
+
+
+@http_mock.activate
+def test_send_change_to_change_chain(qapp, window, monkeypatch):
+    unlock(window)
+    address = add_address(window, 'TBTC', 'p2wpkh')
+    http_mock.add(
+        http_mock.GET, f'{TBTC_API}/address/{address.address}/utxo', json=esplora_utxos([100000])
+    )
+    http_mock.add(http_mock.POST, f'{TBTC_API}/tx', body='tx1')
+    confirmations, sent = [], []
+    monkeypatch.setattr(
+        send_tab_module,
+        'confirm',
+        lambda parent, title, rows, button: confirmations.append(dict(rows)) or True,
+    )
+    monkeypatch.setattr(
+        send_tab_module, 'show_text', lambda parent, title, label, text: sent.append(text)
+    )
+    change = window.wallet.next_change_address(address.account_id)
+    tab = window.send_tab
+
+    tab.select_source(address)
+    tab.destination.setText(EXTERNAL_ADDRESS)
+    tab.amount.setText('0.0003')
+    tab.fee.rate.setText('2')
+    tab.prepare()
+    wait_until(qapp, lambda: sent)
+
+    assert change.path in confirmations[0]['Change']
+    assert change.address in confirmations[0]['Change']
+    assert sent == ['tx1']
+    assert window.wallet.get_address(change.id) == change  # saved after sending
+    raw_transaction = http_mock.calls[-1].request.body
+    assert address_to_script(change.address, coins['TBTC']).hex() in raw_transaction
