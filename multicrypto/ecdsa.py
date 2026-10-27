@@ -10,7 +10,7 @@ from multicrypto.address import (
 )
 from multicrypto.ellipticcurve import secp256k1, Point
 from multicrypto.numbertheory import modular_inverse, modular_sqrt
-from multicrypto.utils import double_sha256
+from multicrypto.utils import double_sha256, int_to_varint
 
 
 def sign(message, private_key, curve=secp256k1, hash_function=sha256):
@@ -35,10 +35,12 @@ def verify(message, signature, public_key, curve=secp256k1, hash_function=sha256
     return r == V.x
 
 
-def add_magic_prefix(message, coin):
-    coin_name = coin['name'].capitalize()
-    prefix = f'{coin_name} Signed Message:\n'
-    return f'{chr(len(prefix))}{prefix}{chr(len(message))}{message}'
+def add_magic_prefix(message: str, coin) -> bytes:
+    """Message with the prefix of the coin, serialized as it is hashed when it is signed."""
+    name = coin.get('message_prefix', coin['name'].capitalize())
+    prefix = f'{name} Signed Message:\n'.encode()
+    data = message.encode()
+    return int_to_varint(len(prefix)) + prefix + int_to_varint(len(data)) + data
 
 
 def verify_message(
@@ -73,7 +75,7 @@ def sign_message(
     address = convert_wif_private_key_to_address(
         wif_private_key, coin['address_prefix_bytes'], segwit=segwit
     )
-    message_with_magic_prefix = add_magic_prefix(message, coin).encode()
+    message_with_magic_prefix = add_magic_prefix(message, coin)
     r, s = sign(message_with_magic_prefix, private_key, curve, hash_function)
     bytes_signature = r.to_bytes(byteorder='big', length=curve.bytes_size) + s.to_bytes(
         byteorder='big', length=curve.bytes_size

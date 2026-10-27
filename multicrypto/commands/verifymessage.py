@@ -34,7 +34,7 @@ def main():
     signed_message = args.signed_message.encode()
     message_with_magic_prefix = None
     if args.message:
-        message_with_magic_prefix = add_magic_prefix(args.message, coin).encode()
+        message_with_magic_prefix = add_magic_prefix(args.message, coin)
 
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     try:
