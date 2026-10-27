@@ -24,6 +24,7 @@ from multicrypto.gui.create_wizard import CreateWalletWizard
 from multicrypto.gui.dialogs import SecretDialog, UnlockDialog, ask_password, mnemonic_grid
 from multicrypto.gui.forms import describe_error
 from multicrypto.gui.send_tab import SendTab
+from multicrypto.gui.sign_tab import SignTab
 from multicrypto.gui.wallet_tab import WalletTab
 from multicrypto.gui.worker import Worker
 from multicrypto.wallet import MIN_PASSWORD_LENGTH, Wallet, WalletFile
@@ -52,9 +53,12 @@ class MainWindow(QMainWindow):
         self.wallet_tab = WalletTab(self)
         self.balance_tab = BalanceTab(self)
         self.send_tab = SendTab(self)
-        self.tabs = (self.wallet_tab, self.balance_tab, self.send_tab)
+        self.sign_tab = SignTab(self)
+        self.tabs = (self.wallet_tab, self.balance_tab, self.send_tab, self.sign_tab)
         self.tab_widget = QTabWidget()
-        for tab, title in zip(self.tabs, ('Wallet', 'Balance', 'Send'), strict=True):
+        for tab, title in zip(
+            self.tabs, ('Wallet', 'Balance', 'Send', 'Sign / Verify'), strict=True
+        ):
             self.tab_widget.addTab(tab, title)
         self.locked_message = QLabel()
         self.locked_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
