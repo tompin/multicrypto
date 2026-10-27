@@ -1,6 +1,5 @@
 import os
 import stat
-import unicodedata
 
 import pytest
 from nacl import pwhash
@@ -11,20 +10,28 @@ from multicrypto.wallet import (
     HEADER_SIZE,
     UNSUPPORTED_FORMAT,
     WRONG_PASSWORD,
+    ImportedKey,
     Wallet,
-    WalletEntry,
     WalletError,
     WalletFile,
+    account_path,
     check_entry,
     generate_wif,
 )
 
+MNEMONIC = ' '.join(['abandon'] * 11 + ['about'])
+PASSWORD = 'correct horse battery'
+NEW_PASSWORD = 'new password 123'
+PASSPHRASE = 'secret passphrase'
 BTC_WIF = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'
 BTC_P2WPKH_ADDRESS = 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q'
 TBTC_WIF = 'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo'
 TBTC_P2TR_ADDRESS = 'tb1p5z79qpqcp9wf02p2zd5dtz89pxla4qu3zuz5w5hxhz7ds58cce4s9ztvgh'
 UNCOMPRESSED_WIF = '5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ'
 UNCOMPRESSED_ADDRESS = '1GAehh7TsJAHuUAeKZcXf5CnwuGuGgyX2S'
+
+
+# Private keys in WIF format
 
 
 def test_check_entry_returns_address():
@@ -56,66 +63,176 @@ def test_generate_wif():
     assert generate_wif('BTC', private_key=1) == (
         'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn'
     )
-    wif = generate_wif('TBTC')
-    assert check_entry('TBTC', wif, 'p2tr').startswith('tb1p')
-    assert generate_wif('TBTC') != wif
+    assert check_entry('TBTC', generate_wif('TBTC'), 'p2tr').startswith('tb1p')
 
 
-def test_wallet_add_wif():
-    wallet = Wallet()
-
-    entry = wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
-
-    assert wallet.entries == [entry]
-    assert entry.address == BTC_P2WPKH_ADDRESS
-    assert wallet.get(entry.id) is entry
+def test_imported_key_repr_does_not_contain_private_key():
+    assert BTC_WIF not in repr(ImportedKey('Old', 'BTC', BTC_WIF, 'p2wpkh'))
 
 
-def test_wallet_rejects_duplicate():
-    wallet = Wallet()
-    wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
+# HD wallet
 
+
+def test_fingerprint_of_test_mnemonic():
+    assert Wallet.create(MNEMONIC, '').fingerprint == '73c5da0a'
+
+
+@pytest.mark.parametrize(
+    'coin, address_type, index, expected',
+    [
+        ('BTC', 'p2pkh', 0, '1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA'),  # BIP-44
+        ('TBTC', 'p2sh-p2wpkh', 0, '2Mww8dCYPUpKHofjgcXcBCEGmniw9CoaiD2'),  # BIP-49
+        ('BTC', 'p2wpkh', 0, 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'),  # BIP-84
+        ('BTC', 'p2wpkh', 1, 'bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g'),
+        (
+            'BTC',
+            'p2tr',
+            0,
+            'bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr',
+        ),  # BIP-86
+        ('BTC', 'p2tr', 1, 'bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh'),
+    ],
+)
+def test_bip_test_vectors(coin, address_type, index, expected):
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Test', coin, address_type)
+
+    addresses = [wallet.new_address(account.id) for _ in range(index + 1)]
+
+    assert addresses[index].address == expected
+    assert addresses[index].path == f'{account.path}/0/{index}'
+
+
+def test_private_key_of_hd_address():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Test', 'TBTC', 'p2sh-p2wpkh')
+
+    address = wallet.new_address(account.id, 'First')
+
+    # BIP-49 test vector
+    assert wallet.private_key_wif(address) == 'cULrpoZGXiuC19Uhvykx7NugygA3k86b3hmdCeyvHYQZSxojGyXJ'
+
+
+def test_account_path():
+    assert account_path('BTC', 'p2wpkh', 0) == "m/84'/0'/0'"
+    assert account_path('LTC', 'p2pkh', 3) == "m/44'/2'/3'"
+    assert account_path('TLTC', 'p2tr', 1) == "m/86'/1'/1'"
+
+
+def test_add_account_numbers():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    first = wallet.add_account('First', 'BTC', 'p2wpkh')
+    second = wallet.add_account('Second', 'BTC', 'p2wpkh')
+    legacy = wallet.add_account('Legacy', 'BTC', 'p2pkh')
+
+    assert (first.account, second.account, legacy.account) == (0, 1, 0)
+    assert wallet.next_account_number('BTC', 'p2wpkh') == 2
+
+
+@pytest.mark.parametrize(
+    'coin, address_type, account, message',
+    [
+        ('BTCH', 'p2pkh', None, 'no SLIP-44 coin type'),
+        ('ZEC', 'p2wpkh', None, 'is not supported'),
+        ('BTC', 'p2wpkh', 2**31, 'Account number must be'),
+        ('BTC', 'p2wpkh', 0, 'already in the wallet'),
+        ('XXX', 'p2pkh', None, 'Unknown coin'),
+    ],
+)
+def test_add_account_errors(coin, address_type, account, message):
+    wallet = Wallet.create(MNEMONIC, '')
+    wallet.add_account('Existing', 'BTC', 'p2wpkh')
+
+    with pytest.raises(ValueError, match=message):
+        wallet.add_account('New', coin, address_type, account)
+
+
+def test_new_address_labels_and_indexes():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+
+    first = wallet.new_address(account.id, 'Exchange')
+    second = wallet.new_address(account.id)
+
+    assert (first.label, first.index, second.label, second.index) == ('Exchange', 0, 'Address 1', 1)
+    assert wallet.addresses() == [first, second]
+    assert wallet.get_address(second.id) == second
+
+
+def test_imported_keys():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    address = wallet.add_wif('Old', 'BTC', BTC_WIF, 'p2wpkh')
+
+    assert (address.address, address.path, address.account_id) == (BTC_P2WPKH_ADDRESS, None, None)
+    assert wallet.private_key_wif(address) == BTC_WIF
     with pytest.raises(ValueError, match='already in the wallet'):
-        wallet.add_wif('Other', 'BTC', BTC_WIF, 'p2wpkh')
-    wallet.add_wif('Legacy', 'BTC', BTC_WIF, 'p2pkh')  # other address type is other entry
-
-    assert [entry.label for entry in wallet.entries] == ['Savings', 'Legacy']
-
-
-def test_wallet_add_wif_validates_entry():
-    wallet = Wallet()
-
+        wallet.add_wif('Again', 'BTC', BTC_WIF, 'p2wpkh')
     with pytest.raises(ValueError):
-        wallet.add_wif('Savings', 'TBTC', BTC_WIF, 'p2pkh')
+        wallet.add_wif('Wrong', 'TBTC', BTC_WIF, 'p2pkh')
+    assert wallet.addresses() == [address]
 
-    assert wallet.entries == []
 
+def test_rename_and_remove():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+    first = wallet.new_address(account.id, 'First')
+    second = wallet.new_address(account.id, 'Second')
+    imported = wallet.add_wif('Old', 'BTC', BTC_WIF, 'p2wpkh')
 
-def test_wallet_remove():
-    wallet = Wallet()
-    entry = wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
+    wallet.rename(account.id, 'Renamed account')
+    wallet.rename(second.id, 'Renamed address')
+    wallet.remove(first.id)
+    wallet.remove(imported.id)
 
-    wallet.remove(entry.id)
-
-    assert wallet.entries == []
+    assert account.label == 'Renamed account'
+    assert [address.label for address in wallet.addresses()] == ['Renamed address']
+    wallet.remove(account.id)
+    assert wallet.accounts == []
     with pytest.raises(KeyError):
-        wallet.remove(entry.id)
+        wallet.remove(account.id)
 
 
-def test_wallet_entry_repr_does_not_contain_private_key():
-    assert BTC_WIF not in repr(WalletEntry('Savings', 'BTC', BTC_WIF, 'p2wpkh'))
+def test_closed_wallet_cannot_derive_keys():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+
+    wallet.close()
+
+    with pytest.raises(WalletError, match='locked'):
+        wallet.new_address(account.id)
+    assert account.addresses == []
 
 
-def test_wallet_json_round_trip():
-    wallet = Wallet()
-    wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
-    wallet.add_wif('Testnet', 'TBTC', TBTC_WIF, 'p2tr')
+def test_open_checks_fingerprint():
+    wallet = Wallet.create(MNEMONIC, PASSPHRASE)
+    closed = Wallet.from_json(wallet.to_json())
 
-    assert Wallet.from_json(wallet.to_json()).entries == wallet.entries
+    with pytest.raises(WalletError, match='This passphrase gives wallet 73c5da0a'):
+        closed.open('')
+    closed.open(PASSPHRASE)
+
+    assert closed.is_open
 
 
-PASSWORD = 'correct horse battery'
-NEW_PASSWORD = 'new password 123'
+def test_json_round_trip_does_not_contain_passphrase():
+    wallet = Wallet.create(MNEMONIC, PASSPHRASE)
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+    wallet.new_address(account.id, 'First')
+    wallet.add_wif('Old', 'BTC', BTC_WIF, 'p2wpkh')
+
+    data = wallet.to_json()
+    restored = Wallet.from_json(data)
+    restored.open(PASSPHRASE)
+
+    assert PASSPHRASE.encode() not in data
+    assert restored.accounts == wallet.accounts
+    assert restored.imported == wallet.imported
+    assert restored.addresses() == wallet.addresses()
+
+
+# Wallet file
 
 
 @pytest.fixture
@@ -130,90 +247,114 @@ def read(path):
         return file.read()
 
 
-def test_create_save_and_unlock(wallet_file):
-    wallet = wallet_file.create(PASSWORD)
-    wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
+def test_create_and_unlock(wallet_file):
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+    address = wallet.new_address(wallet.accounts[0].id, 'Savings')
     wallet_file.save(wallet)
     wallet_file.lock()
 
-    assert not wallet_file.is_unlocked
-    # parameters of the key derivation are read from the file
-    assert WalletFile(wallet_file.path).unlock(PASSWORD).entries == wallet.entries
+    unlocked = WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE)
+
+    assert [(a.label, a.coin, a.address_type) for a in unlocked.accounts] == [
+        ('Bitcoin', 'BTC', 'p2wpkh')
+    ]
+    assert unlocked.addresses() == [address]
 
 
 def test_file_is_encrypted_and_private(wallet_file):
-    wallet = wallet_file.create(PASSWORD)
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
     wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
     wallet_file.save(wallet)
 
     data = read(wallet_file.path)
-    assert data.startswith(b'MCWALLET\x01')
-    assert BTC_WIF.encode() not in data
-    assert b'Savings' not in data
+    assert data.startswith(b'MCWALLET\x02')
+    for secret in ('abandon', BTC_WIF, 'Savings', PASSPHRASE):
+        assert secret.encode() not in data
     assert stat.S_IMODE(os.stat(wallet_file.path).st_mode) == 0o600
     assert not os.path.exists(wallet_file.path + '.tmp')
 
 
-def test_create_does_not_overwrite_existing_file(wallet_file):
-    wallet_file.create(PASSWORD)
-
-    with pytest.raises(WalletError, match='already exists'):
-        WalletFile(wallet_file.path).create(PASSWORD)
-
-
-def test_create_requires_long_password(wallet_file):
-    with pytest.raises(ValueError, match='at least 10 characters'):
-        wallet_file.create('short')
+@pytest.mark.parametrize(
+    'password, mnemonic, passphrase, message',
+    [
+        ('short', MNEMONIC, PASSPHRASE, 'at least 10 characters'),
+        (PASSWORD, MNEMONIC, '', 'Passphrase cannot be empty'),
+        (PASSWORD, 'abandon about', PASSPHRASE, 'must have 12'),
+    ],
+)
+def test_create_validates_input(wallet_file, password, mnemonic, passphrase, message):
+    with pytest.raises(ValueError, match=message):
+        wallet_file.create(password, mnemonic, passphrase)
 
     assert not wallet_file.exists()
+
+
+def test_create_does_not_overwrite_existing_file(wallet_file):
+    wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+
+    with pytest.raises(WalletError, match='already exists'):
+        WalletFile(wallet_file.path).create(PASSWORD, MNEMONIC, PASSPHRASE)
 
 
 def test_create_makes_private_directory(tmp_path):
     path = tmp_path / 'new' / 'wallet.mcw'
 
     WalletFile(str(path), pwhash.argon2id.OPSLIMIT_MIN, pwhash.argon2id.MEMLIMIT_MIN).create(
-        PASSWORD
+        PASSWORD, MNEMONIC, PASSPHRASE
     )
 
     assert stat.S_IMODE(os.stat(path.parent).st_mode) == 0o700
 
 
 def test_unlock_with_wrong_password(wallet_file):
-    wallet_file.create(PASSWORD)
+    wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
 
     with pytest.raises(WalletError, match=WRONG_PASSWORD):
-        WalletFile(wallet_file.path).unlock('wrong password')
+        WalletFile(wallet_file.path).unlock('wrong password', PASSPHRASE)
 
 
-def test_password_is_normalized(wallet_file):
-    wallet_file.create(unicodedata.normalize('NFC', 'zażółć gęślą jaźń'))
+def test_unlock_with_wrong_passphrase(wallet_file):
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+    other_file = WalletFile(wallet_file.path)
 
-    wallet = WalletFile(wallet_file.path).unlock(unicodedata.normalize('NFD', 'zażółć gęślą jaźń'))
+    with pytest.raises(WalletError, match=f'created with {wallet.fingerprint}'):
+        other_file.unlock(PASSWORD, 'other passphrase')
 
-    assert wallet.entries == []
+    assert not other_file.is_unlocked
 
 
 def test_save_uses_new_nonce(wallet_file):
-    wallet = wallet_file.create(PASSWORD)
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
     first = read(wallet_file.path)
 
     wallet_file.save(wallet)
 
     second = read(wallet_file.path)
-    assert first[:41] == second[:41]  # magic, version, parameters and salt
+    assert first[:41] == second[:41]
     assert first[41:HEADER_SIZE] != second[41:HEADER_SIZE]
 
 
 @pytest.mark.parametrize('offset', [0, 8, 16, 24, 25, 41, HEADER_SIZE, -1])
 def test_unlock_detects_modification(wallet_file, offset):
-    wallet_file.create(PASSWORD)
+    wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
     data = bytearray(read(wallet_file.path))
     data[offset] ^= 1
     with open(wallet_file.path, 'wb') as file:
         file.write(data)
 
     with pytest.raises(WalletError):
-        WalletFile(wallet_file.path).unlock(PASSWORD)
+        WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE)
+
+
+def test_unlock_rejects_version_1(wallet_file):
+    wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+    data = bytearray(read(wallet_file.path))
+    data[8] = 1
+    with open(wallet_file.path, 'wb') as file:
+        file.write(data)
+
+    with pytest.raises(WalletError, match=UNSUPPORTED_FORMAT):
+        WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE)
 
 
 def test_unlock_unsupported_file(tmp_path):
@@ -221,43 +362,40 @@ def test_unlock_unsupported_file(tmp_path):
     path.write_bytes(b'not a wallet')
 
     with pytest.raises(WalletError, match=UNSUPPORTED_FORMAT):
-        WalletFile(str(path)).unlock(PASSWORD)
+        WalletFile(str(path)).unlock(PASSWORD, PASSPHRASE)
 
 
 def test_verify_password(wallet_file):
-    wallet_file.create(PASSWORD)
+    wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
 
     assert wallet_file.verify_password(PASSWORD)
     assert not wallet_file.verify_password('wrong password')
 
 
 def test_change_password(wallet_file):
-    wallet = wallet_file.create(PASSWORD)
-    wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh')
-    wallet_file.save(wallet)
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
     salt = read(wallet_file.path)[25:41]
 
-    wallet_file.change_password(PASSWORD, NEW_PASSWORD)
+    wallet_file.change_password(PASSWORD, NEW_PASSWORD, wallet)
 
     assert read(wallet_file.path)[25:41] != salt
     with pytest.raises(WalletError):
-        WalletFile(wallet_file.path).unlock(PASSWORD)
-    assert WalletFile(wallet_file.path).unlock(NEW_PASSWORD).entries == wallet.entries
-    wallet_file.save(wallet)  # the new key is used for next saves
-    assert WalletFile(wallet_file.path).unlock(NEW_PASSWORD).entries == wallet.entries
+        WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE)
+    unlocked = WalletFile(wallet_file.path).unlock(NEW_PASSWORD, PASSPHRASE)
+    assert unlocked.accounts == wallet.accounts
 
 
 def test_change_password_with_wrong_old_password(wallet_file):
-    wallet_file.create(PASSWORD)
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
 
-    with pytest.raises(WalletError):
-        wallet_file.change_password('wrong password', NEW_PASSWORD)
+    with pytest.raises(WalletError, match='Wrong password'):
+        wallet_file.change_password('wrong password', NEW_PASSWORD, wallet)
 
-    assert WalletFile(wallet_file.path).unlock(PASSWORD).entries == []
+    assert WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE).accounts == wallet.accounts
 
 
-def test_locked_wallet_cannot_be_saved(wallet_file):
-    wallet = wallet_file.create(PASSWORD)
+def test_locked_wallet_file_cannot_be_saved(wallet_file):
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
     wallet_file.lock()
 
     with pytest.raises(WalletError, match='locked'):
