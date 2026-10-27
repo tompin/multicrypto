@@ -4,6 +4,7 @@ from multicrypto.address import (
     convert_private_key_to_coin_address,
     convert_public_key_to_coin_address,
     decode_segwit_address,
+    detect_address_kind,
     get_private_key_from_wif_format,
     convert_private_key_to_address,
     validate_address,
@@ -238,3 +239,20 @@ def test_convert_public_key_to_coin_address_errors():
         convert_public_key_to_coin_address(public_key, coins['BTC'], False, 'p2wpkh')
     with pytest.raises(ValueError, match='not supported for dogecoin'):
         convert_public_key_to_coin_address(public_key, coins['DOGE'], True, 'p2wpkh')
+
+
+@pytest.mark.parametrize(
+    'coin_symbol, address, kind',
+    [
+        ('BTC', '1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi', 'p2pkh'),
+        ('BTC', '3DnW8JGpPViEZdpqat8qky1zc26EKbXnmM', 'p2sh'),
+        ('ZEC', 't1KoKf3aRvWRfRqXktMUiAZXfUZoDbio7XQ', 'p2pkh'),
+    ],
+)
+def test_detect_address_kind(coin_symbol, address, kind):
+    assert detect_address_kind(address, coin_symbol) == kind
+
+
+def test_detect_address_kind_of_bech32_address():
+    with pytest.raises(ValueError, match='need the private key'):
+        detect_address_kind('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'BTC')

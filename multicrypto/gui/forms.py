@@ -6,10 +6,22 @@ import secrets
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional, Tuple, Union
 
-from multicrypto.address import validate_address
+from multicrypto.address import (
+    convert_private_key_to_coin_address,
+    convert_private_key_to_wif_format,
+    detect_address_kind,
+    get_private_key_from_wif_format,
+    translate_address,
+    translate_private_key,
+    validate_address,
+)
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_utxo_from_address
-from multicrypto.coins import P2TR, coins
+from multicrypto.base58 import BASE58_ALPHABET, base58_to_bytes
+from multicrypto.coins import P2PKH, P2TR, coins, get_address_types
+from multicrypto.ellipticcurve import secp256k1
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
+from multicrypto.utils import double_sha256, get_integer
+from multicrypto.vanity import validate_vanity_pattern
 from multicrypto.wallet import WalletAddress, WalletError, check_entry, check_new_password
 
 logger = logging.getLogger(__name__)
@@ -229,6 +241,73 @@ def describe_sweep(
         ('Received', amount(sum(transaction.outputs[0]['satoshis'] for transaction in prepared))),
         ('Batches', batches),
     ]
+
+
+def translate_address_text(text: str, input_symbol: str, output_symbol: str) -> str:
+    """Address of the same public key hash (or script hash) for another coin."""
+    address = parse_address(text, input_symbol)
+    if detect_address_kind(address, input_symbol) == 'p2sh':
+        key = 'script_prefix_bytes'
+    else:
+        key = 'address_prefix_bytes'
+    return translate_address(address, coins[input_symbol][key], coins[output_symbol][key])
+
+
+def parse_private_key_input(text: str, integer: bool) -> str:
+    """Private key in WIF format of any coin, or an integer (decimal or hex starting with 0x)
+    converted to WIF of bitcoin with compressed public key."""
+    value = text.strip()
+    if not value:
+        raise ValueError('Enter the private key')
+    if integer:
+        number = get_integer(value.lower())
+        if number is None or not 0 < number < secp256k1.n:
+            raise ValueError(
+                f'Private key must be an integer from 1 to {secp256k1.n - 1} (decimal or hex)'
+            )
+        return convert_private_key_to_wif_format(number, coins['BTC']['secret_prefix_bytes'])
+    if set(value) - set(BASE58_ALPHABET):
+        raise ValueError('Private key in WIF format can contain only base58 characters')
+    data = base58_to_bytes(value)
+    payload, checksum = data[:-4], data[-4:]
+    if len(data) < 5 or double_sha256(payload).digest()[:4] != checksum:
+        raise ValueError('Incorrect checksum of the private key')
+    compressed = len(payload) == 34 and payload[-1] == 1
+    if len(payload) != 33 and not compressed:
+        raise ValueError('Incorrect private key')
+    private_key, _ = get_private_key_from_wif_format(value)
+    if not 0 < private_key < secp256k1.n:
+        raise ValueError('Incorrect private key')
+    return value
+
+
+def translated_key_addresses(wif: str, output_symbol: str) -> Tuple[str, List[Tuple[str, str]]]:
+    """Private key in WIF format of another coin and its addresses of all supported types."""
+    coin = coins[output_symbol]
+    translated = translate_private_key(wif, coin['secret_prefix_bytes'])
+    private_key, compressed = get_private_key_from_wif_format(wif)
+    address_types = get_address_types(coin) if compressed else (P2PKH,)
+    return translated, [
+        (
+            address_type,
+            convert_private_key_to_coin_address(private_key, coin, compressed, address_type),
+        )
+        for address_type in address_types
+    ]
+
+
+def parse_vanity_pattern(text: str, coin_symbol: str, address_type: str) -> str:
+    pattern = text.strip()
+    if not pattern:
+        raise ValueError('Enter the beginning of the address')
+    return validate_vanity_pattern(pattern, coin_symbol, address_type)
+
+
+def format_duration(seconds: float) -> str:
+    for unit, size in (('days', 86400), ('h', 3600), ('min', 60)):
+        if seconds >= size:
+            return f'{seconds / size:.0f} {unit}'
+    return f'{seconds:.0f} s'
 
 
 def describe_error(error: BaseException) -> str:

@@ -19,12 +19,17 @@ from multicrypto.gui.forms import (
     extract_txid,
     fetch_balances,
     format_amount,
+    format_duration,
     parse_address,
     parse_amount,
     parse_int,
     parse_nodes,
+    parse_private_key_input,
     parse_thresholds,
+    parse_vanity_pattern,
     parse_wif,
+    translate_address_text,
+    translated_key_addresses,
 )
 from multicrypto.network import PeerAddress
 from multicrypto.wallet import WalletAddress, WalletError
@@ -315,3 +320,80 @@ def test_describe_sweep():
             '2. inputs: 1, amount: 0.00099000 BTC, fee: 0.00001000 BTC, size: 120 bytes',
         ),
     ]
+
+
+KEY_WIF = 'KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu'
+KEY_INTEGER = '43265286516710475498079662292151387463063605274999989765271924584279496871562'
+
+
+def test_translate_address_text():
+    assert (
+        translate_address_text(' 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi ', 'BTC', 'BTG')
+        == 'Ga3afwEZMPHqRQ7uHyBAti7NSUX7SHppZg'
+    )
+    assert (
+        translate_address_text('3DnW8JGpPViEZdpqat8qky1zc26EKbXnmM', 'BTC', 'BTG')
+        == 'ATsMrFe1Ak41HSLQ2S8aVDv9w6jD7f9qS6'
+    )
+    with pytest.raises(ValueError, match='need the private key'):
+        translate_address_text('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'BTC', 'LTC')
+    with pytest.raises(ValueError, match='Check sum is not correct'):
+        translate_address_text('1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hj', 'BTC', 'BTG')
+
+
+@pytest.mark.parametrize(
+    'text, integer',
+    [
+        (KEY_WIF, False),
+        (f' {KEY_INTEGER} ', True),
+        ('0x5fa748cc9721dec00a3afcbe79e8f264a9cb9d8480a6615295970678344e4e8a', True),
+    ],
+)
+def test_parse_private_key_input(text, integer):
+    assert parse_private_key_input(text, integer) == KEY_WIF
+
+
+@pytest.mark.parametrize(
+    'text, integer, error',
+    [
+        ('', False, 'Enter the private key'),
+        ('KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSv', False, 'checksum'),
+        ('KzRea0', False, 'only base58 characters'),
+        ('1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi', False, 'Incorrect private key'),
+        ('0', True, 'must be an integer from 1'),
+        ('xyz', True, 'must be an integer from 1'),
+    ],
+)
+def test_parse_private_key_input_errors(text, integer, error):
+    with pytest.raises(ValueError, match=error):
+        parse_private_key_input(text, integer)
+
+
+def test_translated_key_addresses():
+    assert translated_key_addresses(KEY_WIF, 'LTC') == (
+        'T6Fv2DdAqxFBdhL8FNKEA11EmLbNkvXu8QFWJJwVi1HEGS1NSUTV',
+        [
+            ('p2pkh', 'LbRcX2DSTBvbbjWmYAWMjxqEjX6YWvssUp'),
+            ('p2sh-p2wpkh', '3Png2L1DD4tqaHeu5p6USVcUuo55MmrWoR'),
+            ('p2wpkh', 'ltc1qkxmgtft32j3uxfjmseypq84xlwaglttjrr3k59'),
+            ('p2tr', 'ltc1pk5jxttt9wcct7sp4eg4m2gdhd49tpns2kz8wqfzt79z4amzyqkeqgrc3cz'),
+        ],
+    )
+    _, addresses = translated_key_addresses(
+        '5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss', 'LTC'
+    )
+    assert [address_type for address_type, _ in addresses] == ['p2pkh']
+
+
+def test_parse_vanity_pattern():
+    assert parse_vanity_pattern(' BC1QXY ', 'BTC', 'p2wpkh') == 'bc1qxy'
+    with pytest.raises(ValueError, match='Enter the beginning of the address'):
+        parse_vanity_pattern(' ', 'BTC', 'p2pkh')
+
+
+@pytest.mark.parametrize(
+    'seconds, text',
+    [(0.4, '0 s'), (42, '42 s'), (150, '2 min'), (7200, '2 h'), (3 * 86400, '3 days')],
+)
+def test_format_duration(seconds, text):
+    assert format_duration(seconds) == text
