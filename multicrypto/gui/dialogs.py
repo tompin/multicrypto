@@ -1,131 +1,210 @@
-"""Modal dialogs of the GUI."""
+"""Dialogs of the GUI."""
 
-from tkinter import messagebox, simpledialog, ttk
 from typing import List, Optional, Tuple
+
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFontDatabase
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from multicrypto.gui.forms import check_password_confirmation
 
 SECRET_DISPLAY_SECONDS = 30
 
 
-class PasswordDialog(simpledialog.Dialog):
+def password_field() -> QLineEdit:
+    field = QLineEdit()
+    field.setEchoMode(QLineEdit.EchoMode.Password)
+    field.setMinimumWidth(320)
+    return field
+
+
+def monospace_label(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+    return label
+
+
+def mnemonic_grid(mnemonic: str, columns: int = 4) -> QWidget:
+    """Numbered words of the mnemonic in columns, which cannot be selected or copied."""
+    widget = QWidget()
+    grid = QGridLayout(widget)
+    words = mnemonic.split()
+    rows = (len(words) + columns - 1) // columns
+    for position, word in enumerate(words):
+        label = monospace_label(f'{position + 1:2}. {word}')
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        grid.addWidget(label, position % rows, position // rows)
+    return widget
+
+
+def secret_line(secret: str) -> QLineEdit:
+    field = QLineEdit(secret)
+    field.setReadOnly(True)
+    field.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+    field.setMinimumWidth(field.fontMetrics().horizontalAdvance(secret) + 24)
+    return field
+
+
+class UnlockDialog(QDialog):
+    """Ask for the password of the wallet file and the BIP-39 passphrase."""
+
+    def __init__(self, parent: Optional[QWidget], path: str):
+        super().__init__(parent)
+        self.setWindowTitle('Unlock wallet')
+        self.password = password_field()
+        self.passphrase = password_field()
+        form = QFormLayout(self)
+        form.addRow(QLabel(f'Wallet {path}'))
+        form.addRow('Password', self.password)
+        form.addRow('Passphrase', self.passphrase)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+
+    def accept(self):
+        if not self.password.text() or not self.passphrase.text():
+            QMessageBox.warning(self, 'Unlock wallet', 'Enter the password and the passphrase')
+            return
+        super().accept()
+
+    def values(self) -> Tuple[str, str]:
+        return self.password.text(), self.passphrase.text()
+
+
+class PasswordDialog(QDialog):
     """Ask for the password, the new password has to be entered twice."""
 
-    def __init__(self, parent, title: str, prompt: str, new_password: bool = False):
-        self.prompt = prompt
+    def __init__(self, parent: Optional[QWidget], title: str, prompt: str, new_password=False):
+        super().__init__(parent)
+        self.setWindowTitle(title)
         self.new_password = new_password
-        self.result: Optional[str] = None
-        super().__init__(parent, title)
+        self.password = password_field()
+        self.confirmation = password_field()
+        form = QFormLayout(self)
+        form.addRow(QLabel(prompt))
+        form.addRow('Password', self.password)
+        if new_password:
+            form.addRow('Repeat password', self.confirmation)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
 
-    def body(self, master):
-        ttk.Label(master, text=self.prompt).grid(row=0, column=0, sticky='w')
-        self.password = ttk.Entry(master, show='*', width=40)
-        self.password.grid(row=1, column=0, pady=(4, 8))
-        if self.new_password:
-            ttk.Label(master, text='Repeat the password').grid(row=2, column=0, sticky='w')
-            self.confirmation = ttk.Entry(master, show='*', width=40)
-            self.confirmation.grid(row=3, column=0, pady=(4, 8))
-        return self.password
-
-    def validate(self):
-        password = self.password.get()
+    def accept(self):
         try:
             if self.new_password:
-                check_password_confirmation(password, self.confirmation.get())
-            elif not password:
+                check_password_confirmation(self.password.text(), self.confirmation.text())
+            elif not self.password.text():
                 raise ValueError('Enter the password')
         except ValueError as error:
-            messagebox.showerror('Error', str(error), parent=self)
-            return False
-        self.result = password
-        return True
+            QMessageBox.warning(self, self.windowTitle(), str(error))
+            return
+        super().accept()
 
 
-def ask_password(parent, title: str, prompt: str, new_password: bool = False) -> Optional[str]:
-    return PasswordDialog(parent, title, prompt, new_password).result
+def ask_password(
+    parent: Optional[QWidget], title: str, prompt: str, new_password: bool = False
+) -> Optional[str]:
+    dialog = PasswordDialog(parent, title, prompt, new_password)
+    return dialog.password.text() if dialog.exec() else None
 
 
-class ConfirmDialog(simpledialog.Dialog):
-    """Show the rows and ask for confirmation. Cancel has the focus and Enter is not bound, so the
-    action cannot be confirmed by accident."""
+class ConfirmDialog(QDialog):
+    """Show the rows and ask for confirmation. Cancel is the default button, so Enter does not
+    confirm the action by accident."""
 
     def __init__(self, parent, title: str, rows: List[Tuple[str, str]], confirm_text: str):
-        self.rows = rows
-        self.confirm_text = confirm_text
-        self.confirmed = False
-        super().__init__(parent, title)
-
-    def body(self, master):
-        for row, (name, value) in enumerate(self.rows):
-            ttk.Label(master, text=f'{name}:').grid(
-                row=row, column=0, sticky='nw', padx=(0, 12), pady=2
-            )
-            ttk.Label(master, text=value).grid(row=row, column=1, sticky='w', pady=2)
-        return None
-
-    def buttonbox(self):
-        box = ttk.Frame(self)
-        ttk.Button(box, text=self.confirm_text, command=self.ok).pack(side='left', padx=5, pady=5)
-        cancel = ttk.Button(box, text='Cancel', command=self.cancel)
-        cancel.pack(side='left', padx=5, pady=5)
-        self.bind('<Escape>', self.cancel)
-        box.pack()
-        self.initial_focus = cancel
-
-    def apply(self):
-        self.confirmed = True
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        grid = QGridLayout()
+        for row, (name, value) in enumerate(rows):
+            name_label = QLabel(f'<b>{name}:</b>')
+            value_label = QLabel(value)
+            value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            grid.addWidget(name_label, row, 0, Qt.AlignmentFlag.AlignTop)
+            grid.addWidget(value_label, row, 1)
+        confirm_button = QPushButton(confirm_text)
+        confirm_button.setAutoDefault(False)
+        confirm_button.clicked.connect(self.accept)
+        cancel_button = QPushButton('Cancel')
+        cancel_button.setDefault(True)
+        cancel_button.clicked.connect(self.reject)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        buttons.addWidget(confirm_button)
+        buttons.addWidget(cancel_button)
+        layout = QVBoxLayout(self)
+        layout.addLayout(grid)
+        layout.addLayout(buttons)
+        cancel_button.setFocus()
 
 
 def confirm(parent, title: str, rows: List[Tuple[str, str]], confirm_text: str) -> bool:
-    return ConfirmDialog(parent, title, rows, confirm_text).confirmed
+    return bool(ConfirmDialog(parent, title, rows, confirm_text).exec())
 
 
-class TextDialog(simpledialog.Dialog):
-    """Show the text in a read-only field, optionally with copy button and closed after timeout."""
+class SecretDialog(QDialog):
+    """Show the secret (private key, mnemonic), the dialog closes after the given time."""
 
     def __init__(
-        self,
-        parent,
-        title: str,
-        label: str,
-        text: str,
-        copy: bool = False,
-        close_after: Optional[int] = None,
+        self, parent, title: str, text: str, secret: QWidget, seconds=SECRET_DISPLAY_SECONDS
     ):
-        self.label = label
-        self.text = text
-        self.copy = copy
-        self.close_after = close_after
-        self._close_job = None
-        super().__init__(parent, title)
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.remaining = seconds
+        self.countdown = QLabel()
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(text))
+        layout.addWidget(secret)
+        layout.addWidget(self.countdown)
+        layout.addWidget(buttons)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._tick)
+        self.timer.start(1000)
+        self._show_countdown()
 
-    def body(self, master):
-        ttk.Label(master, text=self.label).grid(row=0, column=0, sticky='w')
-        entry = ttk.Entry(master, width=max(len(self.text) + 2, 40))
-        entry.insert(0, self.text)
-        entry.state(['readonly'])
-        entry.grid(row=1, column=0, pady=4)
-        if self.close_after:
-            ttk.Label(master, text=f'The window closes in {self.close_after} seconds').grid(
-                row=2, column=0, sticky='w'
-            )
-            self._close_job = self.after(self.close_after * 1000, self.cancel)
-        return entry
+    def _show_countdown(self):
+        self.countdown.setText(f'The window closes in {self.remaining} seconds')
 
-    def buttonbox(self):
-        box = ttk.Frame(self)
-        if self.copy:
-            ttk.Button(box, text='Copy', command=self._copy).pack(side='left', padx=5, pady=5)
-        ttk.Button(box, text='Close', command=self.cancel).pack(side='left', padx=5, pady=5)
-        self.bind('<Escape>', self.cancel)
-        box.pack()
+    def _tick(self):
+        self.remaining -= 1
+        if self.remaining <= 0:
+            self.reject()
+        else:
+            self._show_countdown()
 
-    def _copy(self):
-        self.clipboard_clear()
-        self.clipboard_append(self.text)
 
-    def destroy(self):
-        if self._close_job:
-            self.after_cancel(self._close_job)
-            self._close_job = None
-        super().destroy()
+def show_text(parent, title: str, label: str, text: str) -> None:
+    """Show the text (e.g. transaction id) with the button copying it to the clipboard."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title)
+    copy_button = QPushButton('Copy')
+    copy_button.clicked.connect(lambda: QApplication.clipboard().setText(text))
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+    buttons.addButton(copy_button, QDialogButtonBox.ButtonRole.ActionRole)
+    buttons.rejected.connect(dialog.reject)
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(QLabel(label))
+    layout.addWidget(secret_line(text))
+    layout.addWidget(buttons)
+    dialog.exec()
