@@ -1,13 +1,15 @@
 from unittest.mock import Mock
 
+import pyqrcode
 import pytest
 from nacl import pwhash
 
 pytest.importorskip('PySide6')
 
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
+from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
 from multicrypto.gui.window import MainWindow  # noqa: E402
-from multicrypto.wallet import WalletFile  # noqa: E402
+from multicrypto.wallet import WalletAddress, WalletFile  # noqa: E402
 
 PASSWORD = 'correct horse battery'
 PASSPHRASE = 'secret passphrase'
@@ -132,3 +134,29 @@ def test_send_tab_validates_destination(window):
 
     window.send_tab.destination.setText('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyx')
     assert 'Incorrect bech32 address' in window.send_tab.destination_status.text()
+
+
+def test_qr_image_draws_matrix_with_quiet_zone(qapp):
+    text = 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
+    matrix = pyqrcode.create(text, error='M').code
+    size = len(matrix) + 2 * QUIET_ZONE
+
+    image = qr_image(text, scale=3)
+
+    assert image.width() == image.height() == size * 3
+    for row in range(size):
+        for column in range(size):
+            inside = QUIET_ZONE <= min(row, column) and max(row, column) < size - QUIET_ZONE
+            dark = inside and matrix[row - QUIET_ZONE][column - QUIET_ZONE] == 1
+            assert (image.pixelColor(column * 3 + 1, row * 3 + 1).lightness() < 128) == dark
+
+
+def test_qr_dialog_shows_address(qapp):
+    address = WalletAddress(
+        'a', 'Savings', 'BTC', 'p2wpkh', 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
+    )
+
+    dialog = QrDialog(None, address)
+
+    assert dialog.address_label.text() == address.address
+    assert 'Savings' in dialog.windowTitle()
