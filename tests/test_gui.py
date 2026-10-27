@@ -13,6 +13,7 @@ from multicrypto.coins import coins
 pytest.importorskip('PySide6')
 
 import multicrypto.gui.sweep_tab as sweep_tab_module  # noqa: E402
+import multicrypto.gui.vanity_tab as vanity_tab_module  # noqa: E402
 import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
@@ -508,6 +509,7 @@ def test_vanity_search_and_add_to_wallet(qapp, window):
     assert address.startswith('bc1qq')
     assert check_entry('BTC', tab.result_key.text(), 'p2wpkh') == address
     assert tab.search is None
+    assert tab.speed == vanity_tab_module.DEFAULT_SPEED  # not measured during the start
     tab.result_label.setText('Vanity')
     tab.add_to_wallet()
     [imported] = window.wallet.imported_addresses()

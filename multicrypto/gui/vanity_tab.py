@@ -34,6 +34,8 @@ from multicrypto.vanity import (
 INVALID_COLOR = '#c62828'
 DEFAULT_SPEED = 10000  # addresses per second per process before the first measurement
 LONG_SEARCH_ATTEMPTS = 58**7
+# the speed is remembered after this time, earlier it is lowered by starting the processes
+SPEED_MEASURE_SECONDS = 5
 
 
 class VanityTab(QWidget):
@@ -208,7 +210,8 @@ class VanityTab(QWidget):
         elapsed = time.monotonic() - self.started
         attempts = search.attempts
         if attempts:
-            self.speed = attempts / elapsed / search.workers
+            if elapsed >= SPEED_MEASURE_SECONDS:
+                self.speed = attempts / elapsed / search.workers
             self.progress.setText(
                 f'Checked {attempts:,} addresses in {format_duration(elapsed)} '
                 f'({attempts / elapsed:,.0f}/s)'
