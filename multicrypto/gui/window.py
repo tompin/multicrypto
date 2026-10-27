@@ -23,6 +23,7 @@ from multicrypto.gui.balance_tab import BalanceTab
 from multicrypto.gui.create_wizard import CreateWalletWizard
 from multicrypto.gui.dialogs import SecretDialog, UnlockDialog, ask_password, mnemonic_grid
 from multicrypto.gui.forms import describe_error
+from multicrypto.gui.scan_dialog import ScanDialog
 from multicrypto.gui.send_tab import SendTab
 from multicrypto.gui.sign_tab import SignTab
 from multicrypto.gui.sweep_tab import SweepTab
@@ -111,6 +112,7 @@ class MainWindow(QMainWindow):
             ('Open wallet...', self.open_wallet),
             ('Change password...', self.change_password),
             ('Show mnemonic...', self.show_mnemonic),
+            ('Scan for used addresses...', self.scan_addresses),
             ('Lock', self.lock),
             ('Quit', self.close),
         ):
@@ -226,15 +228,16 @@ class MainWindow(QMainWindow):
         if not wizard.exec():
             return
         password, mnemonic, passphrase = wizard.values()
+        restored = wizard.mode_page.restore.isChecked()
         self.lock()
         wallet_file = self.wallet_file = WalletFile(path)
         self._derive_keys(
             'Creating wallet...',
             lambda: _opened(wallet_file.create(password, mnemonic, passphrase)),
-            self._created,
+            lambda wallet: self._created(wallet, restored),
         )
 
-    def _created(self, wallet: Wallet):
+    def _created(self, wallet: Wallet, restored: bool = False):
         self.show_wallet(wallet)
         QMessageBox.information(
             self,
@@ -242,6 +245,12 @@ class MainWindow(QMainWindow):
             f'The wallet {self.wallet_file.path} has been created, its fingerprint is '
             f'{wallet.fingerprint}.',
         )
+        if restored:
+            self.scan_addresses()
+
+    def scan_addresses(self):
+        if self.wallet is not None:
+            ScanDialog(self).exec()
 
     def open_wallet(self):
         path, _ = QFileDialog.getOpenFileName(

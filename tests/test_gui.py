@@ -14,6 +14,8 @@ from multicrypto.scripts import address_to_script
 pytest.importorskip('PySide6')
 
 import multicrypto.gui.send_tab as send_tab_module  # noqa: E402
+import multicrypto.gui.scan_dialog as scan_dialog_module  # noqa: E402
+from multicrypto.discovery import Cancelled, DiscoveredAccount  # noqa: E402
 import multicrypto.gui.sweep_tab as sweep_tab_module  # noqa: E402
 import multicrypto.gui.vanity_tab as vanity_tab_module  # noqa: E402
 import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
@@ -617,3 +619,57 @@ def test_send_change_to_change_chain(qapp, window, monkeypatch):
     assert window.wallet.get_address(change.id) == change  # saved after sending
     raw_transaction = http_mock.calls[-1].request.body
     assert address_to_script(change.address, coins['TBTC']).hex() in raw_transaction
+
+
+def test_scan_dialog_adds_discovered_addresses(qapp, window, monkeypatch):
+    unlock(window)
+
+    def fake_discover(wallet, coin_symbol, progress, cancelled):
+        progress(40)
+        if coin_symbol == 'LTC':
+            raise ValueError('API error: timeout')
+        return [DiscoveredAccount('BTC', 'p2tr', 0, [0, 2], [1])]
+
+    monkeypatch.setattr(scan_dialog_module, 'discover', fake_discover)
+    dialog = scan_dialog_module.ScanDialog(window)
+    dialog.coins['LTC'].setChecked(True)
+
+    dialog.scan()
+    wait_until(qapp, lambda: dialog.scan_button.isEnabled())
+
+    text = dialog.results.toPlainText()
+    assert 'BTC p2tr account 0: 2 receiving, 1 change' in text
+    assert 'LTC: API error: timeout' in text
+    dialog.add()
+    account = window.wallet.accounts[-1]
+    assert (account.coin, account.address_type) == ('BTC', 'p2tr')
+    assert len(account.addresses) == 3
+
+
+def test_scan_dialog_cancelled_when_wallet_is_locked(qapp, window, monkeypatch):
+    unlock(window)
+
+    def fake_discover(wallet, coin_symbol, progress, cancelled):
+        window.wallet = None  # the wallet is locked during the scan (widgets only in GUI thread)
+        if cancelled():
+            raise Cancelled()
+        return []
+
+    monkeypatch.setattr(scan_dialog_module, 'discover', fake_discover)
+    dialog = scan_dialog_module.ScanDialog(window)
+
+    dialog.scan()
+    wait_until(qapp, lambda: dialog.scan_button.isEnabled())
+
+    assert 'Cancelled' in dialog.status.text()
+    assert not dialog.add_button.isEnabled()
+
+
+def test_restored_wallet_is_scanned(window, monkeypatch):
+    scanned = []
+    monkeypatch.setattr(scan_dialog_module.ScanDialog, 'exec', lambda dialog: scanned.append(1))
+    monkeypatch.setattr('multicrypto.gui.window.QMessageBox.information', lambda *args: None)
+
+    window._created(window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE), restored=True)
+
+    assert scanned == [1]
