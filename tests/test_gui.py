@@ -6,6 +6,7 @@ import pytest
 from nacl import pwhash
 from tests import http_mock
 
+from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
 from multicrypto.api import get_api
 from multicrypto.coins import coins
 
@@ -16,7 +17,7 @@ import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
 from multicrypto.gui.window import MainWindow  # noqa: E402
-from multicrypto.wallet import WalletAddress, WalletFile  # noqa: E402
+from multicrypto.wallet import WalletAddress, WalletFile, check_entry  # noqa: E402
 
 PASSWORD = 'correct horse battery'
 PASSPHRASE = 'secret passphrase'
@@ -390,3 +391,45 @@ def test_show_qr_of_selected_address(window, monkeypatch):
     window.wallet_tab.show_qr()
 
     assert shown == [address.address]
+
+
+def test_translate_key_dialog_shows_address_of_another_coin(window):
+    unlock(window)
+    address = add_address(window)
+    wif = window.wallet.private_key_wif(address)
+    submitted = []
+
+    dialog = wallet_tab_module.TranslateKeyDialog(
+        window, 'Translate', wif, 'Savings', lambda *values: submitted.append(values)
+    )
+    dialog.coin.setCurrentText('LTC')
+    dialog.address_type.setCurrentText('p2wpkh')
+    private_key, compressed = get_private_key_from_wif_format(wif)
+    expected = convert_private_key_to_coin_address(private_key, coins['LTC'], compressed, 'p2wpkh')
+
+    assert dialog.address.text() == expected
+    assert dialog.label.text() == 'Savings (LTC)'
+    dialog.accept()
+    label, coin_symbol, ltc_wif, address_type = submitted[0]
+    assert (label, coin_symbol, address_type) == ('Savings (LTC)', 'LTC', 'p2wpkh')
+    assert check_entry('LTC', ltc_wif, 'p2wpkh') == expected
+
+
+def test_wallet_tab_adds_translated_key(window, monkeypatch):
+    unlock(window)
+    address = add_address(window)
+
+    def accept_litecoin(dialog):
+        dialog.coin.setCurrentText('LTC')
+        dialog.address_type.setCurrentText('p2wpkh')
+        dialog.accept()
+
+    monkeypatch.setattr(wallet_tab_module.TranslateKeyDialog, 'exec', accept_litecoin)
+    window.wallet_tab.translate_key(address)
+
+    [imported] = window.wallet.imported_addresses()
+    assert (imported.label, imported.coin, imported.address_type) == (
+        'Address 0 (LTC)',
+        'LTC',
+        'p2wpkh',
+    )

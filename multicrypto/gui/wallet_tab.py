@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from multicrypto.address import translate_private_key
 from multicrypto.bip32 import HARDENED
 from multicrypto.coins import P2TR, coins, get_address_types
 from multicrypto.gui.dialogs import SecretDialog, ask_password, password_field, secret_line
@@ -150,6 +151,47 @@ class ImportWifDialog(_CoinTypeForm):
             label,
             self.coin.currentText(),
             self.wif.text().strip(),
+            self.address_type.currentText(),
+        )
+
+
+class TranslateKeyDialog(_CoinTypeForm):
+    """Add the private key (WIF of any coin) to the wallet as the key of another coin."""
+
+    def __init__(self, parent, title: str, wif: str, label: str, submit, coin_symbol='BTC'):
+        super().__init__(parent, title, sorted(coins), submit)
+        self.source_wif = wif
+        self.base_label = label
+        self.address = QLabel()
+        self.form.addRow('Address', self.address)
+        self.coin.setCurrentText(coin_symbol)
+        self.add_buttons()
+
+    def _translated_wif(self) -> str:
+        prefix = coins[self.coin.currentText()]['secret_prefix_bytes']
+        return translate_private_key(self.source_wif, prefix)
+
+    def update_preview(self):
+        coin_symbol = self.coin.currentText()
+        if not self.label.isModified():
+            self.label.setText(f'{self.base_label} ({coin_symbol})')
+        try:
+            address = check_entry(
+                coin_symbol, self._translated_wif(), self.address_type.currentText()
+            )
+        except ValueError as error:
+            self.address.setText(f'({error})')
+        else:
+            self.address.setText(address)
+
+    def submitted_values(self):
+        label = self.label.text().strip()
+        if not label:
+            raise ValueError('Enter the label')
+        return (
+            label,
+            self.coin.currentText(),
+            self._translated_wif(),
             self.address_type.currentText(),
         )
 
@@ -294,6 +336,18 @@ class WalletTab(QWidget):
 
         ImportWifDialog(self, submit).exec()
 
+    def translate_key(self, address: WalletAddress):
+        def submit(label, coin, wif, address_type):
+            self.app.modify_wallet(lambda wallet: wallet.add_wif(label, coin, wif, address_type))
+
+        TranslateKeyDialog(
+            self,
+            'Translate to another coin',
+            self.app.wallet.private_key_wif(address),
+            address.label,
+            submit,
+        ).exec()
+
     def copy_address(self):
         address = self.selected_address()
         if address:
@@ -407,6 +461,7 @@ class WalletTab(QWidget):
             'Sign message', lambda: self.app.sign_tab.select_address(address)
         )
         sign_action.setEnabled(address.address_type != P2TR)
+        menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
         menu.addAction('Rename...', self.rename)
         menu.addAction('Show key...', self.show_key)
         menu.exec(self.tree.viewport().mapToGlobal(position))
