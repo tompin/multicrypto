@@ -1,11 +1,9 @@
 import argparse
-import base64
 import logging
 import sys
 
 from multicrypto.coins import coins
-from multicrypto.ecdsa import verify_message, add_magic_prefix
-from multicrypto.ellipticcurve import secp256k1
+from multicrypto.ecdsa import verify_signature
 from multicrypto.validators import check_coin_symbol
 
 
@@ -15,7 +13,7 @@ logger = logging.getLogger(__name__)
 def get_args():
     parser = argparse.ArgumentParser(
         description='Verify message using ECDSA (elliptic curve digital signature algorithm) and '
-        'bitcoin standard secp256k1 curve'
+        'bitcoin standard secp256k1 curve. Signatures of segwit addresses follow BIP-137.'
     )
     parser.add_argument(
         '-c', '--coin_symbol', type=check_coin_symbol, required=True, help='Coin symbol'
@@ -30,27 +28,15 @@ def get_args():
 
 def main():
     args = get_args()
-    coin = coins[args.coin_symbol]
-    signed_message = args.signed_message.encode()
-    message_with_magic_prefix = None
-    if args.message:
-        message_with_magic_prefix = add_magic_prefix(args.message, coin)
-
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     try:
-        decoded_message = base64.b64decode(signed_message)
-    except ValueError as exc:
-        logger.error(exc)
+        valid = verify_signature(
+            coins[args.coin_symbol], args.message, args.signed_message, args.address
+        )
+    except ValueError as error:
+        logger.error(error)
         return
-    v = decoded_message[0]
-    curve = secp256k1
-    signature = decoded_message[1:]
-    if len(signature) != 2 * curve.bytes_size:
-        logger.error('Invalid message length')
-        return
-    r = int.from_bytes(signature[: curve.bytes_size], byteorder='big')
-    s = int.from_bytes(signature[curve.bytes_size :], byteorder='big')
-    print(verify_message(coin, message_with_magic_prefix, v, (r, s), args.address))
+    print(valid)
 
 
 if __name__ == '__main__':
