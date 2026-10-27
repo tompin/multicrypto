@@ -6,26 +6,25 @@ from unittest.mock import patch
 
 import pytest
 
-from multicrypto.address import get_address_range
+from multicrypto.address import (
+    convert_private_key_to_coin_address,
+    get_address_range,
+    get_private_key_from_wif_format,
+)
 from multicrypto.base58 import BASE58_ALPHABET
 from multicrypto.coins import coins
-from multicrypto.commands.genaddress import generate_address, main
+from multicrypto.commands.genaddress import main
 from multicrypto.consts import OP_EQUAL, OP_16, OP_ADD, OP_15
+from multicrypto.vanity import find_address
 
 
-class SetMock:
-    def __init__(self, iterations=5000000):
-        self.current = 0
-        self.iterations = iterations
+class StopAfter:
+    def __init__(self, checks):
+        self.checks = checks
 
     def is_set(self):
-        self.current += 1
-        if self.current > self.iterations:
-            return True
-        return False
-
-    def set(self):
-        self.current = self.iterations
+        self.checks -= 1
+        return self.checks < 0
 
 
 def get_prefix_in_range(address_prefix_bytes):
@@ -44,28 +43,43 @@ def get_prefix_in_range(address_prefix_bytes):
 
 
 random_test_data = [
-    (coin_settings, get_prefix_in_range(coin_settings['address_prefix_bytes']))
-    for coin_settings in coins.values()
+    (coin_symbol, get_prefix_in_range(coin['address_prefix_bytes']))
+    for coin_symbol, coin in coins.items()
 ]
 
 
-@pytest.mark.parametrize("coin_settings,pattern", random_test_data)
-def test_random_generate_address(tmpdir, coin_settings, pattern):
-    out_dir = tmpdir.strpath
-    address, private_key = generate_address(
-        worker_num=0,
-        coin_settings=coin_settings,
-        pattern=pattern,
-        compressed=True,
-        segwit=False,
-        out_dir=out_dir,
-        found=SetMock(),
-        stop=SetMock(),
+@pytest.mark.parametrize('coin_symbol, pattern', random_test_data)
+def test_random_find_address(coin_symbol, pattern):
+    address, wif = find_address(coin_symbol, 'p2pkh', pattern, True, StopAfter(10**6))
+
+    private_key, compressed = get_private_key_from_wif_format(wif)
+    assert address[: len(pattern)] == pattern
+    assert (
+        convert_private_key_to_coin_address(private_key, coins[coin_symbol], compressed) == address
     )
 
-    assert address[: len(pattern)] == pattern
+
+@patch('sys.stdout', new_callable=StringIO)
+def test_genaddress_saves_qr_codes(sys_stdout, tmpdir):
+    out_dir = tmpdir.strpath
+    with patch.object(sys, 'argv', ['', '-s', 'BTC', '-p', '1A', '-d', out_dir]):
+        main()
+
+    address = sys_stdout.getvalue().split('Address: ')[1].split('\n')[0]
+    assert address.startswith('1A')
     assert os.path.isfile(os.path.join(out_dir, address + '.png'))
     assert os.path.isfile(os.path.join(out_dir, address + '_private_key.png'))
+
+
+@patch.object(sys, 'argv', ['', '-s', 'BTC', '-p', 'bc1qq', '-t', 'p2wpkh', '-c', '2'])
+@patch('sys.stdout', new_callable=StringIO)
+def test_genaddress_p2wpkh(sys_stdout):
+    main()
+
+    output = sys_stdout.getvalue()
+    assert 'using 2 workers' in output
+    assert '\nAddress: bc1qq' in output
+    assert '\nPrivate key: ' in output
 
 
 @patch.object(sys, 'argv', ['', '-s', 'TBTC', '-i', (OP_15 + OP_ADD + OP_16 + OP_EQUAL).hex()])
@@ -79,6 +93,9 @@ def test_custom_p2sh_address_success(sys_stdout):
 
 
 @patch.object(sys, 'argv', ['', '-s', 'ZEC', '-p', 't3', '-w'])
-def test_segwit_address_not_supported():
-    with pytest.raises(ValueError, match='Address type p2sh-p2wpkh is not supported for zcash'):
-        main()
+@patch('sys.stdout', new_callable=StringIO)
+def test_segwit_address_not_supported(sys_stdout, caplog):
+    main()
+
+    assert 'Address type p2sh-p2wpkh is not supported for zcash' in caplog.text
+    assert 'Address:' not in sys_stdout.getvalue()
