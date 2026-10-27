@@ -1,3 +1,4 @@
+import json
 import os
 import stat
 
@@ -7,7 +8,9 @@ from nacl import pwhash
 from multicrypto.address import convert_private_key_to_wif_format
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.wallet import (
+    CHANGE_CHAIN,
     HEADER_SIZE,
+    RECEIVE_CHAIN,
     UNSUPPORTED_FORMAT,
     WRONG_PASSWORD,
     ImportedKey,
@@ -400,3 +403,58 @@ def test_locked_wallet_file_cannot_be_saved(wallet_file):
 
     with pytest.raises(WalletError, match='locked'):
         wallet_file.save(wallet)
+
+
+def test_change_address_of_bip84_vector():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Test', 'BTC', 'p2wpkh')
+
+    change = wallet.next_change_address(account.id)
+
+    assert change.address == 'bc1q8c6fshw2dlwun7ekn9qwf37cu2rn755upcp6el'
+    assert change.path == "m/84'/0'/0'/1/0"
+    assert (change.chain, change.index, change.label) == (CHANGE_CHAIN, 0, 'Change 0')
+    assert account.addresses == []  # not saved until it is added
+
+
+def test_add_change_address():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Test', 'BTC', 'p2wpkh')
+    change = wallet.next_change_address(account.id)
+
+    added = wallet.add_address(account.id, CHANGE_CHAIN, 0)
+    receiving = wallet.new_address(account.id)
+
+    assert added == change
+    assert wallet.add_address(account.id, CHANGE_CHAIN, 0) == change  # not duplicated
+    assert len(account.addresses) == 2
+    assert receiving.path == "m/84'/0'/0'/0/0"
+    assert wallet.next_change_address(account.id).index == 1
+    assert wallet.get_address(change.id) == change
+    assert check_entry('BTC', wallet.private_key_wif(change), 'p2wpkh') == change.address
+    assert [address.chain for address in wallet.account_addresses(account)] == [
+        RECEIVE_CHAIN,
+        CHANGE_CHAIN,
+    ]
+
+
+def test_address_at_does_not_add_address():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Test', 'BTC', 'p2wpkh')
+
+    assert wallet.address_at(account, CHANGE_CHAIN, 0) == (
+        'bc1q8c6fshw2dlwun7ekn9qwf37cu2rn755upcp6el'
+    )
+    assert account.addresses == []
+
+
+def test_wallet_without_chain_field_is_loaded():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Test', 'BTC', 'p2wpkh')
+    wallet.new_address(account.id)
+    data = json.loads(wallet.to_json())
+    del data['accounts'][0]['addresses'][0]['chain']
+
+    loaded = Wallet.from_json(json.dumps(data).encode())
+
+    assert loaded.accounts[0].addresses[0].chain == RECEIVE_CHAIN
