@@ -1,3 +1,4 @@
+import threading
 import time
 from unittest.mock import Mock
 
@@ -694,3 +695,110 @@ def test_running_scan_keeps_wallet_unlocked(window):
     window.tick()
 
     assert window.wallet is not None
+
+
+def p2tr_account_job(progress, cancelled, found):
+    progress(40)
+    found.append(DiscoveredAccount('BTC', 'p2tr', 0, [0, 2], [1]))
+
+
+def test_background_scan_adds_found_addresses(qapp, window):
+    unlock(window)
+    scan = window.background_scan
+
+    assert scan.start('BTC', p2tr_account_job)
+    wait_until(qapp, lambda: not scan.running)
+
+    account = window.wallet.accounts[-1]
+    assert (account.coin, account.address_type, len(account.addresses)) == ('BTC', 'p2tr', 3)
+    assert scan.label.text() == 'Scan of BTC finished: added 3 addresses'
+    assert scan.cancel_button.isHidden()
+
+
+def test_background_scan_runs_one_scan(qapp, window, monkeypatch):
+    unlock(window)
+    messages = []
+    monkeypatch.setattr(
+        'multicrypto.gui.background_scan.QMessageBox.information',
+        lambda parent, title, text: messages.append(text),
+    )
+    release = threading.Event()
+
+    def slow_job(progress, cancelled, found):
+        release.wait(5)
+
+    scan = window.background_scan
+    assert scan.start('BTC', slow_job)
+    assert not scan.start('LTC', p2tr_account_job)
+    release.set()
+    wait_until(qapp, lambda: not scan.running)
+
+    assert messages == ['A scan is already running']
+
+
+def test_background_scan_cancel(qapp, window):
+    unlock(window)
+
+    def job(progress, cancelled, found):
+        while not cancelled():
+            time.sleep(0.01)
+        raise Cancelled()
+
+    scan = window.background_scan
+    scan.start('BTC', job)
+    scan.cancel()
+    wait_until(qapp, lambda: not scan.running)
+
+    assert scan.label.text() == 'Scan of BTC cancelled'
+    assert len(window.wallet.accounts) == 1
+
+
+def test_lock_cancels_background_scan(qapp, window):
+    unlock(window)
+
+    def job(progress, cancelled, found):
+        found.append(DiscoveredAccount('BTC', 'p2tr', 0, [0], []))
+        while not cancelled():
+            time.sleep(0.01)
+        raise Cancelled()
+
+    scan = window.background_scan
+    scan.start('BTC', job)
+    window.lock()
+    wait_until(qapp, lambda: not scan.running)
+
+    assert scan.label.text() == 'Scan of BTC cancelled'
+
+
+def test_background_scan_error_adds_partial_results(qapp, window, monkeypatch):
+    unlock(window)
+    warnings = []
+    monkeypatch.setattr(
+        'multicrypto.gui.background_scan.QMessageBox.warning',
+        lambda parent, title, text: warnings.append(text),
+    )
+
+    def job(progress, cancelled, found):
+        found.append(DiscoveredAccount('BTC', 'p2tr', 0, [0], []))
+        raise ValueError('API error: broken')
+
+    scan = window.background_scan
+    scan.start('BTC', job)
+    wait_until(qapp, lambda: not scan.running)
+
+    assert window.wallet.accounts[-1].address_type == 'p2tr'
+    assert 'API error: broken' in warnings[0]
+    assert 'found before the error were added: 1' in warnings[0]
+
+
+def test_background_scan_keeps_wallet_unlocked(qapp, window):
+    unlock(window)
+    scan = window.background_scan
+    scan.running = True
+    window.last_activity -= window.auto_lock_seconds
+
+    scan._show_progress()
+    window.tick()
+
+    assert window.wallet is not None
+    scan.running = False
