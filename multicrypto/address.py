@@ -44,21 +44,29 @@ def validate_address_type(address_type, coin):
         )
 
 
-def convert_private_key_to_coin_address(private_key, coin, compressed=True, address_type=P2PKH):
-    """Calculate address of the given type (one of ADDRESS_TYPES) for the private key."""
+def convert_public_key_to_coin_address(public_key, coin, compressed=True, address_type=P2PKH):
+    """Calculate address of the given type for the public key. P2TR is not supported, its output
+    key is calculated from the private key (taproot_output_key)."""
     validate_address_type(address_type, coin)
+    if address_type == P2TR:
+        raise ValueError('Taproot address cannot be calculated from the public key')
     if address_type == P2PKH:
-        return convert_private_key_to_address(private_key, coin['address_prefix_bytes'], compressed)
+        return convert_public_key_to_address(public_key, coin['address_prefix_bytes'], compressed)
     if not compressed:
         raise ValueError('Segwit addresses require compressed public key')
     if address_type == P2SH_P2WPKH:
-        return convert_private_key_to_address(
-            private_key, coin['script_prefix_bytes'], compressed, segwit=True
-        )
+        return convert_public_key_to_address(public_key, coin['script_prefix_bytes'], segwit=True)
+    return encode(coin['bech32_hrp'], 0, calculate_public_key_hash(public_key))
+
+
+def convert_private_key_to_coin_address(private_key, coin, compressed=True, address_type=P2PKH):
+    """Calculate address of the given type (one of ADDRESS_TYPES) for the private key."""
+    validate_address_type(address_type, coin)
     if address_type == P2TR:
+        if not compressed:
+            raise ValueError('Segwit addresses require compressed public key')
         return encode(coin['bech32_hrp'], 1, taproot_output_key(private_key))
-    public_key_hash = calculate_public_key_hash(G * private_key, compressed=True)
-    return encode(coin['bech32_hrp'], 0, public_key_hash)
+    return convert_public_key_to_coin_address(G * private_key, coin, compressed, address_type)
 
 
 def calculate_address(digest, address_prefix_bytes):
