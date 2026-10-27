@@ -8,7 +8,8 @@ ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR)
 # Dictionary with coins definition with coin symbols as keys. Optional 'address_types' lists
 # supported address types (only P2PKH by default), P2WPKH and P2TR require also 'bech32_hrp'.
 # Optional 'slip44' is the coin type from SLIP-44 used in BIP-44 derivation paths, coins without it
-# support only imported private keys.
+# support only imported private keys. Optional 'message_prefix' is the name used in signed messages
+# (by default the capitalized name).
 coins = {
     'BTC': {
         'name': 'bitcoin',
@@ -38,6 +39,7 @@ coins = {
     },
     'BTG': {
         'name': 'bitcoin gold',
+        'message_prefix': 'Bitcoin Gold',
         'slip44': 156,
         'address_prefix_bytes': b'\x26',
         'secret_prefix_bytes': b'\x80',
@@ -73,6 +75,7 @@ coins = {
     },
     'DASH': {
         'name': 'dash',
+        'message_prefix': 'DarkCoin',
         'slip44': 5,
         'address_prefix_bytes': b'\x4c',
         'secret_prefix_bytes': b'\xcc',
@@ -150,6 +153,7 @@ coins = {
     },
     'TBTC': {
         'name': 'bitcoin testnet',
+        'message_prefix': 'Bitcoin',
         'slip44': 1,
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
@@ -174,6 +178,7 @@ coins = {
     },
     'TBCH': {
         'name': 'bitcoin cash testnet',
+        'message_prefix': 'Bitcoin',
         'slip44': 1,
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
@@ -182,6 +187,7 @@ coins = {
     },
     'TLTC': {
         'name': 'litecoin testnet',
+        'message_prefix': 'Litecoin',
         'slip44': 1,
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
