@@ -144,6 +144,15 @@ signmessage -c BTC -p KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu -m "H
 ```
 will return: `H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=`
 
+Messages of segwit addresses are signed according to BIP-137 (like Electrum, Sparrow and Trezor),
+the type of the address is selected with `--address_type` (`p2pkh` by default, `p2sh-p2wpkh` or
+`p2wpkh`; taproot addresses are not supported):
+```bash
+signmessage -c BTC -p <PRIVATE KEY> -t p2wpkh -m "Hello World!"
+```
+`verifymessage` accepts signatures of all these address types, also segwit signatures made with
+the header of p2pkh address.
+
 8. Verifying if signed message was created using private key of given address:
 ```bash
 verifymessage --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --message=<MESSAGE> --signed_message=<SIGNED MESSAGE>
@@ -170,7 +179,14 @@ unlocked, and the fingerprint of the master key detects a mistyped passphrase. T
   (after entering the password again),
 - **Balance** - unspent outputs of the wallet address or any other address (like `checkaddress`),
 - **Send** - send funds from one or more wallet addresses (like `sendcrypto`), the transaction is
-  shown for confirmation before it is broadcast, the change goes back to the source address.
+  shown for confirmation before it is broadcast, the change goes back to the source address,
+- **Sweep** - send all unspent outputs of the wallet address or of an external private key (e.g.
+  a paper wallet, the key is not saved in the wallet) in batches (like `sweepaddress`) to the same
+  address, a wallet address or any other address,
+- **Sign / Verify** - sign messages with keys of wallet addresses and verify signatures of any
+  address (like `signmessage` and `verifymessage`).
+
+The **Wallet** tab shows also the QR code of the address.
 
 The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
 data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
