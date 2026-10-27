@@ -1,14 +1,21 @@
 import pytest
+from tests import http_mock
 
-from multicrypto.api import InsufficientFundsError, PreparedTransaction
+from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_api
+from multicrypto.coins import coins
 from multicrypto.gui.forms import (
+    address_description,
+    check_confirmation_words,
+    check_passphrase_confirmation,
     check_password_confirmation,
     check_sources,
+    choose_word_positions,
     coins_with_api,
+    coins_with_slip44,
     describe_error,
     describe_transaction,
-    entry_description,
     extract_txid,
+    fetch_balances,
     format_amount,
     parse_address,
     parse_amount,
@@ -17,9 +24,7 @@ from multicrypto.gui.forms import (
     parse_thresholds,
 )
 from multicrypto.network import PeerAddress
-from multicrypto.wallet import WalletEntry, WalletError
-
-BTC_WIF = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'
+from multicrypto.wallet import WalletAddress, WalletError
 
 
 @pytest.mark.parametrize(
@@ -95,18 +100,6 @@ def test_check_password_confirmation():
         check_password_confirmation('long password', 'long passwort')
 
 
-def test_check_sources():
-    savings = WalletEntry('Savings', 'BTC', BTC_WIF, 'p2wpkh')
-    other = WalletEntry('Other', 'BTC', BTC_WIF, 'p2wpkh')
-    legacy = WalletEntry('Legacy', 'BTC', BTC_WIF, 'p2pkh')
-
-    assert check_sources([savings, other]) == ('BTC', 'p2wpkh')
-    with pytest.raises(ValueError, match='Select at least one'):
-        check_sources([])
-    with pytest.raises(ValueError, match='same coin and address type'):
-        check_sources([savings, legacy])
-
-
 def test_parse_nodes():
     assert parse_nodes('1.2.3.4, [2001:db8::1]:18233  5.6.7.8:9', 8333) == [
         PeerAddress('1.2.3.4', 8333),
@@ -126,13 +119,6 @@ def test_coins_with_api():
     symbols = coins_with_api()
     assert 'BTC' in symbols
     assert symbols == sorted(symbols)
-
-
-def test_entry_description():
-    entry = WalletEntry('Savings', 'BTC', BTC_WIF, 'p2wpkh')
-    assert entry_description(entry) == (
-        'Savings · BTC p2wpkh · bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q'
-    )
 
 
 def test_describe_transaction():
@@ -187,3 +173,93 @@ def test_describe_unexpected_error(caplog):
 
     assert message == "Unexpected error KeyError: 'x'"
     assert 'Unexpected error' in caplog.text
+
+
+SEGWIT_ADDRESS = 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q'
+
+
+def make_address(address_id='a', coin='BTC', address_type='p2wpkh', address=SEGWIT_ADDRESS):
+    return WalletAddress(
+        address_id, 'Savings', coin, address_type, address, "m/84'/0'/0'/0/0", 'acc', 0
+    )
+
+
+def test_check_sources():
+    savings = make_address('a')
+    other = make_address('b')
+    legacy = make_address('c', address_type='p2pkh')
+
+    assert check_sources([savings, other]) == ('BTC', 'p2wpkh')
+    with pytest.raises(ValueError, match='Select at least one'):
+        check_sources([])
+    with pytest.raises(ValueError, match='same coin and address type'):
+        check_sources([savings, legacy])
+
+
+def test_address_description():
+    imported = WalletAddress('i', 'Old', 'ZEN', 'p2pkh', 'znXk')
+
+    assert address_description(make_address()) == (
+        f"Savings · BTC p2wpkh · m/84'/0'/0'/0/0 · {SEGWIT_ADDRESS}"
+    )
+    assert address_description(imported) == 'Old · ZEN p2pkh · imported · znXk'
+
+
+def test_check_passphrase_confirmation():
+    check_passphrase_confirmation('x', 'x')
+    with pytest.raises(ValueError, match='cannot be empty'):
+        check_passphrase_confirmation('', '')
+    with pytest.raises(ValueError, match='do not match'):
+        check_passphrase_confirmation('a', 'b')
+
+
+def test_choose_word_positions():
+    positions = choose_word_positions(24)
+
+    assert len(positions) == 3
+    assert positions == sorted(set(positions))
+    assert all(1 <= position <= 24 for position in positions)
+
+
+def test_check_confirmation_words():
+    mnemonic = 'one two three four'
+
+    check_confirmation_words(mnemonic, {2: ' TWO ', 4: 'four'})
+    with pytest.raises(ValueError, match='Word 3 is not correct'):
+        check_confirmation_words(mnemonic, {2: 'two', 3: 'tree'})
+
+
+def test_coins_with_slip44():
+    symbols = coins_with_slip44()
+
+    assert {'BTC', 'TBTC', 'LTC'} <= set(symbols)
+    assert 'BTCH' not in symbols
+    assert symbols == sorted(symbols)
+
+
+@http_mock.activate
+def test_fetch_balances():
+    api_url = get_api(coins['BTC']).base_url
+    failing_address = 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
+    no_api_coin = next(symbol for symbol, coin in coins.items() if not coin.get('apis'))
+    http_mock.add(
+        http_mock.GET,
+        f'{api_url}/address/{SEGWIT_ADDRESS}/utxo',
+        json=[
+            {'txid': '11' * 32, 'vout': 0, 'status': {'confirmed': False}, 'value': 1000},
+            {'txid': '22' * 32, 'vout': 1, 'status': {'confirmed': False}, 'value': 2000},
+        ],
+    )
+    http_mock.add(
+        http_mock.GET, f'{api_url}/address/{failing_address}/utxo', body='limit', status=429
+    )
+
+    balances = fetch_balances(
+        [
+            make_address('a'),
+            make_address('b', address=failing_address),
+            make_address('c', coin=no_api_coin, address_type='p2pkh', address='x'),
+        ]
+    )
+
+    assert balances == {'a': 3000, 'b': 'error: API error: limit', 'c': 'no API'}

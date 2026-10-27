@@ -2,14 +2,15 @@
 
 import json
 import logging
+import secrets
 from decimal import Decimal, InvalidOperation
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from multicrypto.address import validate_address
-from multicrypto.api import InsufficientFundsError, PreparedTransaction
+from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_utxo_from_address
 from multicrypto.coins import coins
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
-from multicrypto.wallet import WalletEntry, WalletError, check_new_password
+from multicrypto.wallet import WalletAddress, WalletError, check_new_password
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def check_password_confirmation(password: str, confirmation: str) -> None:
         raise ValueError('Passwords do not match')
 
 
-def check_sources(entries: List[WalletEntry]) -> Tuple[str, str]:
+def check_sources(entries: List[WalletAddress]) -> Tuple[str, str]:
     """Check that the entries can be spent in one transaction, return coin and address type."""
     if not entries:
         raise ValueError('Select at least one source address')
@@ -110,8 +111,51 @@ def coins_with_api() -> List[str]:
     return sorted(symbol for symbol, coin in coins.items() if coin.get('apis'))
 
 
-def entry_description(entry: WalletEntry) -> str:
-    return f'{entry.label} · {entry.coin} {entry.address_type} · {entry.address}'
+def address_description(address: WalletAddress) -> str:
+    location = address.path or 'imported'
+    return (
+        f'{address.label} · {address.coin} {address.address_type} · {location} · {address.address}'
+    )
+
+
+def coins_with_slip44() -> List[str]:
+    return sorted(symbol for symbol, coin in coins.items() if 'slip44' in coin)
+
+
+def check_passphrase_confirmation(passphrase: str, confirmation: str) -> None:
+    if not passphrase:
+        raise ValueError('Passphrase cannot be empty')
+    if passphrase != confirmation:
+        raise ValueError('Passphrases do not match')
+
+
+def choose_word_positions(word_count: int, count: int = 3) -> List[int]:
+    """Random positions (from 1) of the words entered to confirm the written mnemonic."""
+    return sorted(secrets.SystemRandom().sample(range(1, word_count + 1), count))
+
+
+def check_confirmation_words(mnemonic: str, answers: Dict[int, str]) -> None:
+    words = mnemonic.split()
+    for position, answer in sorted(answers.items()):
+        if answer.strip().lower() != words[position - 1]:
+            raise ValueError(f'Word {position} is not correct, check the written mnemonic')
+
+
+def fetch_balances(addresses: List[WalletAddress]) -> Dict[str, Union[int, str]]:
+    """Return the sum of unspent outputs (or the error message) for the address ids."""
+    balances: Dict[str, Union[int, str]] = {}
+    for address in addresses:
+        coin = coins[address.coin]
+        if not coin.get('apis'):
+            balances[address.id] = 'no API'
+            continue
+        try:
+            utxos = get_utxo_from_address(coin, address.address)
+        except EXPECTED_ERRORS as error:
+            balances[address.id] = f'error: {error}'
+        else:
+            balances[address.id] = sum(utxo['satoshis'] for utxo in utxos)
+    return balances
 
 
 def describe_transaction(
