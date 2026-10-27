@@ -2,6 +2,7 @@ import pytest
 
 from multicrypto.address import (
     convert_private_key_to_coin_address,
+    convert_public_key_to_coin_address,
     decode_segwit_address,
     get_private_key_from_wif_format,
     convert_private_key_to_address,
@@ -12,6 +13,7 @@ from multicrypto.address import (
 )
 from multicrypto.base58 import BASE58_ALPHABET
 from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins
+from multicrypto.ellipticcurve import secp256k1
 
 
 def test_convert_private_key_to_address():
@@ -201,3 +203,38 @@ def test_validate_segwit_address_success(address, coin_symbol):
 def test_validate_segwit_address_failure(address):
     with pytest.raises(ValueError, match='Incorrect bech32 address'):
         validate_address(address, 'BTC')
+
+
+L4_WIF = 'L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1'
+
+
+@pytest.mark.parametrize(
+    'address_type, expected',
+    [
+        ('p2pkh', '1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV'),
+        ('p2sh-p2wpkh', '3DnW8JGpPViEZdpqat8qky1zc26EKbXnmM'),
+        ('p2wpkh', 'bc1qngw83fg8dz0k749cg7k3emc7v98wy0c74dlrkd'),
+    ],
+)
+def test_convert_public_key_to_coin_address(address_type, expected):
+    private_key, compressed = get_private_key_from_wif_format(L4_WIF)
+    public_key = secp256k1.G * private_key
+
+    address = convert_public_key_to_coin_address(public_key, coins['BTC'], compressed, address_type)
+
+    assert address == expected
+    assert address == convert_private_key_to_coin_address(
+        private_key, coins['BTC'], compressed, address_type
+    )
+
+
+def test_convert_public_key_to_coin_address_errors():
+    private_key, _ = get_private_key_from_wif_format(L4_WIF)
+    public_key = secp256k1.G * private_key
+
+    with pytest.raises(ValueError, match='Taproot address cannot be calculated'):
+        convert_public_key_to_coin_address(public_key, coins['BTC'], True, 'p2tr')
+    with pytest.raises(ValueError, match='require compressed public key'):
+        convert_public_key_to_coin_address(public_key, coins['BTC'], False, 'p2wpkh')
+    with pytest.raises(ValueError, match='not supported for dogecoin'):
+        convert_public_key_to_coin_address(public_key, coins['DOGE'], True, 'p2wpkh')
