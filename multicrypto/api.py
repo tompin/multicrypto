@@ -242,6 +242,7 @@ class PreparedTransaction:
     input_satoshis: int
     fee: int
     change_added_to_fee: int = 0
+    vsize: int = 0
 
 
 def build_transaction(
@@ -270,7 +271,13 @@ def build_transaction(
         history_block = get_api(coin).get_history_block()
     transaction = Transaction(coin, inputs, outputs, check_block_at_height=history_block)
     return PreparedTransaction(
-        transaction.create(), inputs, outputs, input_satoshis, fee, change_added_to_fee
+        transaction.create(),
+        inputs,
+        outputs,
+        input_satoshis,
+        fee,
+        change_added_to_fee,
+        transaction.vsize,
     )
 
 

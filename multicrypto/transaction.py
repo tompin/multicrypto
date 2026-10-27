@@ -150,6 +150,11 @@ class Transaction:
     def is_segwit(self):
         return any(inp.is_segwit for inp in self.inputs)
 
+    @property
+    def vsize(self):
+        """Virtual size of the created transaction: weight (BIP-141) divided by 4, rounded up"""
+        return (3 * self.base_size + len(self.raw) // 2 + 3) // 4
+
     def get_encoded_inputs(self, position):
         input_block = b''
         for i, inp in enumerate(self.inputs):
@@ -305,6 +310,7 @@ class Transaction:
         raw_transaction_data = self.version + inputs_and_outputs + self.lock_time
         # Transaction id is calculated without witness data (BIP-141)
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
+        self.base_size = len(raw_transaction_data)
         if self.is_segwit:
             # Serialization with witness data according to BIP-144
             raw_transaction_data = (
@@ -410,6 +416,7 @@ class POSTransaction(Transaction):
             + self.lock_time
         )
         self.id = reverse_byte_hex(double_sha256(raw_transaction_data).hexdigest())
+        self.base_size = len(raw_transaction_data)
         self.raw = raw_transaction_data.hex()
         logger.info('Created transaction with id: %s\nRaw data: %s', self.id, self.raw)
         return self.raw

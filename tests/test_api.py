@@ -14,6 +14,7 @@ from multicrypto.api import (
     get_utxo_from_private_keys,
     prepare_from_private_keys,
     prepare_sweep,
+    prepare_utxos,
     send_from_private_keys,
 )
 from multicrypto.coins import coins
@@ -565,3 +566,29 @@ def test_prepare_sweep_batch_cannot_be_sent(value, error):
 
     with pytest.raises(ValueError, match=error):
         prepare_sweep(coins['TBTC'], utxos, SWEEP_DESTINATION, 10000, 50)
+
+
+@http_mock.activate
+def test_prepared_transaction_vsize():
+    [p2wpkh] = prepare_sweep(coins['TBTC'], sweep_utxos([100000]), SWEEP_DESTINATION, 1000, 50)
+    p2pkh = prepare_utxos(
+        coins['BTC'],
+        [
+            {
+                'txid': '11' * 32,
+                'vout': 0,
+                'scriptPubKey': '76a914' + '22' * 20 + '88ac',
+                'satoshis': 100000,
+                'private_key': 1,
+                'source_address': '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+            }
+        ],
+        '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+        90000,
+        1000,
+    )
+
+    # 1 P2WPKH input and 1 P2WPKH output: 10.5 + 68 + 31 virtual bytes (BIP-141 weight / 4)
+    assert p2wpkh.vsize == 110
+    assert p2wpkh.vsize < len(p2wpkh.raw_transaction) // 2
+    assert p2pkh.vsize == len(p2pkh.raw_transaction) // 2
