@@ -11,6 +11,7 @@ The module consists of two layers:
 
 import itertools
 import json
+import math
 import logging
 import urllib.error
 import urllib.parse
@@ -32,6 +33,9 @@ Utxo = Dict[str, Any]
 Broadcast = Callable[[str], str]
 
 DEFAULT_TIMEOUT = 30  # in seconds
+# vsize of the first attempt of the transaction paying the fee rate, the fee is corrected later
+INITIAL_VSIZE = 100
+FEE_RATE_ATTEMPTS = 5
 # Some APIs behind Cloudflare reject the default Python-urllib user agent
 USER_AGENT = 'multicrypto'
 
@@ -253,14 +257,17 @@ def build_transaction(
     input_satoshis: int,
     satoshis: int,
     fee: int,
+    change_address: Optional[str] = None,
 ) -> PreparedTransaction:
-    """Create signed transaction, the change is sent back to the source address."""
+    """Create signed transaction, the change is sent to the change address or back to the source
+    address."""
+    change_address = change_address or source_address
     outputs = [{'address': destination_address, 'satoshis': satoshis}]
     change = input_satoshis - satoshis - fee
     change_added_to_fee = 0
-    dust_threshold = get_dust_threshold(address_to_script(source_address, coin))
+    dust_threshold = get_dust_threshold(address_to_script(change_address, coin))
     if change >= dust_threshold:
-        outputs.append({'address': source_address, 'satoshis': change})
+        outputs.append({'address': change_address, 'satoshis': change})
     elif change > 0:
         change_added_to_fee = change
         logger.info(
@@ -301,12 +308,16 @@ def prepare_from_private_keys(
     unlocking_scripts: Optional[List[str]],
     destination_address: str,
     satoshis: int,
-    fee: int,
+    fee: Optional[int],
     minimum_input_threshold: Optional[int] = None,
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
     address_type: str = P2PKH,
+    change_address: Optional[str] = None,
+    fee_rate: Optional[float] = None,
 ) -> PreparedTransaction:
+    if (fee is None) == (fee_rate is None):
+        raise ValueError('Give the fee or the fee rate')
     if not input_addresses and not wif_private_keys:
         raise ValueError('Missing required parameters input_addresses or wif_private_keys')
     utxo_sources = []
@@ -333,7 +344,11 @@ def prepare_from_private_keys(
             )
         )
     utxos = itertools.chain.from_iterable(utxo_sources)
-    return prepare_utxos(coin, utxos, destination_address, satoshis, fee)
+    if fee_rate is not None:
+        return prepare_with_fee_rate(
+            coin, utxos, destination_address, satoshis, fee_rate, change_address
+        )
+    return prepare_utxos(coin, utxos, destination_address, satoshis, fee, change_address)
 
 
 def send_from_private_keys(
@@ -343,12 +358,13 @@ def send_from_private_keys(
     unlocking_scripts: Optional[List[str]],
     destination_address: str,
     satoshis: int,
-    fee: int,
+    fee: Optional[int],
     minimum_input_threshold: Optional[int] = None,
     maximum_input_threshold: Optional[int] = None,
     limit_inputs: Optional[int] = None,
     broadcast: Optional[Broadcast] = None,
     address_type: str = P2PKH,
+    fee_rate: Optional[float] = None,
 ) -> str:
     prepared = prepare_from_private_keys(
         coin,
@@ -362,6 +378,7 @@ def send_from_private_keys(
         maximum_input_threshold,
         limit_inputs,
         address_type,
+        fee_rate=fee_rate,
     )
     return broadcast_prepared(coin, prepared, broadcast)
 
@@ -372,6 +389,7 @@ def prepare_utxos(
     destination_address: str,
     satoshis: int,
     fee: int,
+    change_address: Optional[str] = None,
 ) -> PreparedTransaction:
     inputs = []
     input_satoshis = 0
@@ -405,12 +423,44 @@ def prepare_utxos(
                 input_satoshis,
                 satoshis,
                 fee,
+                change_address,
             )
     raise InsufficientFundsError(
         f'Not enough funds in address(es).\n'
         f'Sum of inputs is {input_satoshis} which is less than '
         f'{satoshis + fee} ({satoshis} + {fee})'
     )
+
+
+def fee_for_rate(fee_rate: float, vsize: int) -> int:
+    return math.ceil(fee_rate * vsize)
+
+
+def prepare_with_fee_rate(
+    coin: Coin,
+    utxos: Iterable[Utxo],
+    destination_address: str,
+    satoshis: int,
+    fee_rate: float,
+    change_address: Optional[str] = None,
+) -> PreparedTransaction:
+    """Prepare the transaction paying at least fee_rate satoshis per virtual byte. The fee depends
+    on the size, which depends on the inputs selected for the fee, so the transaction is prepared
+    again until the fee matches its size."""
+    utxos = list(utxos)
+    best = None
+    fee = fee_for_rate(fee_rate, INITIAL_VSIZE)
+    for _ in range(FEE_RATE_ATTEMPTS):
+        prepared = prepare_utxos(coin, utxos, destination_address, satoshis, fee, change_address)
+        required = fee_for_rate(fee_rate, prepared.vsize)
+        if prepared.fee >= required:
+            best = prepared
+            if prepared.fee == required:
+                break
+        fee = required
+    if best is None:
+        raise ValueError(f'Cannot calculate the fee for the rate {fee_rate} sat/vB')
+    return best
 
 
 def send_utxos(
@@ -425,12 +475,28 @@ def send_utxos(
     return broadcast_prepared(coin, prepared, broadcast)
 
 
+def _sweep_fee(coin: Coin, batch: List[Utxo], destination_address: str, fee_rate: float) -> int:
+    """Fee paying the rate for the transaction sending all inputs of the batch."""
+    satoshis = sum(utxo['satoshis'] for utxo in batch)
+    fee = 0
+    for _ in range(FEE_RATE_ATTEMPTS):
+        if fee >= satoshis:
+            break
+        vsize = prepare_utxos(coin, batch, destination_address, satoshis - fee, fee).vsize
+        required = fee_for_rate(fee_rate, vsize)
+        if fee >= required:
+            break
+        fee = required
+    return fee
+
+
 def prepare_sweep(
     coin: Coin,
     utxos: List[Utxo],
     destination_address: str,
-    fee: int,
+    fee: Optional[int],
     batch_size: int,
+    fee_rate: Optional[float] = None,
 ) -> List[PreparedTransaction]:
     """Prepare transactions sending all inputs to the address without change, each transaction
     spends at most batch_size inputs and pays the fee. Nothing is prepared when any batch cannot
@@ -443,6 +509,8 @@ def prepare_sweep(
     for start in range(0, len(utxos), batch_size):
         batch = utxos[start : start + batch_size]
         satoshis = sum(utxo['satoshis'] for utxo in batch)
+        if fee_rate is not None:
+            fee = _sweep_fee(coin, batch, destination_address, fee_rate)
         if satoshis <= fee:
             raise ValueError(f'Fee {fee} is not smaller than sum of batch inputs {satoshis}')
         if satoshis - fee < dust_threshold:
