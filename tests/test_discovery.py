@@ -1,4 +1,5 @@
 import pytest
+from tests import http_mock
 
 import multicrypto.discovery as discovery
 from multicrypto.discovery import (
@@ -9,6 +10,7 @@ from multicrypto.discovery import (
     scan_chain,
 )
 from multicrypto.api import RateLimitError
+from multicrypto.coins import coins
 from multicrypto.wallet import CHANGE_CHAIN, RECEIVE_CHAIN, HDAccount, Wallet
 
 MNEMONIC = ' '.join(['abandon'] * 11 + ['about'])
@@ -143,3 +145,52 @@ def test_discover_cancelled_while_rate_limited(monkeypatch):
             lambda: next(cancelled, True),
             tx_count,
         )
+
+
+def test_discover_retries_connection_errors(monkeypatch):
+    delays = []
+    monkeypatch.setattr(discovery.time, 'sleep', delays.append)
+    failures = iter([ConnectionResetError('Remote end closed connection without response')])
+
+    def tx_count(address):
+        error = next(failures, None)
+        if error:
+            raise error
+        return 0
+
+    assert (
+        discover(Wallet.create(MNEMONIC, ''), 'TBTC', lambda n: None, lambda: False, tx_count) == []
+    )
+    assert delays == [1]
+
+
+@http_mock.activate
+def test_requests_are_spread_over_apis_of_the_coin(monkeypatch):
+    monkeypatch.setattr(discovery, 'REQUEST_INTERVAL', 0)
+    address = 'tb1qmck8k945kxnskh9a7jugz8lf9ed6u80zcgqsgs'
+    for api in coins['TBTC']['apis']:
+        http_mock.add(
+            http_mock.GET,
+            f'{api["url"]}/address/{address}',
+            json={'chain_stats': {'tx_count': 1}, 'mempool_stats': {'tx_count': 0}},
+        )
+    tx_count = discovery.coin_tx_count(coins['TBTC'])
+
+    assert [tx_count(address) for _ in range(4)] == [1, 1, 1, 1]
+    urls = [call.request.url for call in http_mock.calls]
+    assert [url.split('/address/')[0] for url in urls] == [
+        api['url'] for api in coins['TBTC']['apis']
+    ] * 2
+
+
+def test_pacer_spaces_requests(monkeypatch):
+    now = [100.0]
+    delays = []
+    monkeypatch.setattr(discovery.time, 'monotonic', lambda: now[0])
+    monkeypatch.setattr(discovery.time, 'sleep', delays.append)
+    pacer = discovery.Pacer(0.25)
+
+    for _ in range(3):
+        pacer.wait()
+
+    assert delays == [0.25, 0.5]

@@ -1,5 +1,7 @@
 """Discovery of used accounts and addresses of the HD wallet (BIP-44 account discovery)."""
 
+import itertools
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -13,6 +15,8 @@ GAP_LIMIT = 20  # unused addresses after the last used one ending the scan of th
 THREADS = 2
 # seconds of waiting before the next attempt of the request rejected because of the rate limit
 RATE_LIMIT_DELAYS = (1, 2, 4, 8, 16, 32, 60)
+# seconds between the requests of all threads, public APIs throttle faster requests
+REQUEST_INTERVAL = 0.25
 MAX_ACCOUNTS = 100
 MAX_ADDRESSES = 10000
 
@@ -30,16 +34,51 @@ class DiscoveredAccount:
     change: List[int] = field(default_factory=list)
 
 
+class Pacer:
+    """Spaces the calls of wait() from all threads by the interval."""
+
+    def __init__(self, interval: float):
+        self.interval = interval
+        self.lock = threading.Lock()
+        self.next_time = 0.0
+
+    def wait(self) -> None:
+        with self.lock:
+            now = time.monotonic()
+            delay = self.next_time - now
+            self.next_time = max(now, self.next_time) + self.interval
+        if delay > 0:
+            time.sleep(delay)
+
+
+def coin_tx_count(coin) -> Callable[[str], int]:
+    """Transaction count of the address, the requests are spread over all APIs of the coin."""
+    clients = itertools.cycle(
+        [get_api({**coin, 'current_api_index': index}) for index in range(len(coin['apis']))]
+    )
+    lock = threading.Lock()
+    pacer = Pacer(REQUEST_INTERVAL)
+
+    def tx_count(address: str) -> int:
+        with lock:
+            client = next(clients)
+        pacer.wait()
+        return client.get_tx_count(address)
+
+    return tx_count
+
+
 def _retrying(
     tx_count: Callable[[str], int], cancelled: Callable[[], bool]
 ) -> Callable[[str], int]:
-    """Repeat the requests rejected because of the API rate limit after increasing delays."""
+    """Repeat the requests rejected because of the API rate limit or failed because of the
+    connection after increasing delays."""
 
     def count(address: str) -> int:
         for delay in RATE_LIMIT_DELAYS:
             try:
                 return tx_count(address)
-            except RateLimitError:
+            except (RateLimitError, OSError):
                 if cancelled():
                     raise Cancelled() from None
                 time.sleep(delay)
@@ -88,7 +127,7 @@ def discover(
     if 'slip44' not in coin or not coin.get('apis'):
         raise ValueError(f'{coin_symbol} cannot be scanned, it has no SLIP-44 coin type or API')
     if tx_count is None:
-        tx_count = get_api(coin).get_tx_count
+        tx_count = coin_tx_count(coin)
     tx_count = _retrying(tx_count, cancelled)
     found = []
     with ThreadPoolExecutor(THREADS) as executor:
