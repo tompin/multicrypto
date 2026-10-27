@@ -53,6 +53,8 @@ DEFAULT_MEMLIMIT = pwhash.argon2id.MEMLIMIT_MODERATE
 MIN_PASSWORD_LENGTH = 10
 PURPOSES = {P2PKH: 44, P2SH_P2WPKH: 49, P2WPKH: 84, P2TR: 86}
 RECEIVE_CHAIN = 0
+CHANGE_CHAIN = 1
+CHAIN_LABELS = {RECEIVE_CHAIN: 'Address', CHANGE_CHAIN: 'Change'}
 
 WRONG_PASSWORD = 'Wrong password or damaged wallet file'
 UNSUPPORTED_FORMAT = 'Unsupported format of the wallet file'
@@ -121,6 +123,7 @@ class HDAddress:
     index: int
     label: str
     created: str = field(default_factory=_now)
+    chain: int = RECEIVE_CHAIN
 
 
 @dataclass
@@ -170,6 +173,7 @@ class WalletAddress:
     path: Optional[str] = None  # derivation path, None for imported private keys
     account_id: Optional[str] = None
     index: Optional[int] = None
+    chain: int = RECEIVE_CHAIN
 
 
 class Wallet:
@@ -188,7 +192,7 @@ class Wallet:
         self.imported: List[ImportedKey] = list(imported)
         self._master_key: Optional[ExtendedKey] = None
         self._chain_keys: Dict[str, ExtendedKey] = {}
-        self._addresses: Dict[Tuple[str, str, int], str] = {}
+        self._addresses: Dict[Tuple[str, str, int, int], str] = {}
 
     @classmethod
     def create(cls, mnemonic: str, passphrase: str) -> 'Wallet':
@@ -220,18 +224,19 @@ class Wallet:
         self._chain_keys.clear()
         self._addresses.clear()
 
-    def _derive(self, account: HDAccount, index: int) -> ExtendedKey:
+    def _derive(self, account: HDAccount, chain: int, index: int) -> ExtendedKey:
         if self._master_key is None:
             raise WalletError('Wallet is locked')
-        path = f'{account.path}/{RECEIVE_CHAIN}'
+        path = f'{account.path}/{chain}'
         if path not in self._chain_keys:
             self._chain_keys[path] = self._master_key.derive_path(path)
         return self._chain_keys[path].derive_child(index)
 
-    def _address(self, account: HDAccount, index: int) -> str:
-        cache_key = (account.coin, account.path, index)
+    def address_at(self, account: HDAccount, chain: int, index: int) -> str:
+        """Address of the account chain, it is not added to the wallet."""
+        cache_key = (account.coin, account.path, chain, index)
         if cache_key not in self._addresses:
-            private_key = self._derive(account, index).private_key
+            private_key = self._derive(account, chain, index).private_key
             self._addresses[cache_key] = convert_private_key_to_coin_address(
                 private_key, coins[account.coin], True, account.address_type
             )
@@ -239,14 +244,15 @@ class Wallet:
 
     def _hd_address(self, account: HDAccount, hd_address: HDAddress) -> WalletAddress:
         return WalletAddress(
-            id=f'{account.id}/{hd_address.index}',
+            id=f'{account.id}/{hd_address.chain}/{hd_address.index}',
             label=hd_address.label,
             coin=account.coin,
             address_type=account.address_type,
-            address=self._address(account, hd_address.index),
-            path=f'{account.path}/{RECEIVE_CHAIN}/{hd_address.index}',
+            address=self.address_at(account, hd_address.chain, hd_address.index),
+            path=f'{account.path}/{hd_address.chain}/{hd_address.index}',
             account_id=account.id,
             index=hd_address.index,
+            chain=hd_address.chain,
         )
 
     @staticmethod
@@ -294,13 +300,37 @@ class Wallet:
                 return account
         raise KeyError(account_id)
 
+    @staticmethod
+    def _next_index(account: HDAccount, chain: int) -> int:
+        indexes = [address.index for address in account.addresses if address.chain == chain]
+        index = max(indexes, default=-1) + 1
+        if index >= HARDENED:
+            raise ValueError('There are no more addresses in the account')
+        return index
+
     def new_address(self, account_id: str, label: str = '') -> WalletAddress:
         """Add the next receiving address of the account."""
         account = self.get_account(account_id)
-        index = max((address.index for address in account.addresses), default=-1) + 1
-        if index >= HARDENED:
-            raise ValueError('There are no more addresses in the account')
-        hd_address = HDAddress(index, label or f'Address {index}')
+        index = self._next_index(account, RECEIVE_CHAIN)
+        return self.add_address(account_id, RECEIVE_CHAIN, index, label)
+
+    def next_change_address(self, account_id: str) -> WalletAddress:
+        """Next change address of the account, it is not added to the wallet."""
+        account = self.get_account(account_id)
+        index = self._next_index(account, CHANGE_CHAIN)
+        return self._hd_address(
+            account, HDAddress(index, f'{CHAIN_LABELS[CHANGE_CHAIN]} {index}', chain=CHANGE_CHAIN)
+        )
+
+    def add_address(
+        self, account_id: str, chain: int, index: int, label: str = ''
+    ) -> WalletAddress:
+        """Add the address of the account chain, the present address is returned unchanged."""
+        account = self.get_account(account_id)
+        for hd_address in account.addresses:
+            if (hd_address.chain, hd_address.index) == (chain, index):
+                return self._hd_address(account, hd_address)
+        hd_address = HDAddress(index, label or f'{CHAIN_LABELS[chain]} {index}', chain=chain)
         wallet_address = self._hd_address(account, hd_address)  # fails when the wallet is locked
         account.addresses.append(hd_address)
         return wallet_address
@@ -322,7 +352,8 @@ class Wallet:
         return self._imported_address(key)
 
     def account_addresses(self, account: HDAccount) -> List[WalletAddress]:
-        return [self._hd_address(account, hd_address) for hd_address in account.addresses]
+        addresses = sorted(account.addresses, key=lambda address: (address.chain, address.index))
+        return [self._hd_address(account, hd_address) for hd_address in addresses]
 
     def imported_addresses(self) -> List[WalletAddress]:
         return [self._imported_address(key) for key in self.imported]
@@ -340,7 +371,7 @@ class Wallet:
             if account.id == item_id:
                 return account, self.accounts, None
             for hd_address in account.addresses:
-                if f'{account.id}/{hd_address.index}' == item_id:
+                if f'{account.id}/{hd_address.chain}/{hd_address.index}' == item_id:
                     return hd_address, account.addresses, account
         for key in self.imported:
             if key.id == item_id:
@@ -367,7 +398,9 @@ class Wallet:
         if address.account_id is None:
             return self._locate(address.id)[0].wif
         account = self.get_account(address.account_id)
-        return generate_wif(account.coin, self._derive(account, address.index).private_key)
+        return generate_wif(
+            account.coin, self._derive(account, address.chain, address.index).private_key
+        )
 
     def to_json(self) -> bytes:
         return json.dumps(
