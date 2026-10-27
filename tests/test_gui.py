@@ -170,8 +170,8 @@ def test_qr_dialog_shows_address(qapp):
     assert 'Savings' in dialog.windowTitle()
 
 
-def wait_until(qapp, condition):
-    deadline = time.monotonic() + 10
+def wait_until(qapp, condition, seconds=10):
+    deadline = time.monotonic() + seconds
     while not condition():
         assert time.monotonic() < deadline
         qapp.processEvents()
@@ -490,3 +490,56 @@ def test_lock_clears_translate_tab(window):
     assert tab.key.text() == ''
     assert tab.translated_key.text() == ''
     assert tab.key_addresses.rowCount() == 0
+
+
+def test_vanity_search_and_add_to_wallet(qapp, window):
+    unlock(window)
+    tab = window.vanity_tab
+    tab.coin.setCurrentText('BTC')
+    tab.address_type.setCurrentText('p2wpkh')
+    tab.pattern.setText('bc1qq')
+    tab.workers.setValue(1)
+    assert 'Addresses start with bc1q' in tab.pattern_status.text()
+
+    tab.start()
+    wait_until(qapp, lambda: not tab.result_group.isHidden(), seconds=60)
+
+    address = tab.result_address.text()
+    assert address.startswith('bc1qq')
+    assert check_entry('BTC', tab.result_key.text(), 'p2wpkh') == address
+    assert tab.search is None
+    tab.result_label.setText('Vanity')
+    tab.add_to_wallet()
+    [imported] = window.wallet.imported_addresses()
+    assert (imported.label, imported.address) == ('Vanity', address)
+    assert tab.result_group.isHidden()
+    assert tab.result_key.text() == ''
+
+
+def test_vanity_pattern_validation(window):
+    unlock(window)
+    tab = window.vanity_tab
+    tab.coin.setCurrentText('BTC')
+    tab.address_type.setCurrentText('p2pkh')
+
+    tab.pattern.setText('2Ab')
+
+    assert 'Impossible prefix' in tab.pattern_status.text()
+    assert not tab.start_button.isEnabled()
+
+
+def test_lock_stops_vanity_search(qapp, window):
+    unlock(window)
+    tab = window.vanity_tab
+    tab.coin.setCurrentText('BTC')
+    tab.address_type.setCurrentText('p2wpkh')
+    tab.pattern.setText('bc1qqqqqqqqqqq')
+    tab.workers.setValue(1)
+    tab.start()
+    search = tab.search
+
+    window.lock()
+
+    assert tab.search is None
+    assert not search.running
+    assert tab.start_button.isEnabled()
