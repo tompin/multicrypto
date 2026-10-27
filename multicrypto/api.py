@@ -36,6 +36,8 @@ DEFAULT_TIMEOUT = 30  # in seconds
 # vsize of the first attempt of the transaction paying the fee rate, the fee is corrected later
 INITIAL_VSIZE = 100
 FEE_RATE_ATTEMPTS = 5
+FEE_TARGETS = (1, 3, 6, 144)  # confirmation targets in blocks of the fee estimates
+SATOSHIS_PER_COIN = 10**8
 # Some APIs behind Cloudflare reject the default Python-urllib user agent
 USER_AGENT = 'multicrypto'
 
@@ -98,6 +100,31 @@ class InsightAPI:
         response = http_request(f'{self.base_url}/addr/{address}/utxo', timeout=self.timeout)
         return response.json()
 
+    def get_tx_count(self, address: str) -> int:
+        response = http_request(
+            f'{self.base_url}/addr/{address}', params={'noTxList': 1}, timeout=self.timeout
+        )
+        if not response.ok:
+            raise ValueError(f'API error: {response.text}')
+        data = response.json()
+        return data['txApperances'] + data.get('unconfirmedTxApperances', 0)
+
+    def estimate_fee_rates(self) -> Dict[int, float]:
+        """Fee rates in satoshis per virtual byte for the confirmation targets."""
+        response = http_request(
+            f'{self.base_url}/utils/estimatefee',
+            params={'nbBlocks': ','.join(map(str, FEE_TARGETS))},
+            timeout=self.timeout,
+        )
+        if not response.ok:
+            raise ValueError(f'API error: {response.text}')
+        # coins per kilobyte, -1 when the estimate is not available
+        return {
+            int(blocks): round(rate * SATOSHIS_PER_COIN / 1000, 3)
+            for blocks, rate in response.json().items()
+            if rate > 0
+        }
+
     def send_raw_transaction(self, raw_transaction: str) -> str:
         response = http_request(
             f'{self.base_url}/tx/send', json_data={'rawtx': raw_transaction}, timeout=self.timeout
@@ -155,6 +182,19 @@ class EsploraAPI:
             )
         return utxos
 
+    def get_tx_count(self, address: str) -> int:
+        stats = self._get(f'address/{address}').json()
+        return stats['chain_stats']['tx_count'] + stats['mempool_stats']['tx_count']
+
+    def estimate_fee_rates(self) -> Dict[int, float]:
+        """Fee rates in satoshis per virtual byte for the confirmation targets."""
+        estimates = self._get('fee-estimates').json()
+        return {
+            blocks: float(estimates[str(blocks)])
+            for blocks in FEE_TARGETS
+            if str(blocks) in estimates
+        }
+
     def send_raw_transaction(self, raw_transaction: str) -> str:
         response = http_request(f'{self.base_url}/tx', data=raw_transaction, timeout=self.timeout)
         if not response.ok:
@@ -169,6 +209,17 @@ def get_api(coin: Coin, timeout: float = DEFAULT_TIMEOUT):
     """Return client for the API selected in the coin definition."""
     definition = coin['apis'][coin.get('current_api_index', 0)]
     return API_CLIENTS[definition.get('type', 'insight')](coin, timeout)
+
+
+def estimate_fee_rates(coin: Coin) -> Dict[int, float]:
+    """Fee rates (satoshis per virtual byte) for confirmation in the number of blocks."""
+    try:
+        rates = get_api(coin).estimate_fee_rates()
+    except (KeyError, TypeError, AttributeError, json.JSONDecodeError):
+        rates = {}
+    if not rates:
+        raise ValueError(f'Fee estimate is not available for {coin["name"]}, enter the rate')
+    return rates
 
 
 def get_utxo_from_address(

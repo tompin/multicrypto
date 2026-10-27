@@ -11,6 +11,7 @@ from multicrypto.api import (
     InsufficientFundsError,
     PreparedTransaction,
     broadcast_prepared,
+    estimate_fee_rates,
     get_api,
     get_utxo_from_private_keys,
     prepare_from_private_keys,
@@ -650,3 +651,52 @@ def test_prepare_from_private_keys_needs_fee_or_rate():
         prepare_from_private_keys(
             coins['TBTC'], [SWEEP_WIF], None, None, DESTINATION, 1000, 100, fee_rate=1
         )
+
+
+INSIGHT_COIN = coins['BTG']
+INSIGHT_URL = get_api(INSIGHT_COIN).base_url
+ESPLORA_TBTC_URL = get_api(coins['TBTC']).base_url
+BTG_ADDRESS = 'Ga3afwEZMPHqRQ7uHyBAti7NSUX7SHppZg'
+
+
+@http_mock.activate
+def test_get_tx_count():
+    http_mock.add(
+        http_mock.GET,
+        f'{ESPLORA_TBTC_URL}/address/{SWEEP_ADDRESS}',
+        json={'chain_stats': {'tx_count': 3}, 'mempool_stats': {'tx_count': 1}},
+    )
+    http_mock.add(
+        http_mock.GET,
+        f'{INSIGHT_URL}/addr/{BTG_ADDRESS}',
+        json={'txApperances': 2, 'unconfirmedTxApperances': 1},
+    )
+
+    assert get_api(coins['TBTC']).get_tx_count(SWEEP_ADDRESS) == 4
+    assert get_api(INSIGHT_COIN).get_tx_count(BTG_ADDRESS) == 3
+    assert http_mock.calls[1].request.url.endswith('?noTxList=1')
+
+
+@http_mock.activate
+def test_estimate_fee_rates():
+    http_mock.add(
+        http_mock.GET,
+        f'{ESPLORA_TBTC_URL}/fee-estimates',
+        json={'1': 12.5, '2': 10.0, '3': 8.1, '6': 4.0, '144': 1.0, '1008': 1.0},
+    )
+    http_mock.add(
+        http_mock.GET,
+        f'{INSIGHT_URL}/utils/estimatefee',
+        json={'1': -1, '3': 0.0002, '6': 0.0001, '144': 0.00001},
+    )
+
+    assert estimate_fee_rates(coins['TBTC']) == {1: 12.5, 3: 8.1, 6: 4.0, 144: 1.0}
+    assert estimate_fee_rates(INSIGHT_COIN) == {3: 20.0, 6: 10.0, 144: 1.0}
+
+
+@http_mock.activate
+def test_estimate_fee_rates_not_available():
+    http_mock.add(http_mock.GET, f'{INSIGHT_URL}/utils/estimatefee', json={'1': -1})
+
+    with pytest.raises(ValueError, match='Fee estimate is not available for bitcoin gold'):
+        estimate_fee_rates(INSIGHT_COIN)
