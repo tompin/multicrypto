@@ -170,34 +170,70 @@ def fetch_balances(addresses: List[WalletAddress]) -> Dict[str, Union[int, str]]
     return balances
 
 
+HIGH_FEE_RATE = 1000  # sat/vB, the confirmation shows a warning above it
+
+
+def parse_fee_rate(text: str) -> float:
+    """Fee rate in satoshis per virtual byte with at most one decimal place."""
+    value = text.strip().replace(',', '.')
+    if not value:
+        raise ValueError('Enter the fee rate or press Estimate')
+    try:
+        rate = Decimal(value)
+    except InvalidOperation:
+        raise ValueError(f'Incorrect fee rate: {text}') from None
+    if not rate.is_finite() or rate <= 0:
+        raise ValueError('Fee rate must be greater than zero')
+    if rate != rate.quantize(Decimal('0.1')):
+        raise ValueError('Fee rate can have at most one decimal place')
+    return float(rate)
+
+
+def _vsize(prepared: PreparedTransaction) -> int:
+    return prepared.vsize or len(prepared.raw_transaction) // 2
+
+
+def _fee_rate(prepared: PreparedTransaction) -> float:
+    return (prepared.fee + prepared.change_added_to_fee) / _vsize(prepared)
+
+
 def describe_transaction(
     prepared: PreparedTransaction,
     coin_symbol: str,
     source_addresses: List[str],
     broadcast_target: str,
+    change_path: Optional[str] = None,
 ) -> List[Tuple[str, str]]:
     """Rows of the summary shown before the transaction is broadcast."""
     destination, *change = prepared.outputs
-    fee = f'{format_amount(prepared.fee)} {coin_symbol}'
+    fee = (
+        f'{format_amount(prepared.fee)} {coin_symbol} '
+        f'({prepared.fee} satoshis, {_fee_rate(prepared):.1f} sat/vB)'
+    )
     if prepared.change_added_to_fee:
         fee += f' + {prepared.change_added_to_fee} satoshis of change below the dust threshold'
     if change:
         change_text = (
             f'{format_amount(change[0]["satoshis"])} {coin_symbol} to {change[0]["address"]}'
         )
+        if change_path:
+            change_text += f' ({change_path})'
     else:
         change_text = 'none'
     inputs_text = f'{len(prepared.inputs)} ({format_amount(prepared.input_satoshis)} {coin_symbol})'
-    return [
+    rows = [
         ('From', '\n'.join(source_addresses)),
         ('To', destination['address']),
         ('Amount', f'{format_amount(destination["satoshis"])} {coin_symbol}'),
         ('Fee', fee),
         ('Change', change_text),
         ('Inputs', inputs_text),
-        ('Size', f'{len(prepared.raw_transaction) // 2} bytes'),
+        ('Size', f'{_vsize(prepared)} vB ({len(prepared.raw_transaction) // 2} bytes)'),
         ('Broadcast', broadcast_target),
     ]
+    if _fee_rate(prepared) > HIGH_FEE_RATE:
+        rows.append(('Warning', f'Fee rate is above {HIGH_FEE_RATE} sat/vB'))
+    return rows
 
 
 def parse_wif(text: str, coin_symbol: str, address_type: str) -> Tuple[str, str]:
@@ -227,7 +263,8 @@ def describe_sweep(
     batches = '\n'.join(
         f'{number}. inputs: {len(transaction.inputs)}, '
         f'amount: {amount(transaction.outputs[0]["satoshis"])}, '
-        f'fee: {amount(transaction.fee)}, size: {len(transaction.raw_transaction) // 2} bytes'
+        f'fee: {amount(transaction.fee)} ({_fee_rate(transaction):.1f} sat/vB), '
+        f'size: {_vsize(transaction)} vB'
         for number, transaction in enumerate(prepared, start=1)
     )
     inputs = sum(len(transaction.inputs) for transaction in prepared)

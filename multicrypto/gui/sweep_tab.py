@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from multicrypto.api import broadcast_prepared, get_utxo_from_private_keys, prepare_sweep
 from multicrypto.coins import coins, get_address_types
 from multicrypto.gui.dialogs import confirm, password_field, show_lines
+from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
     address_description,
     coins_with_api,
@@ -35,7 +36,6 @@ from multicrypto.gui.forms import (
 )
 from multicrypto.wallet import WalletAddress
 
-DEFAULT_FEE = 10000
 DEFAULT_BATCH_SIZE = 50
 VALID_COLOR = '#2e7d32'
 INVALID_COLOR = '#c62828'
@@ -69,7 +69,7 @@ class SweepTab(QWidget):
         self.destination_box = QComboBox()
         self.destination = QLineEdit()
         self.destination_status = QLabel()
-        self.fee = QLineEdit(str(DEFAULT_FEE))
+        self.fee = FeeRateField(app, self._source_coin)
         self.minimum = QLineEdit()
         self.maximum = QLineEdit()
         self.batch_size = QLineEdit(str(DEFAULT_BATCH_SIZE))
@@ -98,7 +98,7 @@ class SweepTab(QWidget):
         destination_grid.addWidget(self.destination_status, 3, 1)
         destination_grid.setColumnStretch(1, 1)
         form = QFormLayout()
-        form.addRow('Fee per transaction (satoshis)', self.fee)
+        form.addRow('Fee rate (sat/vB)', self.fee)
         advanced = QGroupBox('Advanced')
         advanced_form = QFormLayout(advanced)
         advanced_form.addRow('Minimum input (satoshis)', self.minimum)
@@ -241,7 +241,7 @@ class SweepTab(QWidget):
         try:
             coin_symbol, address_type, wif, source_address = self._get_source()
             destination = self._get_destination(coin_symbol, source_address)
-            fee = parse_int(self.fee.text(), 'Fee', minimum=0)
+            fee_rate = self.fee.value()
             minimum, maximum, _ = parse_thresholds(self.minimum.text(), self.maximum.text(), '')
             batch_size = parse_int(self.batch_size.text(), 'Inputs per transaction')
         except ValueError as error:
@@ -251,7 +251,9 @@ class SweepTab(QWidget):
 
         def prepare_transactions():
             utxos = get_utxo_from_private_keys(coin, [wif], address_type, minimum, maximum)
-            return prepare_sweep(coin, list(utxos), destination, fee, batch_size)
+            return prepare_sweep(
+                coin, list(utxos), destination, None, batch_size, fee_rate=fee_rate
+            )
 
         self.prepare_button.setEnabled(False)
         self.app.worker.run(
