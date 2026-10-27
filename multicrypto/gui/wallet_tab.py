@@ -1,234 +1,398 @@
-"""Wallet tab: addresses of the wallet, adding and removing private keys."""
+"""Wallet tab: HD accounts with their addresses and imported private keys."""
 
-import tkinter as tk
-from tkinter import messagebox, simpledialog, ttk
-from typing import Optional
+from typing import Dict, Optional, Union
 
-from multicrypto.coins import coins, get_address_types
-from multicrypto.ellipticcurve import secp256k1
-from multicrypto.gui.dialogs import SECRET_DISPLAY_SECONDS, TextDialog, ask_password
-from multicrypto.gui.forms import EXPECTED_ERRORS
-from multicrypto.wallet import WalletEntry, check_entry, generate_wif
-
-COLUMNS = (
-    ('label', 'Label', 160),
-    ('coin', 'Coin', 60),
-    ('address_type', 'Type', 100),
-    ('address', 'Address', 460),
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
+from multicrypto.bip32 import HARDENED
+from multicrypto.coins import coins, get_address_types
+from multicrypto.gui.dialogs import SecretDialog, ask_password, password_field, secret_line
+from multicrypto.gui.forms import EXPECTED_ERRORS, coins_with_slip44, fetch_balances, format_amount
+from multicrypto.wallet import WalletAddress, account_path, check_entry
 
-def create_entries_tree(parent, selectmode: str, height: int = 10) -> ttk.Treeview:
-    tree = ttk.Treeview(
-        parent,
-        columns=[name for name, _, _ in COLUMNS],
-        show='headings',
-        selectmode=selectmode,
-        height=height,
-    )
-    for name, heading, width in COLUMNS:
-        tree.heading(name, text=heading)
-        tree.column(name, width=width, stretch=name == 'address')
-    return tree
+ITEM_ROLE = Qt.ItemDataRole.UserRole
+ACCOUNT, ADDRESS, GROUP = 'account', 'address', 'group'
 
 
-def show_entries(tree: ttk.Treeview, entries) -> None:
-    """Replace rows of the tree with the entries, keeping selection of the remaining ones."""
-    selection = tree.selection()
-    tree.delete(*tree.get_children())
-    for entry in entries:
-        values = (entry.label, entry.coin, entry.address_type, entry.address)
-        tree.insert('', 'end', iid=entry.id, values=values)
-    tree.selection_set([item for item in selection if tree.exists(item)])
+class _CoinTypeForm(QDialog):
+    """Dialog with coin and address type fields, the address types depend on the coin."""
 
+    def __init__(self, parent, title: str, symbols, submit):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.submit = submit
+        self.label = QLineEdit()
+        self.coin = QComboBox()
+        self.coin.addItems(symbols)
+        self.coin.setCurrentText('BTC')
+        self.address_type = QComboBox()
+        self.form = QFormLayout(self)
+        self.form.addRow('Label', self.label)
+        self.form.addRow('Coin', self.coin)
+        self.form.addRow('Address type', self.address_type)
+        self.coin.currentTextChanged.connect(self._coin_changed)
+        self.address_type.currentTextChanged.connect(self.update_preview)
 
-class EntryDialog(simpledialog.Dialog):
-    """Add private key to the wallet, imported in WIF format or generated when the dialog opens,
-    so the shown address is the one which will be saved."""
-
-    def __init__(self, parent, title: str, submit, import_wif: bool):
-        self.submit = submit  # function(label, coin_symbol, wif, address_type)
-        self.import_wif = import_wif
-        self.private_key = None if import_wif else secp256k1.gen_private_key()
-        super().__init__(parent, title)
-
-    def body(self, master):
-        self.label = tk.StringVar()
-        self.coin = tk.StringVar(value='BTC')
-        self.address_type = tk.StringVar()
-        self.wif = tk.StringVar()
-        self.address = tk.StringVar()
-        ttk.Label(master, text='Label').grid(row=0, column=0, sticky='w', padx=(0, 8))
-        label_entry = ttk.Entry(master, textvariable=self.label, width=40)
-        label_entry.grid(row=0, column=1, sticky='w', pady=2)
-        ttk.Label(master, text='Coin').grid(row=1, column=0, sticky='w', padx=(0, 8))
-        ttk.Combobox(
-            master, textvariable=self.coin, values=sorted(coins), state='readonly', width=10
-        ).grid(row=1, column=1, sticky='w', pady=2)
-        ttk.Label(master, text='Address type').grid(row=2, column=0, sticky='w', padx=(0, 8))
-        self.type_box = ttk.Combobox(
-            master, textvariable=self.address_type, state='readonly', width=14
+    def add_buttons(self):
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        self.type_box.grid(row=2, column=1, sticky='w', pady=2)
-        if self.import_wif:
-            ttk.Label(master, text='Private key (WIF)').grid(row=3, column=0, sticky='w')
-            ttk.Entry(master, textvariable=self.wif, show='*', width=60).grid(
-                row=3, column=1, sticky='w', pady=2
-            )
-        ttk.Label(master, text='Address').grid(row=4, column=0, sticky='w', padx=(0, 8))
-        ttk.Label(master, textvariable=self.address).grid(row=4, column=1, sticky='w', pady=2)
-        self.coin.trace_add('write', self._coin_changed)
-        self.address_type.trace_add('write', self._update_address)
-        self.wif.trace_add('write', self._update_address)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        self.form.addRow(buttons)
         self._coin_changed()
-        return label_entry
 
-    def _get_wif(self) -> str:
-        if self.import_wif:
-            return self.wif.get().strip()
-        # the same private key in the WIF format of the selected coin
-        return generate_wif(self.coin.get(), self.private_key)
+    def _coin_changed(self):
+        current = self.address_type.currentText()
+        address_types = get_address_types(coins[self.coin.currentText()])
+        self.address_type.blockSignals(True)
+        self.address_type.clear()
+        self.address_type.addItems(address_types)
+        if current in address_types:
+            self.address_type.setCurrentText(current)
+        self.address_type.blockSignals(False)
+        self.update_preview()
 
-    def _coin_changed(self, *_args):
-        address_types = get_address_types(coins[self.coin.get()])
-        self.type_box['values'] = address_types
-        if self.address_type.get() in address_types:
-            self._update_address()
-        else:
-            self.address_type.set(address_types[0])  # calls _update_address
+    def update_preview(self):
+        raise NotImplementedError
 
-    def _update_address(self, *_args):
-        if self.import_wif and not self.wif.get().strip():
-            self.address.set('')
+    def submitted_values(self):
+        raise NotImplementedError
+
+    def accept(self):
+        try:
+            self.submit(*self.submitted_values())
+        except EXPECTED_ERRORS as error:
+            QMessageBox.warning(self, self.windowTitle(), str(error))
+            return
+        super().accept()
+
+
+class NewAccountDialog(_CoinTypeForm):
+    def __init__(self, parent, wallet, submit):
+        super().__init__(parent, 'New account', coins_with_slip44(), submit)
+        self.wallet = wallet
+        self.account = QSpinBox()
+        self.account.setRange(0, HARDENED - 1)
+        self.path = QLabel()
+        self.form.addRow('Account number', self.account)
+        self.form.addRow('Path', self.path)
+        self.account.valueChanged.connect(self._show_path)
+        self.add_buttons()
+
+    def update_preview(self):
+        coin, address_type = self.coin.currentText(), self.address_type.currentText()
+        if address_type:
+            self.account.setValue(self.wallet.next_account_number(coin, address_type))
+            self._show_path()
+
+    def _show_path(self):
+        self.path.setText(
+            account_path(
+                self.coin.currentText(), self.address_type.currentText(), self.account.value()
+            )
+        )
+
+    def submitted_values(self):
+        coin, address_type = self.coin.currentText(), self.address_type.currentText()
+        label = self.label.text().strip() or f'{coin} {address_type} #{self.account.value()}'
+        return label, coin, address_type, self.account.value()
+
+
+class ImportWifDialog(_CoinTypeForm):
+    def __init__(self, parent, submit):
+        super().__init__(parent, 'Import private key', sorted(coins), submit)
+        self.wif = password_field()
+        self.address = QLabel()
+        self.form.addRow('Private key (WIF)', self.wif)
+        self.form.addRow('Address', self.address)
+        self.wif.textChanged.connect(self.update_preview)
+        self.add_buttons()
+
+    def update_preview(self):
+        wif = self.wif.text().strip()
+        if not wif:
+            self.address.setText('')
             return
         try:
-            self.address.set(check_entry(self.coin.get(), self._get_wif(), self.address_type.get()))
+            address = check_entry(self.coin.currentText(), wif, self.address_type.currentText())
         except ValueError as error:
-            self.address.set(f'({error})')
+            self.address.setText(f'({error})')
+        else:
+            self.address.setText(address)
 
-    def validate(self):
-        label = self.label.get().strip()
-        try:
-            if not label:
-                raise ValueError('Enter the label')
-            self.submit(label, self.coin.get(), self._get_wif(), self.address_type.get())
-        except EXPECTED_ERRORS as error:
-            messagebox.showerror('Error', str(error), parent=self)
-            return False
-        return True
+    def submitted_values(self):
+        label = self.label.text().strip()
+        if not label:
+            raise ValueError('Enter the label')
+        return (
+            label,
+            self.coin.currentText(),
+            self.wif.text().strip(),
+            self.address_type.currentText(),
+        )
 
 
-class WalletTab:
-    def __init__(self, notebook, app):
+class WalletTab(QWidget):
+    def __init__(self, app):
+        super().__init__()
         self.app = app
-        self.frame = ttk.Frame(notebook, padding=8)
-        buttons = ttk.Frame(self.frame)
-        for text, command in (
+        self.balances: Dict[str, Union[int, str]] = {}
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(['Label', 'Path', 'Address', 'Balance'])
+        header = self.tree.header()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._show_menu)
+        buttons = QHBoxLayout()
+        for text, slot in (
+            ('New account...', self.new_account),
+            ('New address...', self.new_address),
             ('Import WIF...', self.import_wif),
-            ('Generate new...', self.generate),
             ('Copy address', self.copy_address),
-            ('Show WIF...', self.show_wif),
+            ('Show key...', self.show_key),
+            ('Rename...', self.rename),
             ('Remove...', self.remove),
         ):
-            ttk.Button(buttons, text=text, command=command).pack(side='left', padx=(0, 6))
-        buttons.pack(side='bottom', fill='x', pady=(8, 0))
-        self.tree = create_entries_tree(self.frame, selectmode='browse')
-        scrollbar = ttk.Scrollbar(self.frame, orient='vertical', command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side='right', fill='y')
-        self.tree.pack(side='left', fill='both', expand=True)
-        self.menu = tk.Menu(self.frame, tearoff=False)
-        self.menu.add_command(label='Copy address', command=self.copy_address)
-        self.menu.add_command(
-            label='Check balance', command=lambda: self._with_selected(app.balance_tab.check_entry)
-        )
-        self.menu.add_command(
-            label='Send from this address',
-            command=lambda: self._with_selected(app.send_tab.select_source),
-        )
-        self.tree.bind('<Button-3>', self._show_menu)
+            button = QPushButton(text)
+            button.clicked.connect(lambda _checked=False, slot=slot: slot())
+            buttons.addWidget(button)
+        buttons.addStretch()
+        self.refresh_button = QPushButton('Refresh balances')
+        self.refresh_button.clicked.connect(lambda _checked=False: self.refresh_balances())
+        buttons.addWidget(self.refresh_button)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.tree)
+        layout.addLayout(buttons)
 
     def refresh(self):
-        show_entries(self.tree, self.app.wallet.entries)
+        selected = self._selected()
+        self.tree.clear()
+        wallet = self.app.wallet
+        for account in wallet.accounts:
+            account_item = QTreeWidgetItem(
+                self.tree,
+                [account.label, account.path, f'{account.coin} {account.address_type}', ''],
+            )
+            account_item.setData(0, ITEM_ROLE, (ACCOUNT, account.id))
+            for address in wallet.account_addresses(account):
+                self._add_address_item(account_item, address, f'0/{address.index}')
+        if wallet.imported:
+            group = QTreeWidgetItem(self.tree, ['Imported keys (not in mnemonic backup)'])
+            group.setData(0, ITEM_ROLE, (GROUP, ''))
+            for address in wallet.imported_addresses():
+                self._add_address_item(group, address, f'{address.coin} {address.address_type}')
+        self.tree.expandAll()
+        if selected:
+            self._select(selected)
+
+    def _add_address_item(self, parent: QTreeWidgetItem, address: WalletAddress, path: str):
+        item = QTreeWidgetItem(
+            parent, [address.label, path, address.address, self._balance_text(address.id)]
+        )
+        item.setData(0, ITEM_ROLE, (ADDRESS, address.id))
+        item.setTextAlignment(3, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+    def _balance_text(self, address_id: str) -> str:
+        balance = self.balances.get(address_id)
+        if balance is None:
+            return ''
+        return format_amount(balance) if isinstance(balance, int) else balance
 
     def clear(self):
-        self.tree.delete(*self.tree.get_children())
+        self.tree.clear()
+        self.balances.clear()
 
-    def selected_entry(self) -> Optional[WalletEntry]:
-        selection = self.tree.selection()
-        if not selection:
-            messagebox.showinfo('Wallet', 'Select an address first', parent=self.frame)
+    def _selected(self):
+        item = self.tree.currentItem()
+        return tuple(item.data(0, ITEM_ROLE)) if item else None
+
+    def _select(self, selected):
+        for item in self._items():
+            if tuple(item.data(0, ITEM_ROLE)) == tuple(selected):
+                self.tree.setCurrentItem(item)
+                return
+
+    def _items(self):
+        for index in range(self.tree.topLevelItemCount()):
+            top = self.tree.topLevelItem(index)
+            yield top
+            for child_index in range(top.childCount()):
+                yield top.child(child_index)
+
+    def selected_address(self) -> Optional[WalletAddress]:
+        selected = self._selected()
+        if not selected or selected[0] != ADDRESS:
+            QMessageBox.information(self, 'Wallet', 'Select an address first')
             return None
-        return self.app.wallet.get(selection[0])
+        return self.app.wallet.get_address(selected[1])
 
-    def _with_selected(self, action):
-        entry = self.selected_entry()
-        if entry:
-            action(entry)
+    def _selected_account_id(self) -> Optional[str]:
+        selected = self._selected()
+        if selected and selected[0] == ACCOUNT:
+            return selected[1]
+        if selected and selected[0] == ADDRESS:
+            return self.app.wallet.get_address(selected[1]).account_id
+        if len(self.app.wallet.accounts) == 1:
+            return self.app.wallet.accounts[0].id
+        return None
 
-    def _show_menu(self, event):
-        row = self.tree.identify_row(event.y)
-        if row:
-            self.tree.selection_set(row)
-            self.menu.tk_popup(event.x_root, event.y_root)
+    def _modify(self, change):
+        try:
+            return self.app.modify_wallet(change)
+        except EXPECTED_ERRORS as error:
+            self.app.show_error(error)
+            return None
+
+    def new_account(self):
+        def submit(label, coin, address_type, account):
+            self.app.modify_wallet(
+                lambda wallet: wallet.add_account(label, coin, address_type, account)
+            )
+
+        NewAccountDialog(self, self.app.wallet, submit).exec()
+
+    def new_address(self):
+        account_id = self._selected_account_id()
+        if account_id is None:
+            QMessageBox.information(self, 'New address', 'Select an account first')
+            return
+        label, ok = QInputDialog.getText(self, 'New address', 'Label (optional)')
+        if ok:
+            address = self._modify(lambda wallet: wallet.new_address(account_id, label.strip()))
+            if address:
+                self._select((ADDRESS, address.id))
 
     def import_wif(self):
-        EntryDialog(self.frame, 'Import private key', self._add, import_wif=True)
+        def submit(label, coin, wif, address_type):
+            self.app.modify_wallet(lambda wallet: wallet.add_wif(label, coin, wif, address_type))
 
-    def generate(self):
-        EntryDialog(self.frame, 'Generate new private key', self._add, import_wif=False)
-
-    def _add(self, label, coin_symbol, wif, address_type):
-        self.app.modify_wallet(lambda wallet: wallet.add_wif(label, coin_symbol, wif, address_type))
+        ImportWifDialog(self, submit).exec()
 
     def copy_address(self):
-        entry = self.selected_entry()
-        if entry:
-            self.frame.clipboard_clear()
-            self.frame.clipboard_append(entry.address)
+        address = self.selected_address()
+        if address:
+            QApplication.clipboard().setText(address.address)
 
-    def show_wif(self):
-        entry = self.selected_entry()
-        if not entry:
+    def show_key(self):
+        address = self.selected_address()
+        if not address:
             return
         password = ask_password(
-            self.frame,
+            self,
             'Show private key',
-            f'Enter the wallet password to show the private key of "{entry.label}"',
+            f'Enter the wallet password to show the key of "{address.label}"',
         )
         if password is None:
             return
         self.app.worker.run(
             lambda: self.app.wallet_file.verify_password(password),
-            lambda correct: self._show_wif(entry, correct),
+            lambda correct: self._show_key(address, correct),
             self.app.show_error,
         )
 
-    def _show_wif(self, entry: WalletEntry, correct: bool):
+    def _show_key(self, address: WalletAddress, correct: bool):
         if not correct:
-            messagebox.showerror('Error', 'Wrong password', parent=self.frame)
+            QMessageBox.warning(self, 'Show private key', 'Wrong password')
             return
-        TextDialog(
-            self.frame,
-            f'Private key of "{entry.label}"',
-            f'{entry.coin} {entry.address_type} {entry.address}',
-            entry.wif,
-            close_after=SECRET_DISPLAY_SECONDS,
+        if self.app.wallet is None:
+            return
+        SecretDialog(
+            self,
+            f'Private key of "{address.label}"',
+            f'{address.coin} {address.address_type} {address.address}',
+            secret_line(self.app.wallet.private_key_wif(address)),
+        ).exec()
+
+    def rename(self):
+        selected = self._selected()
+        if not selected or selected[0] == GROUP:
+            QMessageBox.information(self, 'Rename', 'Select an account or an address first')
+            return
+        label, ok = QInputDialog.getText(
+            self, 'Rename', 'Label', QLineEdit.EchoMode.Normal, self.tree.currentItem().text(0)
         )
+        if ok and label.strip():
+            self._modify(lambda wallet: wallet.rename(selected[1], label.strip()))
 
     def remove(self):
-        entry = self.selected_entry()
-        if not entry or not messagebox.askyesno(
-            'Remove address',
-            f'Remove "{entry.label}" ({entry.address})?\n\n'
-            'The private key will be permanently deleted from the wallet file. '
-            'Make sure you have its backup.',
-            icon='warning',
-            default='no',
-            parent=self.frame,
-        ):
+        selected = self._selected()
+        if not selected or selected[0] == GROUP:
+            QMessageBox.information(self, 'Remove', 'Select an account or an address first')
             return
-        try:
-            self.app.modify_wallet(lambda wallet: wallet.remove(entry.id))
-        except EXPECTED_ERRORS as error:
-            self.app.show_error(error)
+        kind, item_id = selected
+        label = self.tree.currentItem().text(0)
+        if kind == ACCOUNT:
+            warning = (
+                'The account and its addresses will be removed from the list. '
+                'The mnemonic still restores them.'
+            )
+        elif self.app.wallet.get_address(item_id).account_id:
+            warning = 'The address will be removed from the list. The mnemonic still restores it.'
+        else:
+            warning = (
+                'The imported private key will be permanently deleted from the wallet file. '
+                'It is not in the mnemonic backup, make sure you have its backup.'
+            )
+        answer = QMessageBox.question(
+            self,
+            'Remove',
+            f'Remove "{label}"?\n\n{warning}',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self._modify(lambda wallet: wallet.remove(item_id))
+
+    def refresh_balances(self):
+        addresses = self.app.wallet.addresses()
+        self.refresh_button.setEnabled(False)
+        self.app.worker.run(lambda: fetch_balances(addresses), self._show_balances, self._failed)
+
+    def _show_balances(self, balances):
+        self.refresh_button.setEnabled(True)
+        if self.app.wallet is None:
+            return
+        self.balances = balances
+        self.refresh()
+
+    def _failed(self, error):
+        self.refresh_button.setEnabled(True)
+        self.app.show_error(error)
+
+    def _show_menu(self, position):
+        item = self.tree.itemAt(position)
+        if not item or item.data(0, ITEM_ROLE)[0] != ADDRESS:
+            return
+        self.tree.setCurrentItem(item)
+        address = self.app.wallet.get_address(item.data(0, ITEM_ROLE)[1])
+        menu = QMenu(self)
+        menu.addAction('Copy address', self.copy_address)
+        menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
+        menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
+        menu.addAction('Rename...', self.rename)
+        menu.addAction('Show key...', self.show_key)
+        menu.exec(self.tree.viewport().mapToGlobal(position))
