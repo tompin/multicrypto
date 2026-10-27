@@ -17,7 +17,7 @@ Data: 2026-10-27. Kontynuacja etapów 1–3 (`2026-10-27-gui-hd-wallet-design.md
 | Kiedy skanować | automatycznie po odtworzeniu mnemonika w kreatorze (można pominąć) oraz z menu File → *Scan for used addresses...* |
 | Zakres skanowania | wybrane monety (domyślnie BTC), wszystkie typy adresów monety, konta 0, 1, … do pierwszego bez transakcji (BIP-44), łańcuchy odbioru i reszty |
 | Adres użyty | ma co najmniej jedną transakcję (potwierdzoną lub w mempoolu), nie tylko UTXO |
-| Gap limit | 20, okna po 20 adresów sprawdzane równolegle (4 wątki) |
+| Gap limit | 20, okna po 20 adresów sprawdzane równolegle (2 wątki) |
 | Opłata | stawka sat/vB (do 0,1), przycisk *Estimate* (1, 3, 6, 144 bloki) z API; bez trybu stałej kwoty w GUI |
 | Liczenie opłaty | iteracja: zbuduj → zmierz vsize → przebuduj, jeśli `fee < ceil(stawka · vsize)` (najwyżej 5 przebiegów) |
 | Reszta | źródła z jednego konta HD → następny adres łańcucha reszty, zapisywany w portfelu po udanym wysłaniu; w innych przypadkach na adres źródłowy |
@@ -72,7 +72,7 @@ całego salda („max”).
 
 ### `multicrypto/discovery.py` (nowy, bez Qt)
 
-- `GAP_LIMIT = 20`, `THREADS = 4`, `MAX_ACCOUNTS = 100`, `MAX_ADDRESSES = 10000`.
+- `GAP_LIMIT = 20`, `THREADS = 2`, `MAX_ACCOUNTS = 100`, `MAX_ADDRESSES = 10000`.
 - `scan_chain(address_at: Callable[[int], str], tx_count: Callable[[str], int], progress,
   cancelled) -> List[int]` — sprawdza okna `GAP_LIMIT` indeksów równolegle (`ThreadPoolExecutor`),
   przesuwa okno za ostatni użyty, kończy po `GAP_LIMIT` kolejnych nieużywanych; zwraca użyte
@@ -83,6 +83,20 @@ całego salda („max”).
   do pierwszego nieużytego; `tx_count` z `get_api(coin)`; `MAX_ACCOUNTS` → `ValueError`.
   `cancelled()` → `None` zamiast wyniku.
 - Monety bez `slip44` lub bez API nie są oferowane do skanowania.
+
+### Limity publicznych API (zmiana po teście na żywo)
+
+Test na żywo pokazał, że mempool.space po ok. 120 szybkich zapytaniach odpowiada `429 Too Many
+Requests`, potem zrywa połączenia i spowalnia odpowiedzi. Dlatego:
+
+- `api.RateLimitError(ValueError)` dla HTTP 429 (`check_response` w obu klientach);
+- `discovery.coin_tx_count(coin)` rozkłada zapytania round-robin na wszystkie API monety
+  (np. mempool.space i blockstream.info) i odstępuje je o `REQUEST_INTERVAL = 0.25` s
+  (`Pacer`, wspólny dla wątków);
+- zapytania odrzucone przez limit (`RateLimitError`) lub przerwane (`OSError`) są ponawiane po
+  1, 2, 4, 8, 16, 32 i 60 s, z przerwaniem, gdy `cancelled()`;
+- okno skanowania odnawia `last_activity`, więc automatyczna blokada nie przerywa trwającego
+  skanowania.
 
 ## GUI
 
