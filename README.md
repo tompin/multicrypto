@@ -203,8 +203,10 @@ unlocked, and the fingerprint of the master key detects a mistyped passphrase. T
 
 The **Wallet** tab shows also the QR code of the address, and "Translate to another coin" adds the
 key of a wallet address as an imported key of another coin. File → Scan for used addresses finds
-used accounts and addresses of all address types (gap limit 20), it runs also after restoring a
-wallet from the mnemonic, so the funds received in another wallet (e.g. Electrum, Sparrow) are shown.
+used accounts and addresses of all address types (gap limit 20) of the selected coins, so the funds
+received in another wallet (e.g. Electrum, Sparrow) are shown. After restoring a wallet from the
+mnemonic BTC is scanned in the background (progress in the status bar), a single account is scanned
+quickly from its context menu in the Wallet tab.
 
 The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
 data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
