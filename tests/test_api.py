@@ -1,3 +1,4 @@
+import math
 import urllib.error
 from datetime import date, timedelta
 
@@ -15,6 +16,7 @@ from multicrypto.api import (
     prepare_from_private_keys,
     prepare_sweep,
     prepare_utxos,
+    prepare_with_fee_rate,
     send_from_private_keys,
 )
 from multicrypto.coins import coins
@@ -592,3 +594,59 @@ def test_prepared_transaction_vsize():
     assert p2wpkh.vsize == 110
     assert p2wpkh.vsize < len(p2wpkh.raw_transaction) // 2
     assert p2pkh.vsize == len(p2pkh.raw_transaction) // 2
+
+
+CHANGE_ADDRESS = 'tb1qerzrlxcfu24davlur5sqmgzzgsal6wusda40er'
+DESTINATION = 'tb1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uhq9l7n'
+
+
+@http_mock.activate
+def test_prepare_with_fee_rate_pays_rate_of_vsize():
+    utxos = sweep_utxos([100000])
+
+    prepared = prepare_with_fee_rate(coins['TBTC'], utxos, DESTINATION, 30000, 2.5)
+
+    assert prepared.fee == math.ceil(2.5 * prepared.vsize)
+    assert prepared.outputs[1] == {
+        'address': SWEEP_ADDRESS,
+        'satoshis': 100000 - 30000 - prepared.fee,
+    }
+
+
+@http_mock.activate
+def test_prepare_with_fee_rate_sends_change_to_change_address():
+    utxos = sweep_utxos([100000])
+
+    prepared = prepare_with_fee_rate(coins['TBTC'], utxos, DESTINATION, 30000, 1, CHANGE_ADDRESS)
+
+    assert prepared.outputs[1]['address'] == CHANGE_ADDRESS
+
+
+@http_mock.activate
+def test_prepare_with_fee_rate_adds_input_for_higher_fee():
+    # 50000 + 49990 covers the amount only without the fee
+    utxos = sweep_utxos([50000, 49990, 20000])
+
+    prepared = prepare_with_fee_rate(coins['TBTC'], utxos, DESTINATION, 99900, 1)
+
+    assert len(prepared.inputs) == 3
+    assert prepared.fee >= prepared.vsize
+
+
+@http_mock.activate
+def test_prepare_sweep_with_fee_rate():
+    [prepared] = prepare_sweep(
+        coins['TBTC'], sweep_utxos([100000]), SWEEP_DESTINATION, None, 50, fee_rate=3
+    )
+
+    assert prepared.fee == 3 * prepared.vsize
+    assert prepared.outputs == [{'address': SWEEP_DESTINATION, 'satoshis': 100000 - prepared.fee}]
+
+
+def test_prepare_from_private_keys_needs_fee_or_rate():
+    with pytest.raises(ValueError, match='Give the fee or the fee rate'):
+        prepare_from_private_keys(coins['TBTC'], [SWEEP_WIF], None, None, DESTINATION, 1000, None)
+    with pytest.raises(ValueError, match='Give the fee or the fee rate'):
+        prepare_from_private_keys(
+            coins['TBTC'], [SWEEP_WIF], None, None, DESTINATION, 1000, 100, fee_rate=1
+        )
