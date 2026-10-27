@@ -688,7 +688,7 @@ def test_wallet_tab_shows_change_path(window):
 def test_running_scan_keeps_wallet_unlocked(window):
     unlock(window)
     dialog = scan_dialog_module.ScanDialog(window)
-    window.last_activity -= window.auto_lock_seconds - 1
+    window.last_activity -= window.auto_lock_seconds
 
     dialog._show_progress()
     window.tick()
