@@ -134,6 +134,12 @@ To generate Bitcoin segwit address starting with 3BTC we enter:
 ```bash
 genaddress -p 3BTC -s BTC -w
 ```
+Native segwit (bech32) vanity addresses are generated with `--address_type p2wpkh` (`-t`), the
+pattern is the beginning of the address including `bc1q` (bech32 addresses use only the characters
+`023456789acdefghjklmnpqrstuvwxyz`):
+```bash
+genaddress -s BTC -t p2wpkh -p bc1qxyz -c 4
+```
 7. Signing message proving ownership of an address:
 ```bash
 signmessage --coin_symbol=<COIN SYMBOL> --wif_private_key=<PRIVATE KEY> --message=<MESSAGE TO SIGN>
@@ -184,9 +190,15 @@ unlocked, and the fingerprint of the master key detects a mistyped passphrase. T
   a paper wallet, the key is not saved in the wallet) in batches (like `sweepaddress`) to the same
   address, a wallet address or any other address,
 - **Sign / Verify** - sign messages with keys of wallet addresses and verify signatures of any
-  address (like `signmessage` and `verifymessage`).
+  address (like `signmessage` and `verifymessage`),
+- **Translate** - address of the same public key hash for another coin (like `transaddress`) and
+  the private key with its addresses for another coin (like `transprivkey`), which can be added
+  to the wallet,
+- **Vanity** - search for an address starting with the given pattern (like `genaddress`) in many
+  processes, the found key can be added to the wallet.
 
-The **Wallet** tab shows also the QR code of the address.
+The **Wallet** tab shows also the QR code of the address, and "Translate to another coin" adds the
+key of a wallet address as an imported key of another coin.
 
 The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
 data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
