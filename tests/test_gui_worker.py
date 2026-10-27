@@ -1,65 +1,61 @@
 import threading
 import time
 
-from multicrypto.gui.worker import Worker
+import pytest
+
+pytest.importorskip('PySide6')
+
+from multicrypto.gui.worker import Worker  # noqa: E402
 
 
-class FakeRoot:
-    """Records callbacks scheduled with after() instead of running tkinter event loop."""
-
-    def __init__(self):
-        self.callbacks = []
-
-    def after(self, _milliseconds, callback):
-        self.callbacks.append(callback)
-
-
-def poll_until(root, condition):
+def wait_until(qapp, condition):
     deadline = time.monotonic() + 5
     while not condition():
         assert time.monotonic() < deadline
+        qapp.processEvents()
         time.sleep(0.01)
-        root.callbacks.pop(0)()
 
 
-def test_worker_passes_result_to_callback_in_calling_thread():
-    root = FakeRoot()
-    worker = Worker(root)
+def test_worker_runs_function_in_background_and_callback_in_gui_thread(qapp):
+    worker = Worker()
     results = []
 
     worker.run(
-        lambda: 42, lambda result: results.append((result, threading.current_thread())), None
+        lambda: (42, threading.current_thread()),
+        lambda result: results.append((result, threading.current_thread())),
+        None,
     )
-    poll_until(root, lambda: results)
+    wait_until(qapp, lambda: results)
 
-    assert results == [(42, threading.main_thread())]
+    (value, task_thread), callback_thread = results[0]
+    assert value == 42
+    assert task_thread is not threading.main_thread()
+    assert callback_thread is threading.main_thread()
 
 
-def test_worker_passes_exception_to_error_callback():
-    root = FakeRoot()
-    worker = Worker(root)
+def test_worker_passes_exception_to_error_callback(qapp):
+    worker = Worker()
     errors = []
 
     def fail():
         raise ValueError('bad value')
 
     worker.run(fail, None, errors.append)
-    poll_until(root, lambda: errors)
+    wait_until(qapp, lambda: errors)
 
     assert str(errors[0]) == 'bad value'
 
 
-def test_worker_keeps_polling_after_callback_error():
-    root = FakeRoot()
-    worker = Worker(root)
+def test_worker_survives_callback_error(qapp):
+    worker = Worker()
     results = []
 
     def broken_callback(_result):
         raise RuntimeError('callback error')
 
     worker.run(lambda: 1, broken_callback, None)
-    poll_until(root, lambda: worker.pending == 0)
+    wait_until(qapp, lambda: worker.pending == 0)
     worker.run(lambda: 2, results.append, None)
-    poll_until(root, lambda: results)
+    wait_until(qapp, lambda: results)
 
     assert results == [2]
