@@ -1,5 +1,7 @@
 # GUI dla multicrypto — projekt
 
+> **Zastąpiony przez `2026-10-27-gui-hd-wallet-design.md`** (portfel HD BIP-39/BIP-32, PySide6).
+
 Data: 2026-10-26
 
 ## Cel
