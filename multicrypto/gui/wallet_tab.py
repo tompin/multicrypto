@@ -25,9 +25,10 @@ from PySide6.QtWidgets import (
 )
 
 from multicrypto.bip32 import HARDENED
-from multicrypto.coins import coins, get_address_types
+from multicrypto.coins import P2TR, coins, get_address_types
 from multicrypto.gui.dialogs import SecretDialog, ask_password, password_field, secret_line
 from multicrypto.gui.forms import EXPECTED_ERRORS, coins_with_slip44, fetch_balances, format_amount
+from multicrypto.gui.qr import QrDialog
 from multicrypto.wallet import WalletAddress, account_path, check_entry
 
 ITEM_ROLE = Qt.ItemDataRole.UserRole
@@ -173,6 +174,7 @@ class WalletTab(QWidget):
             ('New address...', self.new_address),
             ('Import WIF...', self.import_wif),
             ('Copy address', self.copy_address),
+            ('Show QR...', self.show_qr),
             ('Show key...', self.show_key),
             ('Rename...', self.rename),
             ('Remove...', self.remove),
@@ -297,6 +299,11 @@ class WalletTab(QWidget):
         if address:
             QApplication.clipboard().setText(address.address)
 
+    def show_qr(self):
+        address = self.selected_address()
+        if address:
+            QrDialog(self, address).exec()
+
     def show_key(self):
         address = self.selected_address()
         if not address:
@@ -391,8 +398,15 @@ class WalletTab(QWidget):
         address = self.app.wallet.get_address(item.data(0, ITEM_ROLE)[1])
         menu = QMenu(self)
         menu.addAction('Copy address', self.copy_address)
+        menu.addAction('Show QR...', self.show_qr)
         menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
         menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
+        if coins[address.coin].get('apis'):
+            menu.addAction('Sweep this address', lambda: self.app.sweep_tab.select_source(address))
+        sign_action = menu.addAction(
+            'Sign message', lambda: self.app.sign_tab.select_address(address)
+        )
+        sign_action.setEnabled(address.address_type != P2TR)
         menu.addAction('Rename...', self.rename)
         menu.addAction('Show key...', self.show_key)
         menu.exec(self.tree.viewport().mapToGlobal(position))

@@ -12,6 +12,7 @@ from multicrypto.coins import coins
 pytest.importorskip('PySide6')
 
 import multicrypto.gui.sweep_tab as sweep_tab_module  # noqa: E402
+import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
 from multicrypto.gui.window import MainWindow  # noqa: E402
@@ -375,3 +376,17 @@ def test_lock_clears_sweep_key(window):
 
     assert window.sweep_tab.wif.text() == ''
     assert window.sweep_tab.source_box.count() == 0
+
+
+def test_show_qr_of_selected_address(window, monkeypatch):
+    unlock(window)
+    address = add_address(window)
+    shown = []
+    monkeypatch.setattr(
+        wallet_tab_module.QrDialog, 'exec', lambda dialog: shown.append(dialog.address_label.text())
+    )
+
+    window.wallet_tab._select(('address', address.id))
+    window.wallet_tab.show_qr()
+
+    assert shown == [address.address]
