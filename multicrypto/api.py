@@ -416,3 +416,31 @@ def send_utxos(
 ) -> str:
     prepared = prepare_utxos(coin, utxos, destination_address, satoshis, fee)
     return broadcast_prepared(coin, prepared, broadcast)
+
+
+def prepare_sweep(
+    coin: Coin,
+    utxos: List[Utxo],
+    destination_address: str,
+    fee: int,
+    batch_size: int,
+) -> List[PreparedTransaction]:
+    """Prepare transactions sending all inputs to the address without change, each transaction
+    spends at most batch_size inputs and pays the fee. Nothing is prepared when any batch cannot
+    be sent."""
+    utxos = [utxo for utxo in utxos if utxo]
+    if not utxos:
+        raise ValueError('No inputs found for the private key')
+    dust_threshold = get_dust_threshold(address_to_script(destination_address, coin))
+    prepared = []
+    for start in range(0, len(utxos), batch_size):
+        batch = utxos[start : start + batch_size]
+        satoshis = sum(utxo['satoshis'] for utxo in batch)
+        if satoshis <= fee:
+            raise ValueError(f'Fee {fee} is not smaller than sum of batch inputs {satoshis}')
+        if satoshis - fee < dust_threshold:
+            raise ValueError(
+                f'Amount {satoshis - fee} of the batch is below the dust threshold {dust_threshold}'
+            )
+        prepared.append(prepare_utxos(coin, batch, destination_address, satoshis - fee, fee))
+    return prepared

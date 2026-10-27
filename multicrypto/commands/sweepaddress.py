@@ -9,7 +9,7 @@ from multicrypto.address import (
     validate_address_type,
     validate_wif_private_key,
 )
-from multicrypto.api import get_utxo_from_private_keys, send_utxos
+from multicrypto.api import broadcast_prepared, get_utxo_from_private_keys, prepare_sweep
 from multicrypto.coins import ADDRESS_TYPES, P2PKH, coins, get_coins_with_api
 from multicrypto.validators import check_positive, check_coin_symbol
 
@@ -146,16 +146,8 @@ def sweep_address(args):
             minimum_input_threshold=minimum_input_threshold,
             maximum_input_threshold=maximum_input_threshold,
         )
-        utxos = list(utxos)
-        if not utxos:
-            raise ValueError('No inputs found for the private key')
-        for i in range(0, len(utxos), batch_size):
-            batch_utxos = utxos[i : i + batch_size]
-            satoshis = sum(utxo['satoshis'] for utxo in batch_utxos)
-            if satoshis <= fee:
-                raise ValueError(f'Fee {fee} is not smaller than sum of batch inputs {satoshis}')
-            result = send_utxos(coin, batch_utxos, destination_address, satoshis - fee, fee)
-            print(result)
+        for prepared in prepare_sweep(coin, list(utxos), destination_address, fee, batch_size):
+            print(broadcast_prepared(coin, prepared))
     except ValueError as exc:
         logger.exception(exc)
 
