@@ -683,3 +683,14 @@ def test_wallet_tab_shows_change_path(window):
     item = window.wallet_tab.tree.topLevelItem(0).child(0)
 
     assert (item.text(0), item.text(1)) == ('Change 0', '1/0')
+
+
+def test_running_scan_keeps_wallet_unlocked(window):
+    unlock(window)
+    dialog = scan_dialog_module.ScanDialog(window)
+    window.last_activity -= window.auto_lock_seconds - 1
+
+    dialog._show_progress()
+    window.tick()
+
+    assert window.wallet is not None

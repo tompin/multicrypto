@@ -1,6 +1,7 @@
 """Dialog scanning the blockchain for used accounts and addresses of the HD wallet."""
 
 import threading
+import time
 from typing import List
 
 from PySide6.QtCore import QTimer
@@ -72,6 +73,8 @@ class ScanDialog(QDialog):
 
     def _show_progress(self):
         self.status.setText(f'Checked {self.checked} addresses...')
+        # the scan started by the user is activity, the wallet is not locked until it ends
+        self.app.last_activity = time.monotonic()
 
     def scan(self):
         symbols = [symbol for symbol, box in self.coins.items() if box.isChecked()]
