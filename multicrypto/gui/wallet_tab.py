@@ -243,7 +243,7 @@ class WalletTab(QWidget):
             )
             account_item.setData(0, ITEM_ROLE, (ACCOUNT, account.id))
             for address in wallet.account_addresses(account):
-                self._add_address_item(account_item, address, f'0/{address.index}')
+                self._add_address_item(account_item, address, f'{address.chain}/{address.index}')
         if wallet.imported:
             group = QTreeWidgetItem(self.tree, ['Imported keys (not in mnemonic backup)'])
             group.setData(0, ITEM_ROLE, (GROUP, ''))
