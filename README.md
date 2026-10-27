@@ -53,7 +53,8 @@ sweepaddress -c ZEN -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp --ma
 This will create appropriate number of transactions (by default one transaction for each 50 inputs, you can
 override this value by setting parameter --batch_size, but setting it too high will result in too big transaction error),
 transaction fee will be set to default 10000 satoshis (0.0001 ZEN) per transaction (you can override it using
---fee parameter) and the funds will be sent back to original address (you can override the output address
+--fee parameter, or use --fee_rate (`-r`) to pay the given number of satoshis per virtual byte of each
+transaction) and the funds will be sent back to original address (you can override the output address
 using --address parameter). Inputs can be also filtered with --minimum_input_threshold.
 2. Sending funds:
 ```bash
@@ -61,7 +62,8 @@ sendcrypto --coin_symbol=<COIN_SYMBOL> --satoshis=<INT> --address=<ADDRESS> --wi
 ```
 Funds can be sent from many addresses at once by providing comma separated private keys. The default fee
 is 10000 satoshis, `--limit_inputs` (`-l`) limits the number of inputs used in the transaction and the change
-is sent back to the address of the last used input.
+is sent back to the address of the last used input. Instead of the fixed fee, `--fee_rate` (`-r`) pays the
+given number of satoshis per virtual byte, the fee is calculated from the size of the transaction.
 Sending (P2PKH) 0.25 BTC to address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG with default fee 10000 satoshis
 and only using inputs containing not more than 100000 satoshis:
 ```bash
@@ -185,7 +187,9 @@ unlocked, and the fingerprint of the master key detects a mistyped passphrase. T
   (after entering the password again),
 - **Balance** - unspent outputs of the wallet address or any other address (like `checkaddress`),
 - **Send** - send funds from one or more wallet addresses (like `sendcrypto`), the transaction is
-  shown for confirmation before it is broadcast, the change goes back to the source address,
+  shown for confirmation before it is broadcast, the fee rate is entered in sat/vB (Estimate takes it
+  from the block explorer), the change of HD accounts goes to the next change address (…/1/i), of
+  imported keys back to the source address,
 - **Sweep** - send all unspent outputs of the wallet address or of an external private key (e.g.
   a paper wallet, the key is not saved in the wallet) in batches (like `sweepaddress`) to the same
   address, a wallet address or any other address,
@@ -198,7 +202,9 @@ unlocked, and the fingerprint of the master key detects a mistyped passphrase. T
   processes, the found key can be added to the wallet.
 
 The **Wallet** tab shows also the QR code of the address, and "Translate to another coin" adds the
-key of a wallet address as an imported key of another coin.
+key of a wallet address as an imported key of another coin. File → Scan for used addresses finds
+used accounts and addresses of all address types (gap limit 20), it runs also after restoring a
+wallet from the mnemonic, so the funds received in another wallet (e.g. Electrum, Sparrow) are shown.
 
 The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
 data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
