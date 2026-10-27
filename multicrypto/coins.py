@@ -7,9 +7,12 @@ ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR)
 
 # Dictionary with coins definition with coin symbols as keys. Optional 'address_types' lists
 # supported address types (only P2PKH by default), P2WPKH and P2TR require also 'bech32_hrp'.
+# Optional 'slip44' is the coin type from SLIP-44 used in BIP-44 derivation paths, coins without it
+# support only imported private keys.
 coins = {
     'BTC': {
         'name': 'bitcoin',
+        'slip44': 0,
         'address_prefix_bytes': b'\x00',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x05',
@@ -35,6 +38,7 @@ coins = {
     },
     'BTG': {
         'name': 'bitcoin gold',
+        'slip44': 156,
         'address_prefix_bytes': b'\x26',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x17',
@@ -61,6 +65,7 @@ coins = {
     },
     'BTCZ': {
         'name': 'bitcoinz',
+        'slip44': 177,
         'address_prefix_bytes': b'\x1c\xb8',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
@@ -68,6 +73,7 @@ coins = {
     },
     'DASH': {
         'name': 'dash',
+        'slip44': 5,
         'address_prefix_bytes': b'\x4c',
         'secret_prefix_bytes': b'\xcc',
         'script_prefix_bytes': b'\x10',
@@ -83,6 +89,7 @@ coins = {
     },
     'DOGE': {
         'name': 'dogecoin',
+        'slip44': 3,
         'address_prefix_bytes': b'\x1e',
         'secret_prefix_bytes': b'\x9e',
         'script_prefix_bytes': b'\x16',
@@ -98,6 +105,7 @@ coins = {
     },
     'LTC': {
         'name': 'litecoin',
+        'slip44': 2,
         'address_prefix_bytes': b'\x30',
         'secret_prefix_bytes': b'\xb0',
         'script_prefix_bytes': b'\x05',
@@ -119,6 +127,7 @@ coins = {
     },
     'SAFE': {
         'name': 'safecoin',
+        'slip44': 19165,
         'address_prefix_bytes': b'\x3d',
         'secret_prefix_bytes': b'\xbd',
         'script_prefix_bytes': b'\x56',
@@ -126,6 +135,7 @@ coins = {
     },
     'TENT': {
         'name': 'TENT',
+        'slip44': 410,
         'address_prefix_bytes': b'\x1c\x28',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\x2d',
@@ -133,12 +143,14 @@ coins = {
     },
     'SMART': {
         'name': 'smartcash',
+        'slip44': 224,
         'address_prefix_bytes': b'\x3f',
         'secret_prefix_bytes': b'\xbf',
         'script_prefix_bytes': b'\x12',
     },
     'TBTC': {
         'name': 'bitcoin testnet',
+        'slip44': 1,
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
@@ -162,6 +174,7 @@ coins = {
     },
     'TBCH': {
         'name': 'bitcoin cash testnet',
+        'slip44': 1,
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
@@ -169,6 +182,7 @@ coins = {
     },
     'TLTC': {
         'name': 'litecoin testnet',
+        'slip44': 1,
         'address_prefix_bytes': b'\x6f',
         'secret_prefix_bytes': b'\xef',
         'script_prefix_bytes': b'\xc4',
@@ -187,6 +201,7 @@ coins = {
     },
     'ZEC': {
         'name': 'zcash',
+        'slip44': 133,
         'address_prefix_bytes': b'\x1c\xb8',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
@@ -205,6 +220,7 @@ coins = {
     },
     'ZCL': {
         'name': 'zclassic',
+        'slip44': 147,
         'address_prefix_bytes': b'\x1c\xb8',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
@@ -218,6 +234,7 @@ coins = {
     },
     'ZEN': {
         'name': 'horizen',
+        'slip44': 121,
         'address_prefix_bytes': b'\x20\x89',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
@@ -237,6 +254,7 @@ coins = {
     },
     'ZERO': {
         'name': 'zero',
+        'slip44': 323,
         'address_prefix_bytes': b'\x1c\xb8',
         'secret_prefix_bytes': b'\x80',
         'script_prefix_bytes': b'\x1c\xbd',
