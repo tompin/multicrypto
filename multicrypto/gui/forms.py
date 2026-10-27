@@ -8,9 +8,9 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from multicrypto.address import validate_address
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_utxo_from_address
-from multicrypto.coins import coins
+from multicrypto.coins import P2TR, coins
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
-from multicrypto.wallet import WalletAddress, WalletError, check_new_password
+from multicrypto.wallet import WalletAddress, WalletError, check_entry, check_new_password
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +185,49 @@ def describe_transaction(
         ('Inputs', inputs_text),
         ('Size', f'{len(prepared.raw_transaction) // 2} bytes'),
         ('Broadcast', broadcast_target),
+    ]
+
+
+def parse_wif(text: str, coin_symbol: str, address_type: str) -> Tuple[str, str]:
+    """Validate the private key in WIF format, return it with its address of the given type."""
+    wif = text.strip()
+    if not wif:
+        raise ValueError('Enter the private key in WIF format')
+    return wif, check_entry(coin_symbol, wif, address_type)
+
+
+def check_signable(address: WalletAddress) -> None:
+    if address.address_type == P2TR:
+        raise ValueError('Taproot addresses cannot sign messages (BIP-137)')
+
+
+def describe_sweep(
+    prepared: List[PreparedTransaction],
+    coin_symbol: str,
+    source_address: str,
+    destination_address: str,
+) -> List[Tuple[str, str]]:
+    """Rows of the summary shown before the sweep transactions are broadcast."""
+
+    def amount(satoshis: int) -> str:
+        return f'{format_amount(satoshis)} {coin_symbol}'
+
+    batches = '\n'.join(
+        f'{number}. inputs: {len(transaction.inputs)}, '
+        f'amount: {amount(transaction.outputs[0]["satoshis"])}, '
+        f'fee: {amount(transaction.fee)}, size: {len(transaction.raw_transaction) // 2} bytes'
+        for number, transaction in enumerate(prepared, start=1)
+    )
+    inputs = sum(len(transaction.inputs) for transaction in prepared)
+    input_satoshis = sum(transaction.input_satoshis for transaction in prepared)
+    return [
+        ('From', source_address),
+        ('To', destination_address),
+        ('Transactions', str(len(prepared))),
+        ('Inputs', f'{inputs} ({amount(input_satoshis)})'),
+        ('Fee', amount(sum(transaction.fee for transaction in prepared))),
+        ('Received', amount(sum(transaction.outputs[0]['satoshis'] for transaction in prepared))),
+        ('Batches', batches),
     ]
 
 
