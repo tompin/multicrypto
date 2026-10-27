@@ -673,3 +673,13 @@ def test_restored_wallet_is_scanned(window, monkeypatch):
     window._created(window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE), restored=True)
 
     assert scanned == [1]
+
+
+def test_wallet_tab_shows_change_path(window):
+    unlock(window)
+    account = window.wallet.accounts[0]
+    window.modify_wallet(lambda wallet: wallet.add_address(account.id, 1, 0))
+
+    item = window.wallet_tab.tree.topLevelItem(0).child(0)
+
+    assert (item.text(0), item.text(1)) == ('Change 0', '1/0')
