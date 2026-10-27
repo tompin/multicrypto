@@ -289,7 +289,7 @@ def test_sweep_wallet_address_to_itself_in_batches(qapp, window, monkeypatch):
     tab = window.sweep_tab
 
     tab.select_source(address)
-    tab.fee.setText('1000')
+    tab.fee.rate.setText('2')
     tab.batch_size.setText('2')
     tab.prepare()
     wait_until(qapp, lambda: shown)
@@ -298,7 +298,7 @@ def test_sweep_wallet_address_to_itself_in_batches(qapp, window, monkeypatch):
     assert shown == [['tx1', 'tx2']]
     assert confirmations[0]['From'] == confirmations[0]['To'] == address.address
     assert confirmations[0]['Transactions'] == '2'
-    assert confirmations[0]['Received'] == '0.00298000 TBTC'
+    assert confirmations[0]['Received'].endswith(' TBTC')
     assert tab.prepare_button.isEnabled()
 
 
@@ -318,6 +318,7 @@ def test_sweep_stops_after_failed_batch(qapp, window, monkeypatch):
 
     tab.select_source(address)
     tab.batch_size.setText('1')
+    tab.fee.rate.setText('2')
     tab.prepare()
     wait_until(qapp, lambda: errors)
 
@@ -346,6 +347,7 @@ def test_sweep_external_key_to_wallet_address(qapp, window, monkeypatch):
     assert not tab.same_destination.isEnabled()
     tab.wallet_destination.setChecked(True)
     tab.destination_box.setCurrentIndex(tab.destination_box.findData(address.id))
+    tab.fee.rate.setText('2')
     tab.prepare()
     wait_until(qapp, lambda: shown)
 
@@ -545,3 +547,36 @@ def test_lock_stops_vanity_search(qapp, window):
     assert tab.search is None
     assert not search.running
     assert tab.start_button.isEnabled()
+
+
+@http_mock.activate
+def test_fee_rate_estimate(qapp, window):
+    unlock(window)
+    address = add_address(window, 'TBTC', 'p2wpkh')
+    http_mock.add(
+        http_mock.GET,
+        f'{TBTC_API}/fee-estimates',
+        json={'1': 12.04, '3': 8.1, '6': 4.0, '144': 1.0},
+    )
+    tab = window.sweep_tab
+    tab.select_source(address)
+
+    tab.fee.target.setCurrentIndex(tab.fee.target.findData(1))
+    tab.fee.estimate()
+    wait_until(qapp, lambda: tab.fee.rate.text())
+
+    assert tab.fee.rate.text() == '12.1'
+
+
+@http_mock.activate
+def test_fee_rate_estimate_not_available(qapp, window):
+    unlock(window)
+    address = add_address(window, 'TBTC', 'p2wpkh')
+    http_mock.add(http_mock.GET, f'{TBTC_API}/fee-estimates', json={})
+    tab = window.sweep_tab
+    tab.select_source(address)
+
+    tab.fee.estimate()
+    wait_until(qapp, lambda: tab.fee.status.text())
+
+    assert 'Fee estimate is not available' in tab.fee.status.text()

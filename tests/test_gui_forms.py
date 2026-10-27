@@ -22,6 +22,7 @@ from multicrypto.gui.forms import (
     format_duration,
     parse_address,
     parse_amount,
+    parse_fee_rate,
     parse_int,
     parse_nodes,
     parse_private_key_input,
@@ -136,6 +137,7 @@ def test_describe_transaction():
         outputs=[{'address': 'dest', 'satoshis': 60000}, {'address': 'src', 'satoshis': 39000}],
         input_satoshis=100000,
         fee=1000,
+        vsize=200,
     )
 
     rows = describe_transaction(prepared, 'BTC', ['src'], 'block explorer API')
@@ -144,12 +146,26 @@ def test_describe_transaction():
         ('From', 'src'),
         ('To', 'dest'),
         ('Amount', '0.00060000 BTC'),
-        ('Fee', '0.00001000 BTC'),
+        ('Fee', '0.00001000 BTC (1000 satoshis, 5.0 sat/vB)'),
         ('Change', '0.00039000 BTC to src'),
         ('Inputs', '2 (0.00100000 BTC)'),
-        ('Size', '225 bytes'),
+        ('Size', '200 vB (225 bytes)'),
         ('Broadcast', 'block explorer API'),
     ]
+    rows = dict(
+        describe_transaction(prepared, 'BTC', ['src'], 'block explorer API', "m/84'/0'/0'/1/0")
+    )
+    assert rows['Change'] == "0.00039000 BTC to src (m/84'/0'/0'/1/0)"
+
+
+def test_describe_transaction_with_high_fee_rate():
+    prepared = PreparedTransaction(
+        '00' * 10, [{}], [{'address': 'dest', 'satoshis': 1000}], 3000, 2000, vsize=1
+    )
+
+    rows = describe_transaction(prepared, 'BTC', ['src'], 'block explorer API')
+
+    assert rows[-1] == ('Warning', 'Fee rate is above 1000 sat/vB')
 
 
 def test_describe_transaction_with_change_added_to_fee():
@@ -159,7 +175,8 @@ def test_describe_transaction_with_change_added_to_fee():
 
     rows = dict(describe_transaction(prepared, 'BTC', ['src'], 'peer-to-peer network'))
 
-    assert rows['Fee'] == '0.00001000 BTC + 293 satoshis of change below the dust threshold'
+    assert rows['Fee'].startswith('0.00001000 BTC (1000 satoshis')
+    assert rows['Fee'].endswith(' + 293 satoshis of change below the dust threshold')
     assert rows['Change'] == 'none'
 
 
@@ -298,10 +315,10 @@ def test_check_signable():
 def test_describe_sweep():
     prepared = [
         PreparedTransaction(
-            '00' * 200, [{}, {}], [{'address': 'dest', 'satoshis': 299000}], 300000, 1000
+            '00' * 200, [{}, {}], [{'address': 'dest', 'satoshis': 299000}], 300000, 1000, 0, 150
         ),
         PreparedTransaction(
-            '00' * 120, [{}], [{'address': 'dest', 'satoshis': 99000}], 100000, 1000
+            '00' * 120, [{}], [{'address': 'dest', 'satoshis': 99000}], 100000, 1000, 0, 100
         ),
     ]
 
@@ -316,8 +333,8 @@ def test_describe_sweep():
         ('Received', '0.00398000 BTC'),
         (
             'Batches',
-            '1. inputs: 2, amount: 0.00299000 BTC, fee: 0.00001000 BTC, size: 200 bytes\n'
-            '2. inputs: 1, amount: 0.00099000 BTC, fee: 0.00001000 BTC, size: 120 bytes',
+            '1. inputs: 2, amount: 0.00299000 BTC, fee: 0.00001000 BTC (6.7 sat/vB), size: 150 vB\n'
+            '2. inputs: 1, amount: 0.00099000 BTC, fee: 0.00001000 BTC (10.0 sat/vB), size: 100 vB',
         ),
     ]
 
@@ -397,3 +414,22 @@ def test_parse_vanity_pattern():
 )
 def test_format_duration(seconds, text):
     assert format_duration(seconds) == text
+
+
+@pytest.mark.parametrize('text, rate', [('2', 2.0), (' 2,5 ', 2.5), ('0.1', 0.1)])
+def test_parse_fee_rate(text, rate):
+    assert parse_fee_rate(text) == rate
+
+
+@pytest.mark.parametrize(
+    'text, error',
+    [
+        ('', 'Enter the fee rate or press Estimate'),
+        ('abc', 'Incorrect fee rate'),
+        ('0', 'greater than zero'),
+        ('1.25', 'at most one decimal place'),
+    ],
+)
+def test_parse_fee_rate_errors(text, error):
+    with pytest.raises(ValueError, match=error):
+        parse_fee_rate(text)

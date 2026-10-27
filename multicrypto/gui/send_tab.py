@@ -1,7 +1,7 @@
 """Send tab: preparing, confirming and broadcasting transactions (sendcrypto)."""
 
 import json
-from typing import List
+from typing import List, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from multicrypto.api import broadcast_prepared, prepare_from_private_keys
 from multicrypto.coins import coins
 from multicrypto.gui.dialogs import confirm, show_text
+from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
     address_description,
     check_sources,
@@ -28,14 +29,12 @@ from multicrypto.gui.forms import (
     extract_txid,
     parse_address,
     parse_amount,
-    parse_int,
     parse_nodes,
     parse_thresholds,
 )
 from multicrypto.network import broadcast_transaction
 from multicrypto.wallet import WalletAddress
 
-DEFAULT_FEE = 10000
 ID_ROLE = Qt.ItemDataRole.UserRole
 
 
@@ -49,7 +48,7 @@ class SendTab(QWidget):
         self.destination_status = QLabel()
         self.amount = QLineEdit()
         self.amount.setPlaceholderText('in coin units, e.g. 0.001')
-        self.fee = QLineEdit(str(DEFAULT_FEE))
+        self.fee = FeeRateField(app, self._source_coin)
         self.minimum = QLineEdit()
         self.maximum = QLineEdit()
         self.limit = QLineEdit()
@@ -62,7 +61,7 @@ class SendTab(QWidget):
         form.addRow('To address', self.destination)
         form.addRow('', self.destination_status)
         form.addRow('Amount', self.amount)
-        form.addRow('Fee (satoshis)', self.fee)
+        form.addRow('Fee rate (sat/vB)', self.fee)
         advanced = QGroupBox('Advanced')
         advanced_form = QFormLayout(advanced)
         advanced_form.addRow('Minimum input (satoshis)', self.minimum)
@@ -103,6 +102,12 @@ class SendTab(QWidget):
             self.app.wallet.get_address(item.data(ID_ROLE)) for item in self.sources.selectedItems()
         ]
 
+    def _source_coin(self) -> Optional[str]:
+        try:
+            return check_sources(self._selected_addresses())[0]
+        except ValueError:
+            return None
+
     def _validate_destination(self):
         text = self.destination.text()
         if not text.strip() or self.app.wallet is None:
@@ -127,7 +132,7 @@ class SendTab(QWidget):
                 raise ValueError(f'No API has been defined for the coin {coin_symbol}')
             destination = parse_address(self.destination.text(), coin_symbol)
             satoshis = parse_amount(self.amount.text())
-            fee = parse_int(self.fee.text(), 'Fee', minimum=0)
+            fee_rate = self.fee.value()
             minimum, maximum, limit = parse_thresholds(
                 self.minimum.text(), self.maximum.text(), self.limit.text()
             )
@@ -146,11 +151,12 @@ class SendTab(QWidget):
                 unlocking_scripts=None,
                 destination_address=destination,
                 satoshis=satoshis,
-                fee=fee,
+                fee=None,
                 minimum_input_threshold=minimum,
                 maximum_input_threshold=maximum,
                 limit_inputs=limit,
                 address_type=address_type,
+                fee_rate=fee_rate,
             )
 
         self.prepare_button.setEnabled(False)
