@@ -1,24 +1,43 @@
-"""Running slow operations (network requests, key derivation) outside of the tkinter thread."""
+"""Running slow operations (key derivation, network requests) outside of the GUI thread."""
 
 import logging
-import queue
-import threading
-from typing import Any, Callable
+from typing import Any, Callable, Optional
+
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
 logger = logging.getLogger(__name__)
 
-POLL_INTERVAL = 100  # in milliseconds
+
+class _Signals(QObject):
+    finished = Signal(object, object)  # callback, value
 
 
-class Worker:
-    """Run functions in background threads and call the callbacks in the tkinter thread, since
-    tkinter widgets must not be used from other threads."""
+class _Task(QRunnable):
+    def __init__(self, func, on_success, on_error, signals: _Signals):
+        super().__init__()
+        self.func = func
+        self.on_success = on_success
+        self.on_error = on_error
+        self.signals = signals
 
-    def __init__(self, root):
-        self.root = root
+    def run(self):
+        try:
+            result = self.func()
+        except Exception as error:  # passed to on_error in the GUI thread
+            self.signals.finished.emit(self.on_error, error)
+        else:
+            self.signals.finished.emit(self.on_success, result)
+
+
+class Worker(QObject):
+    """Run functions in the thread pool and call the callbacks in the GUI thread, since widgets
+    must not be used from other threads."""
+
+    def __init__(self, parent: Optional[QObject] = None):
+        super().__init__(parent)
         self.pending = 0
-        self._results = queue.Queue()
-        self.root.after(POLL_INTERVAL, self._poll)
+        self._signals = _Signals(self)
+        self._signals.finished.connect(self._finish)
 
     def run(
         self,
@@ -26,28 +45,13 @@ class Worker:
         on_success: Callable[[Any], None],
         on_error: Callable[[Exception], None],
     ) -> None:
-        def target():
-            try:
-                result = func()
-            except Exception as error:  # passed to on_error in the tkinter thread
-                self._results.put((on_error, error))
-            else:
-                self._results.put((on_success, result))
-
         self.pending += 1
-        threading.Thread(target=target, daemon=True).start()
+        QThreadPool.globalInstance().start(_Task(func, on_success, on_error, self._signals))
 
-    def _poll(self) -> None:
+    @Slot(object, object)
+    def _finish(self, callback, value):
+        self.pending -= 1
         try:
-            while True:
-                try:
-                    callback, value = self._results.get_nowait()
-                except queue.Empty:
-                    break
-                self.pending -= 1
-                try:
-                    callback(value)
-                except Exception:
-                    logger.exception('Error in the callback of the background task')
-        finally:
-            self.root.after(POLL_INTERVAL, self._poll)
+            callback(value)
+        except Exception:
+            logger.exception('Error in the callback of the background task')
