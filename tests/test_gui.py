@@ -1,3 +1,4 @@
+import time
 from unittest.mock import Mock
 
 import pyqrcode
@@ -160,3 +161,78 @@ def test_qr_dialog_shows_address(qapp):
 
     assert dialog.address_label.text() == address.address
     assert 'Savings' in dialog.windowTitle()
+
+
+def wait_until(qapp, condition):
+    deadline = time.monotonic() + 10
+    while not condition():
+        assert time.monotonic() < deadline
+        qapp.processEvents()
+        time.sleep(0.01)
+
+
+def add_address(window, coin_symbol='BTC', address_type='p2wpkh'):
+    accounts = [
+        account
+        for account in window.wallet.accounts
+        if (account.coin, account.address_type) == (coin_symbol, address_type)
+    ]
+    if accounts:
+        account = accounts[0]
+    else:
+        account = window.modify_wallet(
+            lambda wallet: wallet.add_account('Test', coin_symbol, address_type)
+        )
+    return window.modify_wallet(lambda wallet: wallet.new_address(account.id))
+
+
+def test_sign_and_verify_message(qapp, window):
+    unlock(window)
+    address = add_address(window)
+    tab = window.sign_tab
+    message = 'Zażółć gęślą jaźń'
+
+    tab.select_address(address)
+    tab.sign_message.setPlainText(message)
+    tab.sign()
+    wait_until(qapp, lambda: tab.signature.text())
+    tab.verify_coin.setCurrentText('LTC')
+    tab.verify_address.setText(address.address)
+    tab.verify_message.setPlainText(message)
+    tab.verify_signature.setText(tab.signature.text())
+    tab.verify()
+
+    assert window.tab_widget.currentWidget() is tab
+    assert tab.verify_coin.currentText() == 'BTC'  # detected from the wallet address
+    assert 'Signature is valid' in tab.verify_result.text()
+
+    tab.verify_message.setPlainText('Other message')
+    tab.verify()
+    assert 'Signature is not valid' in tab.verify_result.text()
+
+    tab.verify_signature.setText('abc')
+    tab.verify()
+    assert 'Signature is not correct base64' in tab.verify_result.text()
+
+
+def test_taproot_address_cannot_be_selected_for_signing(window):
+    unlock(window)
+    address = add_address(window, 'BTC', 'p2tr')
+    tab = window.sign_tab
+
+    index = tab.sign_address.findData(address.id)
+
+    assert not tab.sign_address.model().item(index).isEnabled()
+    assert 'taproot: not supported' in tab.sign_address.itemText(index)
+
+
+def test_lock_clears_sign_tab(window):
+    unlock(window)
+    window.sign_tab.sign_message.setPlainText('Secret plan')
+    window.sign_tab.signature.setText('signature')
+
+    window.lock()
+
+    assert window.sign_tab.sign_message.toPlainText() == ''
+    assert window.sign_tab.signature.text() == ''
+    assert window.sign_tab.sign_address.count() == 0
