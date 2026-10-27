@@ -1,73 +1,46 @@
-from unittest.mock import Mock
-
 import pytest
-from nacl import pwhash
 
-tkinter = pytest.importorskip('tkinter')
+pytest.importorskip('PySide6')
 
-from multicrypto.gui.forms import entry_description  # noqa: E402
-from multicrypto.gui.window import MainWindow  # noqa: E402
-from multicrypto.wallet import WalletFile  # noqa: E402
+from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 
 PASSWORD = 'correct horse battery'
-BTC_WIF = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg'
+PASSPHRASE = 'secret passphrase'
+MNEMONIC = ' '.join(['abandon'] * 11 + ['about'])
 
 
-@pytest.fixture
-def root():
-    try:
-        root = tkinter.Tk()
-    except tkinter.TclError:
-        pytest.skip('No display available')
-    root.withdraw()
-    yield root
-    root.destroy()
+def test_wizard_restores_mnemonic(qapp):
+    wizard = CreateWalletWizard(None, 'wallet.mcw')
+    wizard.password_page.password.setText(PASSWORD)
+    wizard.password_page.confirmation.setText(PASSWORD)
+    wizard.mode_page.restore.setChecked(True)
+    wizard.restore_page.text.setPlainText(MNEMONIC.upper())
+    wizard.passphrase_page.passphrase.setText(PASSPHRASE)
+    wizard.passphrase_page.confirmation.setText(PASSPHRASE)
+
+    assert wizard.password_page.validatePage()
+    assert wizard.mode_page.nextId() == RESTORE_PAGE
+    assert wizard.restore_page.status.text() == 'Mnemonic is correct'
+    assert wizard.restore_page.validatePage()
+    assert wizard.passphrase_page.validatePage()
+    assert wizard.values() == (PASSWORD, MNEMONIC, PASSPHRASE)
 
 
-@pytest.fixture
-def window(root, tmp_path):
-    wallet_file = WalletFile(
-        str(tmp_path / 'wallet.mcw'), pwhash.argon2id.OPSLIMIT_MIN, pwhash.argon2id.MEMLIMIT_MIN
-    )
-    return MainWindow(root, wallet_file)
+def test_wizard_confirms_generated_mnemonic(qapp):
+    wizard = CreateWalletWizard(None, 'wallet.mcw')
+    words = wizard.generated_mnemonic.split()
+    for position, field in wizard.confirm_page.answers.items():
+        field.setText(words[position - 1])
+
+    assert len(words) == 24
+    assert wizard.mode_page.nextId() == SHOW_PAGE
+    assert wizard.confirm_page.validatePage()
+    assert wizard.values()[1] == wizard.generated_mnemonic
 
 
-def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
-    window.show_wallet(window.wallet_file.create(PASSWORD))
-    assert 'unlocked' in window.status.get()
+def test_restore_page_shows_mnemonic_errors(qapp):
+    wizard = CreateWalletWizard(None, 'wallet.mcw')
 
-    entry = window.modify_wallet(lambda wallet: wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh'))
-    for tab in window.tabs:
-        window.notebook.select(tab.frame)
+    wizard.restore_page.text.setPlainText(' '.join(['abandon'] * 12))
 
-    assert window.wallet_tab.tree.get_children() == (entry.id,)
-    assert window.send_tab.sources.get_children() == (entry.id,)
-    assert window.balance_tab.entry_box.get() == entry_description(entry)
-
-    window.lock()
-
-    assert window.wallet is None
-    assert not window.wallet_file.is_unlocked
-    assert window.wallet_tab.tree.get_children() == ()
-    assert window.send_tab.sources.get_children() == ()
-    assert window.balance_tab.entry_box.get() == ''
-
-
-def test_modify_wallet_reverts_change_when_saving_fails(window, monkeypatch):
-    window.show_wallet(window.wallet_file.create(PASSWORD))
-    monkeypatch.setattr(window.wallet_file, 'save', Mock(side_effect=OSError('disk full')))
-
-    with pytest.raises(OSError):
-        window.modify_wallet(lambda wallet: wallet.add_wif('Savings', 'BTC', BTC_WIF, 'p2wpkh'))
-
-    assert window.wallet.entries == []
-
-
-def test_wallet_is_locked_after_inactivity(window):
-    window.show_wallet(window.wallet_file.create(PASSWORD))
-    window.last_activity -= window.auto_lock_seconds
-
-    window.tick()
-
-    assert window.wallet is None
-    assert 'locked' in window.status.get()
+    assert 'checksum' in wizard.restore_page.status.text()
