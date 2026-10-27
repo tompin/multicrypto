@@ -1,4 +1,4 @@
-"""Parsing and validation of the GUI forms, independent of tkinter to be testable without GUI."""
+"""Parsing and validation of the GUI forms, independent of Qt to be testable without GUI."""
 
 import json
 import logging
