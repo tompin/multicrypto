@@ -433,3 +433,60 @@ def test_wallet_tab_adds_translated_key(window, monkeypatch):
         'LTC',
         'p2wpkh',
     )
+
+
+def test_translate_address_tab(window):
+    unlock(window)
+    tab = window.translate_tab
+
+    tab.address.setText('1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi')
+    tab.address_input_coin.setCurrentText('BTC')
+    tab.address_output_coin.setCurrentText('BTG')
+    tab.translate_address()
+    assert tab.translated_address.text() == 'Ga3afwEZMPHqRQ7uHyBAti7NSUX7SHppZg'
+
+    tab.address.setText('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu')
+    tab.translate_address()
+    assert tab.translated_address.text() == ''
+    assert 'need the private key' in tab.address_status.text()
+
+
+def test_translate_key_tab_and_add_to_wallet(window, monkeypatch):
+    unlock(window)
+    tab = window.translate_tab
+
+    tab.integer.setChecked(True)
+    tab.key.setText('43265286516710475498079662292151387463063605274999989765271924584279496871562')
+    tab.key_output_coin.setCurrentText('LTC')
+    tab.translate_key()
+
+    assert tab.translated_key.text() == 'T6Fv2DdAqxFBdhL8FNKEA11EmLbNkvXu8QFWJJwVi1HEGS1NSUTV'
+    assert [tab.key_addresses.item(row, 1).text() for row in range(4)] == [
+        'LbRcX2DSTBvbbjWmYAWMjxqEjX6YWvssUp',
+        '3Png2L1DD4tqaHeu5p6USVcUuo55MmrWoR',
+        'ltc1qkxmgtft32j3uxfjmseypq84xlwaglttjrr3k59',
+        'ltc1pk5jxttt9wcct7sp4eg4m2gdhd49tpns2kz8wqfzt79z4amzyqkeqgrc3cz',
+    ]
+    monkeypatch.setattr(
+        wallet_tab_module.TranslateKeyDialog, 'exec', lambda dialog: dialog.accept()
+    )
+    tab.add_to_wallet()
+    [imported] = window.wallet.imported_addresses()
+    assert (imported.coin, imported.address) == ('LTC', 'LbRcX2DSTBvbbjWmYAWMjxqEjX6YWvssUp')
+
+    tab.key.setText('other')
+    assert tab.translated_key.text() == ''
+    assert not tab.add_button.isEnabled()
+
+
+def test_lock_clears_translate_tab(window):
+    unlock(window)
+    tab = window.translate_tab
+    tab.key.setText('KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu')
+    tab.translate_key()
+
+    window.lock()
+
+    assert tab.key.text() == ''
+    assert tab.translated_key.text() == ''
+    assert tab.key_addresses.rowCount() == 0
