@@ -48,6 +48,18 @@ def test_wizard_restores_mnemonic(qapp):
     assert wizard.values() == (PASSWORD, MNEMONIC, PASSPHRASE)
 
 
+def test_wizard_allows_empty_passphrase(qapp, monkeypatch):
+    warnings = []
+    monkeypatch.setattr(
+        'multicrypto.gui.create_wizard.QMessageBox.warning', lambda *args: warnings.append(args)
+    )
+    wizard = CreateWalletWizard(None, 'wallet.mcw')
+
+    assert wizard.passphrase_page.validatePage()
+    assert wizard.values()[2] == ''
+    assert warnings == []
+
+
 def test_wizard_confirms_generated_mnemonic(qapp):
     wizard = CreateWalletWizard(None, 'wallet.mcw')
     words = wizard.generated_mnemonic.split()
@@ -81,6 +93,61 @@ def window(qapp, tmp_path):
 
 def unlock(window):
     window.show_wallet(window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE))
+
+
+def answer_unlock_dialogs(monkeypatch, answers):
+    """Answer the password dialogs in order, return the labels of the asked fields."""
+    labels = []
+
+    def ask_password(parent, title, prompt, new_password=False, label='Password'):
+        labels.append(label)
+        return answers.pop(0)
+
+    monkeypatch.setattr('multicrypto.gui.window.ask_password', ask_password)
+    return labels
+
+
+def test_unlock_without_passphrase_asks_only_for_password(window, qapp, monkeypatch):
+    window.wallet_file.create(PASSWORD, MNEMONIC, '')
+    window.wallet_file.lock()
+    labels = answer_unlock_dialogs(monkeypatch, [PASSWORD])
+
+    window.unlock()
+    wait_until(qapp, lambda: window.wallet is not None)
+
+    assert labels == ['Password']
+    assert window.wallet.fingerprint == '73c5da0a'
+
+
+def test_unlock_asks_for_passphrase_until_correct(window, qapp, monkeypatch):
+    window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+    window.wallet_file.lock()
+    labels = answer_unlock_dialogs(monkeypatch, [PASSWORD, 'wrong', PASSPHRASE])
+    warnings = []
+    monkeypatch.setattr(
+        'multicrypto.gui.window.QMessageBox.warning', lambda *args: warnings.append(args[2])
+    )
+
+    window.unlock()
+    wait_until(qapp, lambda: window.wallet is not None)
+
+    assert labels == ['Password', 'Passphrase', 'Passphrase']
+    assert len(warnings) == 1
+    assert 'Check the passphrase' in warnings[0]
+    assert 'unlocked' in window.status.text()
+
+
+def test_cancelled_passphrase_keeps_wallet_locked(window, qapp, monkeypatch):
+    window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+    window.wallet_file.lock()
+    answer_unlock_dialogs(monkeypatch, [PASSWORD, None])
+
+    window.unlock()
+    wait_until(qapp, lambda: window.worker.pending == 0)
+
+    assert window.wallet is None
+    assert not window.wallet_file.is_unlocked
+    assert 'locked' in window.status.text()
 
 
 def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):

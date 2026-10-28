@@ -25,7 +25,7 @@ The package contains below commands:
  6. `genaddress` - generates vanity address for given coin
  7. `signmessage`- signs message using ECDSA
  8. `verifymessage` - verifies ECDSA signed message
- 9. `multicrypto-gui` - graphical user interface with HD wallet (BIP-39 mnemonic with passphrase)
+ 9. `multicrypto-gui` - graphical user interface with HD wallet (BIP-39 mnemonic with optional passphrase)
 
 The GUI requires optional dependencies PyNaCl and PySide6:
 ```bash
@@ -175,13 +175,15 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 ```bash
 multicrypto-gui --wallet=<WALLET FILE> --auto_lock=<MINUTES>
 ```
-The wallet is a BIP-39 mnemonic protected with a passphrase, keys are derived according to BIP-32
+The wallet is a BIP-39 mnemonic with optional passphrase, keys are derived according to BIP-32
 with BIP-44 (p2pkh), BIP-49 (p2sh-p2wpkh), BIP-84 (p2wpkh) and BIP-86 (p2tr) paths and SLIP-44 coin
 types, so the addresses can be restored in other wallets (e.g. Electrum, Sparrow). The mnemonic,
 accounts, address labels and imported private keys are kept in a single file (by default
 `~/.multicrypto/wallet.mcw`) encrypted with XChaCha20-Poly1305 using the key derived from the
-password with Argon2id. The passphrase is never saved: it is entered every time the wallet is
-unlocked, and the fingerprint of the master key detects a mistyped passphrase. Tabs:
+password with Argon2id. The passphrase can be left empty, then the mnemonic alone restores the
+wallet. When it is set, it works as an additional word of the mnemonic and it is never saved: it is
+asked after the password every time the wallet is unlocked, and the fingerprint of the master key
+detects a mistyped passphrase. Tabs:
 - **Wallet** - accounts with receiving addresses created on demand, imported private keys (they are
   not covered by the mnemonic backup), address balances, showing private keys and the mnemonic
   (after entering the password again),
@@ -210,7 +212,7 @@ quickly from its context menu in the Wallet tab.
 
 The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
 data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
-locked. Keep the mnemonic and the passphrase written down separately - the funds cannot be
+locked. Keep the mnemonic and the passphrase (if set) written down separately - the funds cannot be
 recovered without both of them.
 
 ### Supported coins

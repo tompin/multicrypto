@@ -135,8 +135,6 @@ def coins_with_slip44() -> List[str]:
 
 
 def check_passphrase_confirmation(passphrase: str, confirmation: str) -> None:
-    if not passphrase:
-        raise ValueError('Passphrase cannot be empty')
     if passphrase != confirmation:
         raise ValueError('Passphrases do not match')
 

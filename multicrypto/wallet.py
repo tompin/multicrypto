@@ -9,8 +9,8 @@ followed by the wallet content (JSON) encrypted with XChaCha20-Poly1305. The key
 the password using Argon2id with the parameters and salt from the header. The whole header is
 authenticated as additional data, so it cannot be modified without detection.
 
-The BIP-39 passphrase is never saved, only the fingerprint of the master key derived with it, which
-is used to detect a mistyped passphrase when the wallet is unlocked.
+The BIP-39 passphrase is optional (empty) and never saved, only the fingerprint of the master key
+derived with it, which is used to detect a mistyped passphrase when the wallet is unlocked.
 """
 
 import json
@@ -217,6 +217,14 @@ class Wallet:
                 f'{self.fingerprint}. Check the passphrase.'
             )
         self._master_key = master_key
+
+    def open_without_passphrase(self) -> bool:
+        """Open the wallet created without passphrase, return False when it needs the passphrase."""
+        try:
+            self.open('')
+        except WalletError:
+            return False
+        return True
 
     def close(self) -> None:
         """Forget the derived keys."""
@@ -462,8 +470,6 @@ class WalletFile:
     def create(self, password: str, mnemonic: str, passphrase: str) -> Wallet:
         """Create wallet file with the mnemonic and the default Bitcoin account."""
         check_new_password(password)
-        if not passphrase:
-            raise ValueError('Passphrase cannot be empty')
         wallet = Wallet.create(mnemonic, passphrase)
         wallet.add_account('Bitcoin', 'BTC', P2WPKH)
         if self.exists():
@@ -474,8 +480,18 @@ class WalletFile:
         self.save(wallet)
         return wallet
 
-    def unlock(self, password: str, passphrase: str) -> Wallet:
+    def unlock(self, password: str, passphrase: str = '') -> Wallet:
         """Decrypt the wallet file and open the wallet with the passphrase."""
+        wallet = self.decrypt(password)
+        try:
+            wallet.open(passphrase)
+        except WalletError:
+            self.lock()
+            raise
+        return wallet
+
+    def decrypt(self, password: str) -> Wallet:
+        """Decrypt the wallet file, the returned wallet has to be opened with the passphrase."""
         with open(self.path, 'rb') as file:
             data = file.read()
         if len(data) < HEADER_SIZE + TAG_SIZE:
@@ -497,7 +513,6 @@ class WalletFile:
         except CryptoError:
             raise WalletError(WRONG_PASSWORD) from None
         wallet = Wallet.from_json(content)
-        wallet.open(passphrase)
         self.opslimit, self.memlimit, self._salt, self._key = opslimit, memlimit, salt, key
         return wallet
 

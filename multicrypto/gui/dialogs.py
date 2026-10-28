@@ -59,47 +59,29 @@ def secret_line(secret: str) -> QLineEdit:
     return field
 
 
-class UnlockDialog(QDialog):
-    """Ask for the password of the wallet file and the BIP-39 passphrase."""
-
-    def __init__(self, parent: Optional[QWidget], path: str):
-        super().__init__(parent)
-        self.setWindowTitle('Unlock wallet')
-        self.password = password_field()
-        self.passphrase = password_field()
-        form = QFormLayout(self)
-        form.addRow(QLabel(f'Wallet {path}'))
-        form.addRow('Password', self.password)
-        form.addRow('Passphrase', self.passphrase)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
-
-    def accept(self):
-        if not self.password.text() or not self.passphrase.text():
-            QMessageBox.warning(self, 'Unlock wallet', 'Enter the password and the passphrase')
-            return
-        super().accept()
-
-    def values(self) -> Tuple[str, str]:
-        return self.password.text(), self.passphrase.text()
-
-
 class PasswordDialog(QDialog):
-    """Ask for the password, the new password has to be entered twice."""
+    """Ask for the password (or other secret named by the label), the new password has to be
+    entered twice."""
 
-    def __init__(self, parent: Optional[QWidget], title: str, prompt: str, new_password=False):
+    def __init__(
+        self,
+        parent: Optional[QWidget],
+        title: str,
+        prompt: str,
+        new_password=False,
+        label: str = 'Password',
+    ):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.new_password = new_password
+        self.label = label
         self.password = password_field()
         self.confirmation = password_field()
         form = QFormLayout(self)
-        form.addRow(QLabel(prompt))
-        form.addRow('Password', self.password)
+        prompt_label = QLabel(prompt)
+        prompt_label.setWordWrap(True)
+        form.addRow(prompt_label)
+        form.addRow(label, self.password)
         if new_password:
             form.addRow('Repeat password', self.confirmation)
         buttons = QDialogButtonBox(
@@ -114,7 +96,7 @@ class PasswordDialog(QDialog):
             if self.new_password:
                 check_password_confirmation(self.password.text(), self.confirmation.text())
             elif not self.password.text():
-                raise ValueError('Enter the password')
+                raise ValueError(f'Enter the {self.label.lower()}')
         except ValueError as error:
             QMessageBox.warning(self, self.windowTitle(), str(error))
             return
@@ -122,9 +104,13 @@ class PasswordDialog(QDialog):
 
 
 def ask_password(
-    parent: Optional[QWidget], title: str, prompt: str, new_password: bool = False
+    parent: Optional[QWidget],
+    title: str,
+    prompt: str,
+    new_password: bool = False,
+    label: str = 'Password',
 ) -> Optional[str]:
-    dialog = PasswordDialog(parent, title, prompt, new_password)
+    dialog = PasswordDialog(parent, title, prompt, new_password, label)
     return dialog.password.text() if dialog.exec() else None
 
 

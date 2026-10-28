@@ -80,7 +80,8 @@ class ShowMnemonicPage(_Page):
         super().__init__(
             'Write down the mnemonic',
             'Write the words on paper in this order and keep them safe. Together with the '
-            'passphrase they restore all keys of the wallet. The words cannot be copied.',
+            'passphrase (if you set it) they restore all keys of the wallet. The words cannot be '
+            'copied.',
         )
         layout = QVBoxLayout(self)
         layout.addWidget(mnemonic_grid(mnemonic))
@@ -146,14 +147,20 @@ class RestorePage(_Page):
 class PassphrasePage(_Page):
     def __init__(self):
         super().__init__(
-            'BIP-39 passphrase',
-            'The passphrase is never saved, you will enter it every time you unlock the wallet. '
-            'Without it the mnemonic does not restore the wallet, so write it down and keep it '
-            'separately from the mnemonic.',
+            'BIP-39 passphrase (optional)',
+            'You can skip the passphrase, then the mnemonic alone restores the wallet.',
         )
+        explanation = QLabel(
+            'The passphrase works as an additional word of the mnemonic. If you set it, it is '
+            'never saved, you will enter it every time you unlock the wallet and it is required '
+            'to restore the wallet - without it the mnemonic gives a different, empty wallet. '
+            'Write it down and keep it separately from the mnemonic.'
+        )
+        explanation.setWordWrap(True)
         self.passphrase = password_field()
         self.confirmation = password_field()
         form = QFormLayout(self)
+        form.addRow(explanation)
         form.addRow('Passphrase', self.passphrase)
         form.addRow('Repeat passphrase', self.confirmation)
 

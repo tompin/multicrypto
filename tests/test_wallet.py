@@ -289,7 +289,6 @@ def test_file_is_encrypted_and_private(wallet_file):
     'password, mnemonic, passphrase, message',
     [
         ('short', MNEMONIC, PASSPHRASE, 'at least 10 characters'),
-        (PASSWORD, MNEMONIC, '', 'Passphrase cannot be empty'),
         (PASSWORD, 'abandon about', PASSPHRASE, 'must have 12'),
     ],
 )
@@ -332,6 +331,35 @@ def test_unlock_with_wrong_passphrase(wallet_file):
         other_file.unlock(PASSWORD, 'other passphrase')
 
     assert not other_file.is_unlocked
+
+
+def test_wallet_without_passphrase(wallet_file):
+    wallet = wallet_file.create(PASSWORD, MNEMONIC, '')
+
+    unlocked = WalletFile(wallet_file.path).unlock(PASSWORD)
+
+    assert wallet.fingerprint == unlocked.fingerprint == '73c5da0a'
+
+
+def test_decrypt_returns_closed_wallet(wallet_file):
+    wallet_file.create(PASSWORD, MNEMONIC, '')
+    other_file = WalletFile(wallet_file.path)
+
+    wallet = other_file.decrypt(PASSWORD)
+
+    assert other_file.is_unlocked
+    assert not wallet.is_open
+    assert wallet.open_without_passphrase()
+    assert wallet.is_open
+
+
+def test_wallet_with_passphrase_is_not_opened_without_it(wallet_file):
+    wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
+
+    wallet = WalletFile(wallet_file.path).decrypt(PASSWORD)
+
+    assert not wallet.open_without_passphrase()
+    assert not wallet.is_open
 
 
 def test_save_uses_new_nonce(wallet_file):

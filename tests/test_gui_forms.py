@@ -232,8 +232,7 @@ def test_address_description():
 
 def test_check_passphrase_confirmation():
     check_passphrase_confirmation('x', 'x')
-    with pytest.raises(ValueError, match='cannot be empty'):
-        check_passphrase_confirmation('', '')
+    check_passphrase_confirmation('', '')
     with pytest.raises(ValueError, match='do not match'):
         check_passphrase_confirmation('a', 'b')
 

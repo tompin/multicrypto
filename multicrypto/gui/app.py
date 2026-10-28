@@ -10,7 +10,7 @@ from multicrypto.validators import check_positive
 def get_args():
     parser = argparse.ArgumentParser(
         description='Graphical user interface of multicrypto with HD wallet (BIP-39 mnemonic '
-        'with passphrase) kept in encrypted wallet file'
+        'with optional passphrase) kept in encrypted wallet file'
     )
     parser.add_argument(
         '-w',

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from multicrypto.gui.background_scan import BackgroundScan
 from multicrypto.gui.balance_tab import BalanceTab
 from multicrypto.gui.create_wizard import CreateWalletWizard
-from multicrypto.gui.dialogs import SecretDialog, UnlockDialog, ask_password, mnemonic_grid
+from multicrypto.gui.dialogs import SecretDialog, ask_password, mnemonic_grid
 from multicrypto.gui.forms import describe_error
 from multicrypto.gui.scan_dialog import ScanDialog
 from multicrypto.gui.send_tab import SendTab
@@ -32,7 +32,7 @@ from multicrypto.gui.translate_tab import TranslateTab
 from multicrypto.gui.vanity_tab import VanityTab
 from multicrypto.gui.wallet_tab import WalletTab
 from multicrypto.gui.worker import Worker
-from multicrypto.wallet import MIN_PASSWORD_LENGTH, Wallet, WalletFile
+from multicrypto.wallet import MIN_PASSWORD_LENGTH, Wallet, WalletError, WalletFile
 
 AUTO_LOCK_SECONDS = 5 * 60
 WALLET_FILE_FILTER = 'multicrypto wallet (*.mcw);;All files (*)'
@@ -42,6 +42,13 @@ ACTIVITY_EVENTS = (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress, QEvent.Ty
 def _opened(wallet: Wallet) -> Wallet:
     """Derive the addresses in background, so showing the wallet doesn't block the GUI."""
     wallet.addresses()
+    return wallet
+
+
+def _decrypted(wallet: Wallet) -> Wallet:
+    """Open the wallet created without passphrase, the passphrase is asked in the GUI thread."""
+    if wallet.open_without_passphrase():
+        _opened(wallet)
     return wallet
 
 
@@ -196,7 +203,7 @@ class MainWindow(QMainWindow):
         def failed(error):
             QApplication.restoreOverrideCursor()
             if self.wallet is None:
-                self._show_locked()
+                self.lock()
             else:
                 self._update_unlocked_status()
             self.show_error(error)
@@ -204,16 +211,34 @@ class MainWindow(QMainWindow):
         self.worker.run(func, succeeded, failed)
 
     def unlock(self):
-        dialog = UnlockDialog(self, self.wallet_file.path)
-        if not dialog.exec():
+        password = ask_password(self, 'Unlock wallet', f'Wallet {self.wallet_file.path}')
+        if password is None:
             return
-        password, passphrase = dialog.values()
         wallet_file = self.wallet_file
         self._derive_keys(
-            'Unlocking...',
-            lambda: _opened(wallet_file.unlock(password, passphrase)),
-            self.show_wallet,
+            'Unlocking...', lambda: _decrypted(wallet_file.decrypt(password)), self._decrypted
         )
+
+    def _decrypted(self, wallet: Wallet):
+        """Show the opened wallet, ask for the passphrase when the wallet has one."""
+        if wallet.is_open:
+            self.show_wallet(wallet)
+            return
+        while not wallet.is_open:
+            passphrase = ask_password(
+                self,
+                'Unlock wallet',
+                'The wallet was created with a BIP-39 passphrase, enter it.',
+                label='Passphrase',
+            )
+            if passphrase is None:
+                self.lock()
+                return
+            try:
+                wallet.open(passphrase)
+            except WalletError as error:
+                QMessageBox.warning(self, 'Unlock wallet', str(error))
+        self._derive_keys('Unlocking...', lambda: _opened(wallet), self.show_wallet)
 
     def new_wallet(self):
         path = self.wallet_file.path
@@ -314,7 +339,8 @@ class MainWindow(QMainWindow):
         SecretDialog(
             self,
             'Mnemonic',
-            'The passphrase is not shown, the mnemonic restores the wallet only with it.',
+            'The passphrase is not shown, if the wallet has one, the mnemonic restores the '
+            'wallet only with it.',
             mnemonic_grid(self.wallet.mnemonic),
         ).exec()
 
