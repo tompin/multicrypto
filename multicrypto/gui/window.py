@@ -6,6 +6,7 @@ import time
 from typing import Optional
 
 from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtGui import QActionGroup
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -26,6 +27,7 @@ from multicrypto.gui.dialogs import SecretDialog, ask_password, mnemonic_grid
 from multicrypto.gui.forms import describe_error
 from multicrypto.gui.scan_dialog import ScanDialog
 from multicrypto.gui.send_tab import SendTab
+from multicrypto.gui.settings import SETTINGS_PATH, load_scale, save_scale
 from multicrypto.gui.sign_tab import SignTab
 from multicrypto.gui.sweep_tab import SweepTab
 from multicrypto.gui.translate_tab import TranslateTab
@@ -37,6 +39,8 @@ from multicrypto.wallet import MIN_PASSWORD_LENGTH, Wallet, WalletError, WalletF
 AUTO_LOCK_SECONDS = 5 * 60
 WALLET_FILE_FILTER = 'multicrypto wallet (*.mcw);;All files (*)'
 ACTIVITY_EVENTS = (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove)
+SCALES = (None, 1, 1.25, 1.5, 1.75, 2, 2.5, 3)
+SCALE_MESSAGE = 'The scale will be applied after restarting the application.'
 
 
 def _opened(wallet: Wallet) -> Wallet:
@@ -53,10 +57,16 @@ def _decrypted(wallet: Wallet) -> Wallet:
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, wallet_file: WalletFile, auto_lock_seconds: int = AUTO_LOCK_SECONDS):
+    def __init__(
+        self,
+        wallet_file: WalletFile,
+        auto_lock_seconds: int = AUTO_LOCK_SECONDS,
+        settings_path: str = SETTINGS_PATH,
+    ):
         super().__init__()
         self.wallet_file = wallet_file
         self.auto_lock_seconds = auto_lock_seconds
+        self.settings_path = settings_path
         self.wallet: Optional[Wallet] = None
         self.last_activity = time.monotonic()
         self.worker = Worker(self)
@@ -127,6 +137,19 @@ class MainWindow(QMainWindow):
         ):
             action = file_menu.addAction(text)
             action.triggered.connect(lambda _checked=False, slot=slot: slot())
+        scale_menu = self.menuBar().addMenu('&View').addMenu('Scale')
+        self.scale_group = QActionGroup(self)
+        saved = load_scale(self.settings_path)
+        for scale in SCALES:
+            action = scale_menu.addAction('Auto (system)' if scale is None else f'{scale:.0%}')
+            action.setCheckable(True)
+            action.setChecked(scale == saved)
+            self.scale_group.addAction(action)
+            action.triggered.connect(lambda _checked=False, scale=scale: self.choose_scale(scale))
+
+    def choose_scale(self, scale: Optional[float]):
+        save_scale(self.settings_path, scale)
+        QMessageBox.information(self, 'Scale', SCALE_MESSAGE)
 
     def eventFilter(self, watched, event):
         if event.type() in ACTIVITY_EVENTS:

@@ -22,7 +22,8 @@ import multicrypto.gui.vanity_tab as vanity_tab_module  # noqa: E402
 import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
-from multicrypto.gui.window import MainWindow  # noqa: E402
+from multicrypto.gui.settings import load_scale, save_scale  # noqa: E402
+from multicrypto.gui.window import SCALE_MESSAGE, MainWindow  # noqa: E402
 from multicrypto.wallet import WalletAddress, WalletFile, check_entry  # noqa: E402
 
 PASSWORD = 'correct horse battery'
@@ -85,7 +86,7 @@ def window(qapp, tmp_path):
     wallet_file = WalletFile(
         str(tmp_path / 'wallet.mcw'), pwhash.argon2id.OPSLIMIT_MIN, pwhash.argon2id.MEMLIMIT_MIN
     )
-    window = MainWindow(wallet_file)
+    window = MainWindow(wallet_file, settings_path=str(tmp_path / 'gui.json'))
     yield window
     window.timer.stop()
     qapp.removeEventFilter(window)
@@ -880,3 +881,32 @@ def test_background_scan_keeps_wallet_unlocked(qapp, window):
 
     assert window.wallet is not None
     scan.running = False
+
+
+def scale_actions(window):
+    return {action.text(): action for action in window.scale_group.actions()}
+
+
+def test_scale_menu_checks_saved_scale(qapp, tmp_path):
+    settings_path = str(tmp_path / 'gui.json')
+    save_scale(settings_path, 1.5)
+    window = MainWindow(WalletFile(str(tmp_path / 'wallet.mcw')), settings_path=settings_path)
+
+    assert scale_actions(window)['150%'].isChecked()
+    window.timer.stop()
+    qapp.removeEventFilter(window)
+
+
+def test_choosing_scale_saves_it(window, monkeypatch):
+    messages = []
+    monkeypatch.setattr(
+        'multicrypto.gui.window.QMessageBox.information', lambda *args: messages.append(args[2])
+    )
+
+    scale_actions(window)['200%'].trigger()
+    assert load_scale(window.settings_path) == 2
+    scale_actions(window)['Auto (system)'].trigger()
+
+    assert load_scale(window.settings_path) is None
+    assert scale_actions(window)['Auto (system)'].isChecked()
+    assert messages == [SCALE_MESSAGE] * 2
