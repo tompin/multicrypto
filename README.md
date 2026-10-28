@@ -184,9 +184,10 @@ password with Argon2id. The passphrase can be left empty, then the mnemonic alon
 wallet. When it is set, it works as an additional word of the mnemonic and it is never saved: it is
 asked after the password every time the wallet is unlocked, and the fingerprint of the master key
 detects a mistyped passphrase. Tabs:
-- **Wallet** - accounts with receiving addresses created on demand, imported private keys (they are
-  not covered by the mnemonic backup), address balances, showing private keys and the mnemonic
-  (after entering the password again),
+- **Wallet** - account groups (e.g. *Bitcoin #0*) with the accounts of all address types of the
+  coin (Taproot, Native SegWit, SegWit, Legacy) and their receiving addresses created on demand,
+  imported private keys (they are not covered by the mnemonic backup), address balances, showing
+  private keys and the mnemonic (after entering the password again),
 - **Balance** - unspent outputs of the wallet address or any other address (like `checkaddress`),
 - **Send** - send funds from one or more wallet addresses (like `sendcrypto`), the transaction is
   shown for confirmation before it is broadcast, the fee rate is entered in sat/vB (Estimate takes it
@@ -203,12 +204,22 @@ detects a mistyped passphrase. Tabs:
 - **Vanity** - search for an address starting with the given pattern (like `genaddress`) in many
   processes, the found key can be added to the wallet.
 
+A new or restored wallet has the first account group (#0) of every coin with SLIP-44 coin type
+(BTC, LTC, DOGE, DASH and the testnets TBTC, TLTC), each account with its first receiving address.
+New account... adds the next group of the coin with the accounts of all its address types. The
+accounts of the group are separate BIP-44/49/84/86 accounts with the same number, so they are
+restored in other wallets as usual (e.g. the account of each address type in Sparrow or Ledger
+Live). TBTC and TLTC share the SLIP-44 coin type of testnets, so their p2pkh and p2sh-p2wpkh
+addresses are the same.
+
 The **Wallet** tab shows also the QR code of the address, and "Translate to another coin" adds the
-key of a wallet address as an imported key of another coin. File → Scan for used addresses finds
-used accounts and addresses of all address types (gap limit 20) of the selected coins, so the funds
-received in another wallet (e.g. Electrum, Sparrow) are shown. After restoring a wallet from the
-mnemonic BTC is scanned in the background (progress in the status bar), a single account is scanned
-quickly from its context menu in the Wallet tab.
+key of a wallet address as an imported key of another coin. Used accounts and addresses are found
+on demand: right-click a coin and choose Scan for used addresses (progress in the status bar), or
+use File → Scan for used addresses for the selected coins, so the funds received in another wallet
+(e.g. Electrum, Sparrow) are shown. The account groups are checked from #0 to the first one without
+transactions in all its address types and the addresses until 20 unused ones (gap limit 20); a
+group after an unused one is added with New account... (with its number) and scanned from the
+context menu of its account. A single account is scanned quickly from its context menu.
 
 On high resolution screens the interface can be enlarged in *View → Scale* (applied after restart
 and remembered in `~/.multicrypto/gui.json`) or for one run with `--scale` (e.g. `--scale=1.5`).
