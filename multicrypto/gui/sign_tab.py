@@ -1,7 +1,6 @@
 """Sign / Verify tab: signing messages with wallet keys and verifying signatures (BIP-137)."""
 
 import html
-from typing import List
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,7 +18,8 @@ from PySide6.QtWidgets import (
 
 from multicrypto.coins import P2TR, coins
 from multicrypto.ecdsa import sign_message, verify_signature
-from multicrypto.gui.forms import address_description, check_signable, parse_address
+from multicrypto.gui.address_picker import WalletAddressPicker
+from multicrypto.gui.forms import check_signable, parse_address
 from multicrypto.wallet import WalletAddress
 
 VALID_COLOR = '#2e7d32'
@@ -30,8 +30,11 @@ class SignTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.addresses: List[WalletAddress] = []
-        self.sign_address = QComboBox()
+        self.sign_coin = QComboBox()
+        self.sign_coin.addItems(sorted(coins))
+        self.sign_coin.setCurrentText('BTC')
+        self.sign_coin.currentTextChanged.connect(lambda _text: self.refresh())
+        self.sign_picker = WalletAddressPicker()
         self.sign_message = QPlainTextEdit()
         self.sign_button = QPushButton('Sign')
         self.sign_button.clicked.connect(lambda _checked=False: self.sign())
@@ -57,9 +60,13 @@ class SignTab(QWidget):
         signature_row = QHBoxLayout()
         signature_row.addWidget(self.signature)
         signature_row.addWidget(copy_button)
-        sign_group = QGroupBox('Sign message (p2pkh, p2sh-p2wpkh and p2wpkh addresses, BIP-137)')
+        sign_group = QGroupBox(
+            'Sign message (p2pkh, p2sh-p2wpkh and p2wpkh addresses, BIP-137, taproot addresses '
+            'are not supported)'
+        )
         sign_form = QFormLayout(sign_group)
-        sign_form.addRow('Address', self.sign_address)
+        sign_form.addRow('Coin', self.sign_coin)
+        sign_form.addRow('Address', self.sign_picker)
         sign_form.addRow('Message', self.sign_message)
         sign_form.addRow('', sign_row)
         sign_form.addRow('Signature', signature_row)
@@ -78,22 +85,20 @@ class SignTab(QWidget):
         layout.addWidget(verify_group)
 
     def refresh(self):
-        selected = self.sign_address.currentData()
-        self.addresses = self.app.wallet.addresses()
-        self.sign_address.clear()
-        for address in self.addresses:
-            taproot = address.address_type == P2TR
-            suffix = ' (taproot: not supported)' if taproot else ''
-            self.sign_address.addItem(address_description(address) + suffix, address.id)
-            if taproot:
-                self.sign_address.model().item(self.sign_address.count() - 1).setEnabled(False)
-        index = self.sign_address.findData(selected)
-        if index >= 0:
-            self.sign_address.setCurrentIndex(index)
+        wallet = self.app.wallet
+        coin_symbol = self.sign_coin.currentText()
+        addresses = [] if wallet is None else wallet.addresses()
+        self.sign_picker.set_addresses(
+            wallet,
+            [
+                address
+                for address in addresses
+                if address.coin == coin_symbol and address.address_type != P2TR
+            ],
+        )
 
     def clear(self):
-        self.addresses = []
-        self.sign_address.clear()
+        self.sign_picker.clear()
         for text_edit in (self.sign_message, self.verify_message):
             text_edit.clear()
         for line_edit in (self.signature, self.verify_address, self.verify_signature):
@@ -101,16 +106,16 @@ class SignTab(QWidget):
         self.verify_result.setText('')
 
     def select_address(self, address: WalletAddress):
-        self.sign_address.setCurrentIndex(self.sign_address.findData(address.id))
+        self.sign_coin.setCurrentText(address.coin)
+        self.sign_picker.select(address.id)
         self.signature.clear()
         self.app.select_tab(self)
 
     def sign(self):
         try:
-            index = self.sign_address.currentIndex()
-            if index < 0:
+            address = self.sign_picker.current()
+            if address is None:
                 raise ValueError('Select the wallet address')
-            address = self.addresses[index]
             check_signable(address)
             message = self.sign_message.toPlainText()
             if not message:
@@ -138,7 +143,9 @@ class SignTab(QWidget):
 
     def _detect_coin(self, text: str):
         """Select the coin of the wallet address entered for verification."""
-        for address in self.addresses:
+        if self.app.wallet is None:
+            return
+        for address in self.app.wallet.addresses():
             if address.address == text.strip():
                 self.verify_coin.setCurrentText(address.coin)
                 return

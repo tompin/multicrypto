@@ -399,15 +399,20 @@ def test_sign_and_verify_message(qapp, window):
     assert 'Signature is not correct base64' in tab.verify_result.text()
 
 
-def test_taproot_address_cannot_be_selected_for_signing(window):
+def test_sign_tab_shows_addresses_of_coin_without_taproot(window):
     unlock(window)
-    address = add_address(window, 'BTC', 'p2tr')
     tab = window.sign_tab
+    [address] = window.wallet.account_addresses(window.wallet.get_group('LTC', 0).accounts[1])
 
-    index = tab.sign_address.findData(address.id)
+    tab.select_address(address)
 
-    assert not tab.sign_address.model().item(index).isEnabled()
-    assert 'taproot: not supported' in tab.sign_address.itemText(index)
+    assert tab.sign_coin.currentText() == 'LTC'
+    assert tab.sign_picker.current() == address
+    assert [address.address_type for address in tab.sign_picker.addresses] == [
+        'p2wpkh',
+        'p2sh-p2wpkh',
+        'p2pkh',
+    ]
 
 
 def test_lock_clears_sign_tab(window):
@@ -419,7 +424,7 @@ def test_lock_clears_sign_tab(window):
 
     assert window.sign_tab.sign_message.toPlainText() == ''
     assert window.sign_tab.signature.text() == ''
-    assert window.sign_tab.sign_address.count() == 0
+    assert window.sign_tab.sign_picker.box.count() == 0
 
 
 EXTERNAL_WIF = 'cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8kokULeTxo'
