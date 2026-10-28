@@ -17,6 +17,7 @@ pytest.importorskip('PySide6')
 from PySide6.QtWidgets import QLabel  # noqa: E402
 
 import multicrypto.gui.send_tab as send_tab_module  # noqa: E402
+from multicrypto.gui.address_picker import WalletAddressPicker  # noqa: E402
 import multicrypto.gui.scan_dialog as scan_dialog_module  # noqa: E402
 from multicrypto.discovery import Cancelled, DiscoveredAccount  # noqa: E402
 import multicrypto.gui.sweep_tab as sweep_tab_module  # noqa: E402
@@ -203,6 +204,29 @@ def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     assert window.send_tab.sources.count() == 0
     assert window.balance_tab.address_box.count() == 0
     assert 'locked' in window.status.text()
+
+
+def test_wallet_address_picker(window):
+    unlock(window)
+    picker = WalletAddressPicker()
+    addresses = [address for address in window.wallet.addresses() if address.coin == 'BTC']
+
+    picker.set_addresses(window.wallet, addresses)
+
+    assert [picker.box.itemText(index) for index in range(picker.box.count())] == [
+        address.address for address in addresses
+    ]
+    assert picker.current() == addresses[0]
+    assert picker.details['Account'].text() == 'Bitcoin #0'
+    assert picker.details['Address type'].text() == 'Taproot (p2tr)'
+    assert picker.select(addresses[1].id)
+    assert picker.details['Path'].text() == "m/84'/0'/0'/0/0"
+    picker.set_addresses(window.wallet, addresses)
+    assert picker.current() == addresses[1]
+    assert not picker.select('missing')
+    picker.clear()
+    assert picker.current() is None
+    assert picker.details['Account'].text() == ''
 
 
 def test_imported_keys_are_shown_in_separate_group(window):
