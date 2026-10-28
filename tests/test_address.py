@@ -78,11 +78,11 @@ def test_validate_pattern_raise_impossible_prefix():
 
 
 def test_translate_address():
-    zcash_address = 't1VhzEoupqVVJoYaMaSZ534hD77L3MFFAXr'
+    doge_address = 'DGyUmjSLAabzjui4NbjWT1ktjasFpzxXRm'
     ltc_address = 'LX4LVgoWwpwmTiDcp9jFBGf44fWEe5mEae'
 
     translated_address = translate_address(
-        zcash_address, coins['ZEC']['address_prefix_bytes'], coins['LTC']['address_prefix_bytes']
+        doge_address, coins['DOGE']['address_prefix_bytes'], coins['LTC']['address_prefix_bytes']
     )
 
     assert translated_address == ltc_address
@@ -156,10 +156,10 @@ def test_convert_private_key_to_p2tr_address_bip341():
     [
         ('BTC', False, P2WPKH, 'Segwit addresses require compressed public key'),
         ('BTC', False, P2SH_P2WPKH, 'Segwit addresses require compressed public key'),
-        ('ZEC', True, P2WPKH, 'Address type p2wpkh is not supported for zcash'),
-        ('ZEC', True, P2SH_P2WPKH, 'supported types: p2pkh'),
+        ('DOGE', True, P2WPKH, 'Address type p2wpkh is not supported for dogecoin'),
+        ('DOGE', True, P2SH_P2WPKH, 'supported types: p2pkh'),
         ('BTC', False, P2TR, 'Segwit addresses require compressed public key'),
-        ('ZEC', True, P2TR, 'Address type p2tr is not supported for zcash'),
+        ('DOGE', True, P2TR, 'Address type p2tr is not supported for dogecoin'),
         ('BTC', True, 'p2wsh', 'Unknown address type p2wsh'),
     ],
 )
@@ -178,7 +178,9 @@ def test_decode_segwit_address():
     assert (
         decode_segwit_address('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', coins['TBTC']) is None
     )
-    assert decode_segwit_address('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', coins['ZEC']) is None
+    assert (
+        decode_segwit_address('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', coins['DOGE']) is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -246,7 +248,7 @@ def test_convert_public_key_to_coin_address_errors():
     [
         ('BTC', '1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi', 'p2pkh'),
         ('BTC', '3DnW8JGpPViEZdpqat8qky1zc26EKbXnmM', 'p2sh'),
-        ('ZEC', 't1KoKf3aRvWRfRqXktMUiAZXfUZoDbio7XQ', 'p2pkh'),
+        ('DOGE', 'D74pBy6wFbYMNCfTgWf9aWbM73LSAmrsiS', 'p2pkh'),
     ],
 )
 def test_detect_address_kind(coin_symbol, address, kind):

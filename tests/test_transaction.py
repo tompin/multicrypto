@@ -17,7 +17,6 @@ from multicrypto.schnorr import (
 from multicrypto.transaction import (
     SIGHASH_ALL,
     SIGHASH_DEFAULT,
-    POSTransaction,
     Transaction,
     TransactionOutput,
     get_taproot_signature_message,
@@ -250,44 +249,6 @@ def test_create_p2pkh_transaction_two_inputs_two_outputs(sign_mock):
 
     assert transaction.raw == raw_transaction
     assert transaction.id == '1e976937f0dadc7c7fac9b7c62291f7843bc781ec44ee65c41b9b9e4f10cf0b3'
-
-
-@patch('multicrypto.transaction.sign')
-def test_create_zeit_p2pkh_transaction_single_input_single_output(sign_mock):
-    """ZEIT transaction 975e4d8a5530ba43dd607c62af925ad20a5347e2fd5873c65364bc4a89b6a829"""
-
-    raw_transaction = (
-        '010000006bbc345b01ec2636bc0dc4a0fa774a1448b5cd26f90b1ebf6ab7474cb87b003dc1'
-        '5280043a000000006a47304402205f69442b8ffd4ce39997c27a3f1c134a1ce6d1cdeb6dd3'
-        '9c5191d3e748419577022067d9c5b4144c80aac91701130686b66dc3da15799de960edb22e'
-        'e9f90be6f554012103771b0c5df5773a9c3f8da066d6b9e8e577025caeaa15ef1289c9e830'
-        '50124ecaffffffff016e2ae671000000001976a91415cdc3710d179a525dc6011f4588befc'
-        '5a04ff4488ac00000000'
-    )
-
-    sign_mock.return_value = (
-        0x5F69442B8FFD4CE39997C27A3F1C134A1CE6D1CDEB6DD39C5191D3E748419577,
-        0x67D9C5B4144C80AAC91701130686B66DC3DA15799DE960EDB22EE9F90BE6F554,
-    )
-    inputs = [
-        {
-            'transaction_id': '3a048052c13d007bb84c47b76abf1e0bf926cdb548144a77faa0c40dbc3626ec',
-            'output_index': 0,
-            'locking_script': '76a9141019136435d702c05d433cb404547e6fbcad085c88ac',
-            # private_key='TaMECDUSKV6tt17Zrwai2Go4HgF6R8xSwDY1UTBeFFY6hMWNyY6n',
-            'private_key': 75008817533290696227105990373334596279639239099625180499796393413953408726677,
-            'satoshis': 1911009550,
-        }
-    ]
-    outputs = [{'address': 'MZE3uG9NUKDS3ZPC8jgJqpL9MrXRFxRMYL', 'satoshis': 1910909550}]
-
-    transaction = POSTransaction(
-        coin=coins['ZEIT'], inputs=inputs, outputs=outputs, transaction_time=b'\x6b\xbc\x34\x5b'
-    )
-    transaction.create()
-
-    assert transaction.raw == raw_transaction
-    assert transaction.id == '975e4d8a5530ba43dd607c62af925ad20a5347e2fd5873c65364bc4a89b6a829'
 
 
 def test_p2sh_transaction_one_input_one_p2pkh_output():

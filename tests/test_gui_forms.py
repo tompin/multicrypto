@@ -222,12 +222,12 @@ def test_check_sources():
 
 
 def test_address_description():
-    imported = WalletAddress('i', 'Old', 'ZEN', 'p2pkh', 'znXk')
+    imported = WalletAddress('i', 'Old', 'DOGE', 'p2pkh', 'DMLk')
 
     assert address_description(make_address()) == (
         f"Savings · BTC p2wpkh · m/84'/0'/0'/0/0 · {SEGWIT_ADDRESS}"
     )
-    assert address_description(imported) == 'Old · ZEN p2pkh · imported · znXk'
+    assert address_description(imported) == 'Old · DOGE p2pkh · imported · DMLk'
 
 
 def test_check_passphrase_confirmation():
@@ -254,11 +254,12 @@ def test_check_confirmation_words():
         check_confirmation_words(mnemonic, {2: 'two', 3: 'tree'})
 
 
-def test_coins_with_slip44():
+def test_coins_with_slip44(monkeypatch):
+    monkeypatch.delitem(coins['DOGE'], 'slip44')
     symbols = coins_with_slip44()
 
     assert {'BTC', 'TBTC', 'LTC'} <= set(symbols)
-    assert 'BTCH' not in symbols
+    assert 'DOGE' not in symbols
     assert symbols == sorted(symbols)
 
 
@@ -349,17 +350,17 @@ KEY_INTEGER = '43265286516710475498079662292151387463063605274999989765271924584
 
 def test_translate_address_text():
     assert (
-        translate_address_text(' 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi ', 'BTC', 'BTG')
-        == 'Ga3afwEZMPHqRQ7uHyBAti7NSUX7SHppZg'
+        translate_address_text(' 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi ', 'BTC', 'DOGE')
+        == 'DMLko4rFfwapsw1D6cWd1hw5QSTZpJn6vU'
     )
     assert (
-        translate_address_text('3DnW8JGpPViEZdpqat8qky1zc26EKbXnmM', 'BTC', 'BTG')
-        == 'ATsMrFe1Ak41HSLQ2S8aVDv9w6jD7f9qS6'
+        translate_address_text('3DnW8JGpPViEZdpqat8qky1zc26EKbXnmM', 'BTC', 'DOGE')
+        == 'A4Xks9LiTZb8U1CK11oG16eNJbUGS6A8JH'
     )
     with pytest.raises(ValueError, match='need the private key'):
         translate_address_text('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'BTC', 'LTC')
     with pytest.raises(ValueError, match='Check sum is not correct'):
-        translate_address_text('1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hj', 'BTC', 'BTG')
+        translate_address_text('1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hj', 'BTC', 'DOGE')
 
 
 @pytest.mark.parametrize(

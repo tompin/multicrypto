@@ -1,6 +1,5 @@
 import math
 import urllib.error
-from datetime import date, timedelta
 
 import pytest
 from tests import http_mock
@@ -25,7 +24,7 @@ from multicrypto.coins import coins
 
 data = [
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '4417d9e022c8f4adf1ef6d9dbad7a1ee0ae44b7eb5cf61e86fd1a0ed22b1c180',
         'vout': 0,
         'scriptPubKey': '76a913e90a9fcb81a78aa732c5721cc0ac4ba2075b7588ac',
@@ -35,7 +34,7 @@ data = [
         'height': 114322,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'da08e8e2e3ba55f9b45ba7f0ca14f96683c3547419fcfe10e6c8ae9f3eebe4cf',
         'vout': 0,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -45,7 +44,7 @@ data = [
         'confirmations': 2,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '7c25ea822bbce5916a331f5851eacbc88d50c0f5a3be8a0dcea772f1baa43965',
         'vout': 0,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -55,7 +54,7 @@ data = [
         'confirmations': 16,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '22c66de2660bc913d2d6a2a7013a8762e92374fcb34609eb935d7fa4704f3335',
         'vout': 6,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -65,7 +64,7 @@ data = [
         'confirmations': 712,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'aea9cdf0a8210238749cc4257ea05db91ea79f33691d691a859c4036ad529f85',
         'vout': 6,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -75,7 +74,7 @@ data = [
         'confirmations': 80,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'aefcff17bb86ca19742f9418af1048138bd9623ef7936f0292754324c78fff56',
         'vout': 0,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -85,7 +84,7 @@ data = [
         'confirmations': 592,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '0e9962f9298ad2615a5caa8425f31b53baaf7c7e8e17053a006c3e9466e65a3d',
         'vout': 1,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -95,7 +94,7 @@ data = [
         'confirmations': 548,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'd72687288bc0d47317daedebd4be286de936bfdb434034c7aaae8c4d3f90d421',
         'vout': 10,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -105,7 +104,7 @@ data = [
         'confirmations': 647,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'ba25905edd92bb4d8a030611c255e26988da7700a4f2df3d2777d1077ad62235',
         'vout': 6,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -115,7 +114,7 @@ data = [
         'confirmations': 682,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '74410f32a5c57c9780ba28f3c7359d8314766f92d8acf9ce7c914d259463316d',
         'vout': 11,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -125,7 +124,7 @@ data = [
         'confirmations': 605,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '51984212a42e924cc1b106400ebd0deda5f1000e9e3fe280c0461f69ac461586',
         'vout': 9,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -135,7 +134,7 @@ data = [
         'confirmations': 872,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '75f537c05899d257172d9b1ebb2a2e0f33a564486d10a03bdb4766c84f63ad11',
         'vout': 1,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -145,7 +144,7 @@ data = [
         'confirmations': 60961,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'vout': 0,
         'height': 44355,
         'txid': '95c50fb3915eb7a1f87d9cc2369cfd62278029859cc03bf77496674f07a9e902',
@@ -155,7 +154,7 @@ data = [
         'confirmations': 5098,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '3fd8c7ea1b87141163d3436f0dbc0f8b8915621f092a3fc12544228590123b3a',
         'vout': 1,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -169,10 +168,10 @@ data = [
 
 @http_mock.activate
 def test_sendcrypto_success():
-    coin = coins['SAFE']
+    coin = coins['DASH']
     api_url = InsightAPI(coin).base_url
     send_url = '{}/tx/send'.format(api_url)
-    address_url = '{}/addr/{}/utxo'.format(api_url, 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+    address_url = '{}/addr/{}/utxo'.format(api_url, 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP')
     http_mock.add(http_mock.GET, address_url, json=data, status=200)
     http_mock.add(
         http_mock.POST,
@@ -183,11 +182,11 @@ def test_sendcrypto_success():
     )
 
     res = send_from_private_keys(
-        coin=coins['SAFE'],
-        wif_private_keys=['Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'],
+        coin=coins['DASH'],
+        wif_private_keys=['XBkD13LWPdEGGNhht19W7r84TNW2R3QK3vRGN1kn9b4Fv5ScMQd1'],
         input_addresses=None,
         unlocking_scripts=None,
-        destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        destination_address='Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         satoshis=100000000000,
         fee=10000,
         minimum_input_threshold=20000000000,
@@ -206,26 +205,12 @@ def test_insight_api_uses_current_api_index():
 
 
 @http_mock.activate
-def test_insight_api_get_history_block():
-    coin = coins['ZEN']
-    api = InsightAPI(coin, timeout=5)
-    block = {'hash': '0000000003ac1a4b', 'height': 1000000}
-    http_mock.add(http_mock.GET, f'{api.base_url}/blocks', json={'blocks': [block]}, status=200)
-
-    assert api.get_history_block() == block
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
-    assert http_mock.calls[0].request.url == (
-        f'{api.base_url}/blocks?limit=1&blockDate={yesterday}'
-    )
-
-
-@http_mock.activate
 def test_insight_api_passes_timeout_to_urlopen():
-    api = InsightAPI(coins['SAFE'], timeout=5)
-    address_url = f'{api.base_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo'
+    api = InsightAPI(coins['DASH'], timeout=5)
+    address_url = f'{api.base_url}/addr/Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP/utxo'
     http_mock.add(http_mock.GET, address_url, json=[])
 
-    assert api.get_utxo('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM') == []
+    assert api.get_utxo('Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP') == []
 
     request = http_mock.calls[0].request
     assert (request.method, request.url, request.body) == ('GET', address_url, None)
@@ -235,7 +220,7 @@ def test_insight_api_passes_timeout_to_urlopen():
 
 @http_mock.activate
 def test_insight_api_send_raw_transaction_sends_json():
-    api = InsightAPI(coins['SAFE'])
+    api = InsightAPI(coins['DASH'])
     http_mock.add(http_mock.POST, f'{api.base_url}/tx/send', body='Missing inputs', status=400)
 
     assert api.send_raw_transaction('0100') == 'Missing inputs'
@@ -248,17 +233,17 @@ def test_insight_api_send_raw_transaction_sends_json():
 @http_mock.activate
 def test_insight_api_connection_error():
     with pytest.raises(urllib.error.URLError, match='Connection refused'):
-        InsightAPI(coins['SAFE']).get_utxo('Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+        InsightAPI(coins['DASH']).get_utxo('Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP')
 
 
 def test_send_from_private_keys_without_inputs():
     with pytest.raises(ValueError, match='Missing required parameters'):
         send_from_private_keys(
-            coin=coins['SAFE'],
+            coin=coins['DASH'],
             wif_private_keys=None,
             input_addresses=None,
             unlocking_scripts=None,
-            destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+            destination_address='Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
             satoshis=1,
             fee=1,
         )
@@ -266,18 +251,18 @@ def test_send_from_private_keys_without_inputs():
 
 @http_mock.activate
 def test_send_from_private_keys_insufficient_funds():
-    coin = coins['SAFE']
+    coin = coins['DASH']
     api_url = InsightAPI(coin).base_url
-    address_url = f'{api_url}/addr/Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM/utxo'
+    address_url = f'{api_url}/addr/Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP/utxo'
     http_mock.add(http_mock.GET, address_url, json=data[:1], status=200)
 
     with pytest.raises(InsufficientFundsError, match='Sum of inputs is 52637874459'):
         send_from_private_keys(
             coin=coin,
-            wif_private_keys=['Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'],
+            wif_private_keys=['XBkD13LWPdEGGNhht19W7r84TNW2R3QK3vRGN1kn9b4Fv5ScMQd1'],
             input_addresses=None,
             unlocking_scripts=None,
-            destination_address='Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+            destination_address='Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
             satoshis=100000000000,
             fee=10000,
         )
@@ -290,7 +275,7 @@ SEGWIT_ADDRESS = 'bc1qjfw5q2ygp0gvn450h3lu0hlwjanfsc5uax7v9q'
 def test_get_api_selects_client_by_type():
     coin = coins['BTC']
 
-    assert isinstance(get_api(coins['SAFE']), InsightAPI)
+    assert isinstance(get_api(coins['DASH']), InsightAPI)
     assert isinstance(get_api(coin), EsploraAPI)
     assert get_api(coin).base_url == ESPLORA_URL
     assert get_api({**coin, 'current_api_index': 1}).base_url == 'https://blockstream.info/api'
@@ -654,10 +639,10 @@ def test_prepare_from_private_keys_needs_fee_or_rate():
         )
 
 
-INSIGHT_COIN = coins['BTG']
+INSIGHT_COIN = coins['DASH']
 INSIGHT_URL = get_api(INSIGHT_COIN).base_url
 ESPLORA_TBTC_URL = get_api(coins['TBTC']).base_url
-BTG_ADDRESS = 'Ga3afwEZMPHqRQ7uHyBAti7NSUX7SHppZg'
+DASH_ADDRESS = 'XrtW64ZWLEu8VsRCDuqHKUTGMeJxSgjRNb'
 
 
 @http_mock.activate
@@ -669,12 +654,12 @@ def test_get_tx_count():
     )
     http_mock.add(
         http_mock.GET,
-        f'{INSIGHT_URL}/addr/{BTG_ADDRESS}',
+        f'{INSIGHT_URL}/addr/{DASH_ADDRESS}',
         json={'txApperances': 2, 'unconfirmedTxApperances': 1},
     )
 
     assert get_api(coins['TBTC']).get_tx_count(SWEEP_ADDRESS) == 4
-    assert get_api(INSIGHT_COIN).get_tx_count(BTG_ADDRESS) == 3
+    assert get_api(INSIGHT_COIN).get_tx_count(DASH_ADDRESS) == 3
     assert http_mock.calls[1].request.url.endswith('?noTxList=1')
 
 
@@ -699,7 +684,7 @@ def test_estimate_fee_rates():
 def test_estimate_fee_rates_not_available():
     http_mock.add(http_mock.GET, f'{INSIGHT_URL}/utils/estimatefee', json={'1': -1})
 
-    with pytest.raises(ValueError, match='Fee estimate is not available for bitcoin gold'):
+    with pytest.raises(ValueError, match='Fee estimate is not available for dash'):
         estimate_fee_rates(INSIGHT_COIN)
 
 
@@ -708,9 +693,9 @@ def test_rate_limit_error():
     http_mock.add(
         http_mock.GET, f'{ESPLORA_TBTC_URL}/address/{SWEEP_ADDRESS}', body='Too Many', status=429
     )
-    http_mock.add(http_mock.GET, f'{INSIGHT_URL}/addr/{BTG_ADDRESS}', body='Too Many', status=429)
+    http_mock.add(http_mock.GET, f'{INSIGHT_URL}/addr/{DASH_ADDRESS}', body='Too Many', status=429)
 
     with pytest.raises(RateLimitError):
         get_api(coins['TBTC']).get_tx_count(SWEEP_ADDRESS)
     with pytest.raises(RateLimitError):
-        get_api(INSIGHT_COIN).get_tx_count(BTG_ADDRESS)
+        get_api(INSIGHT_COIN).get_tx_count(DASH_ADDRESS)

@@ -13,27 +13,27 @@ from multicrypto.network import PeerAddress, TransactionRejectedError
 ARGS = [
     '',
     '-a',
-    't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP',
+    'XuJQq23TpwtSAszL9pXghx3VbNTSngYgC8',
     '-c',
-    'ZEC',
+    'DASH',
     '-s',
     '50900000',
     '-p',
-    'L262yBzq3JRNwBGsTRSGRjNDQNvjXVhG7z2cwLGwDAGkUaFoKkwc,'
-    'L3DrZ29vdnLDFNsoDTgz1J79B8QCzU6vrfTacHoYUk6NQYmSoeur',
+    'XG9xRTPCLz3pzWHFVBS8vxZEKQCJyJJWVZNXTrc8XXYqsjPPAoiK,'
+    'XHHn1HYHwTxfJhtBFDgrWXJA69fnSGiBEEoV8p8jo7NTohyHjeBo',
 ]
 TXID = 'a9700b6b18559c2ee976c5a7a5b51f1f9b47daacca96148b3b0afd2b0c6da138'
 
 
 def add_utxo_responses(api_url):
-    address_url1 = '{}/addr/{}/utxo'.format(api_url, 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt')
-    address_url2 = '{}/addr/{}/utxo'.format(api_url, 't1TJ7cjWWBxozgekVWVKzCCXKhK4F59v4HB')
+    address_url1 = '{}/addr/{}/utxo'.format(api_url, 'XyVQ2KH3eApuHEnGFcRGyKomY6CHXWt6U5')
+    address_url2 = '{}/addr/{}/utxo'.format(api_url, 'Xk7MSekGBMEzExJBRwq5uv7CGzSrMj7yn4')
     http_mock.add(
         http_mock.GET,
         address_url1,
         json=[
             {
-                'address': 't1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt',
+                'address': 'XyVQ2KH3eApuHEnGFcRGyKomY6CHXWt6U5',
                 'txid': 'ff269d70ad429f2f3b8e042cf88f76c2f8a9e10de67f626fce25784fc29adb1e',
                 'scriptPubKey': '76a914fa20c5e0689b92014ac4c3ecfc94b5163eaca3ae88ac',
                 'amount': 0.49999,
@@ -50,7 +50,7 @@ def add_utxo_responses(api_url):
         address_url2,
         json=[
             {
-                'address': 't1TJ7cjWWBxozgekVWVKzCCXKhK4F59v4HB',
+                'address': 'Xk7MSekGBMEzExJBRwq5uv7CGzSrMj7yn4',
                 'txid': 'e2860bc090fecbe97ebafae2a31c9d9df4aca221002fc8c57d75c5a2ac58af51',
                 'scriptPubKey': '76a914675bd5240d72cb96e7722b0785ccc60cb168b7ad88ac',
                 'amount': 0.01,
@@ -68,7 +68,7 @@ def add_utxo_responses(api_url):
 @patch.object(sys, 'argv', ARGS)
 @patch('sys.stdout', new_callable=StringIO)
 def test_sendcrypto_success(sys_stdout):
-    coin = coins['ZEC']
+    coin = coins['DASH']
     api_url = InsightAPI(coin).base_url
     send_url = '{}/tx/send'.format(api_url)
     add_utxo_responses(api_url)
@@ -90,14 +90,14 @@ def test_sendcrypto_success(sys_stdout):
 @patch('sys.stdout', new_callable=StringIO)
 @patch('multicrypto.commands.sendcrypto.broadcast_transaction', return_value=TXID)
 def test_sendcrypto_p2p_nodes(broadcast_transaction, sys_stdout):
-    add_utxo_responses(InsightAPI(coins['ZEC']).base_url)
+    add_utxo_responses(InsightAPI(coins['DASH']).base_url)
 
     main()
 
     coin, raw_transaction, nodes = broadcast_transaction.call_args.args
-    assert coin is coins['ZEC']
+    assert coin is coins['DASH']
     assert raw_transaction.startswith('01000000')
-    assert nodes == [PeerAddress('1.2.3.4', 8233), PeerAddress('2001:db8::1', 18233)]
+    assert nodes == [PeerAddress('1.2.3.4', 9999), PeerAddress('2001:db8::1', 18233)]
     assert sys_stdout.getvalue() == f'{{"txid": "{TXID}"}}\n'
 
 
@@ -106,7 +106,7 @@ def test_sendcrypto_p2p_nodes(broadcast_transaction, sys_stdout):
 @patch('sys.stdout', new_callable=StringIO)
 @patch('multicrypto.commands.sendcrypto.broadcast_transaction', return_value=TXID)
 def test_sendcrypto_p2p_discovered_nodes(broadcast_transaction, sys_stdout):
-    add_utxo_responses(InsightAPI(coins['ZEC']).base_url)
+    add_utxo_responses(InsightAPI(coins['DASH']).base_url)
 
     main()
 
@@ -122,7 +122,7 @@ def test_sendcrypto_p2p_discovered_nodes(broadcast_transaction, sys_stdout):
     side_effect=TransactionRejectedError('Transaction rejected: bad-txns'),
 )
 def test_sendcrypto_p2p_rejected(_broadcast_transaction, sys_stdout, caplog):
-    add_utxo_responses(InsightAPI(coins['ZEC']).base_url)
+    add_utxo_responses(InsightAPI(coins['DASH']).base_url)
 
     main()
 
@@ -147,22 +147,23 @@ def test_sendcrypto_p2p_invalid_node(broadcast_transaction, sys_stdout, caplog):
     [
         '',
         '-a',
-        't1cVB16ohqZTScaSeEN2azETd1h4qXpVDnP',
+        'XuJQq23TpwtSAszL9pXghx3VbNTSngYgC8',
         '-c',
-        'BTCZ',
+        'DASH',
         '-s',
         '50900000',
         '-p',
-        'L262yBzq3JRNwBGsTRSGRjNDQNvjXVhG7z2cwLGwDAGkUaFoKkwc',
+        'XG9xRTPCLz3pzWHFVBS8vxZEKQCJyJJWVZNXTrc8XXYqsjPPAoiK',
         '--p2p',
     ],
 )
 @patch('sys.stdout', new_callable=StringIO)
-def test_sendcrypto_p2p_not_supported(sys_stdout, caplog):
+def test_sendcrypto_p2p_not_supported(sys_stdout, caplog, monkeypatch):
+    monkeypatch.delitem(coins['DASH'], 'network')
     main()
 
     assert sys_stdout.getvalue() == ''
-    assert 'No peer-to-peer network has been defined for the coin BTCZ' in caplog.text
+    assert 'No peer-to-peer network has been defined for the coin DASH' in caplog.text
 
 
 @http_mock.activate
@@ -267,7 +268,7 @@ def test_sendcrypto_address_type_not_supported(sys_stdout, caplog):
     main()
 
     assert sys_stdout.getvalue() == ''
-    assert 'Address type p2wpkh is not supported for zcash, supported types: p2pkh' in caplog.text
+    assert 'Address type p2wpkh is not supported for dash, supported types: p2pkh' in caplog.text
 
 
 @patch('sys.stderr', new_callable=StringIO)

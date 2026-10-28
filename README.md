@@ -45,14 +45,14 @@ sweepaddress --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --wif_private_key=<
 ```
 After mining some currency for longer period we could end up with address having a lot of small inputs. 
 In such case it is very likely it will be not possible to send the funds in one transaction and it could 
-be difficult to cope with. Let say for Horizen we have private key of the address which inputs 
-we want to combine, but we want only combine inputs which are smaller than 0.1 ZEN:
+be difficult to cope with. Let say for Dash we have private key of the address which inputs 
+we want to combine, but we want only combine inputs which are smaller than 0.1 DASH:
 ```bash
-sweepaddress -c ZEN -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp --maximum_input_threshold=10000000
+sweepaddress -c DASH -p XBHdfdHC4YocfzyfuFRx3DxjmvFJmK3txDh3zXk29GxpMWaWfDKL --maximum_input_threshold=10000000
 ```
 This will create appropriate number of transactions (by default one transaction for each 50 inputs, you can
 override this value by setting parameter --batch_size, but setting it too high will result in too big transaction error),
-transaction fee will be set to default 10000 satoshis (0.0001 ZEN) per transaction (you can override it using
+transaction fee will be set to default 10000 satoshis (0.0001 DASH) per transaction (you can override it using
 --fee parameter, or use --fee_rate (`-r`) to pay the given number of satoshis per virtual byte of each
 transaction) and the funds will be sent back to original address (you can override the output address
 using --address parameter). Inputs can be also filtered with --minimum_input_threshold.
@@ -105,9 +105,9 @@ checkaddress -c BTC -a 14YK4mzJGo5NKkNnmVJeuEAQftLt795Gec
 transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL> --file=<OUTPUT FILE> --output_dir=<DIRECTORY TO STORE QR CODE>
 ```
 Add `--script` (`-s`) when translating P2SH address.
-For example to translate Bitcoin address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG to Zcash address we enter:
+For example to translate Bitcoin address 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG to Dogecoin address we enter:
 ```bash
-transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o ZEC
+transaddress -a 1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG -i BTC -o DOGE
 ```
 5. Translating private key in wif format between coins
 ```bash
@@ -116,9 +116,9 @@ transprivkey --private_key=<PRIVATE_KEY> --output_symbol=<COIN SYMBOL> --file=<O
 Without `--output_symbol` the integer value of the private key is returned, with `--integer` (`-i`)
 the private key is given as integer instead of WIF.
 For example to translate Bitcoin private key KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp
-to Zcash private key we enter:
+to Dogecoin private key we enter:
 ```bash
-transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o ZEC
+transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o DOGE
 ```
 6. Generating address with given pattern and corresponding private key:
 ```bash
@@ -127,10 +127,10 @@ genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL> --cores=<INT> --output_dir
 Search can be run on many cores with `--cores` (`-c`, default 1). Other options: `--segwit` (`-w`) generates
 nested segwit (P2SH-P2WPKH) address, `--uncompressed` (`-u`) uses uncompressed private key and
 `--input_script` (`-i`) generates P2SH address for given script.
-For example if we want to create address with prefix t1aaaa for Zcash coin and save corresponding
+For example if we want to create address with prefix DDoge for Dogecoin and save corresponding
 QR codes to /home/john directory we enter:
 ```bash
-genaddress -p t1aaaa -s ZEC -d /home/john
+genaddress -p DDoge -s DOGE -d /home/john
 ```
 To generate Bitcoin segwit address starting with 3BTC we enter:
 ```bash
@@ -217,32 +217,23 @@ recovered without both of them.
 | Coin | Symbol | Address generation | P2PKH transactions | P2SH transactions | Segwit transactions |
 | --- | --- | --- | --- | --- | --- |
 | Bitcoin | BTC | Yes | Yes | Yes | Yes |
-| Bitcoin Gold | BTG | Yes | Yes | Yes | No |
-| Bitcoin Hush | BTCH | Yes | Yes | Yes | No |
-| BitcoinZ | BTCZ | Yes | Yes | Yes | No |
 | Dash | DASH | Yes | Yes | Yes | No |
 | Dogecoin | DOGE | Yes | No | No | No |
 | Litecoin | LTC | Yes | Yes | Yes | Yes |
-| Safecoin | SAFE | Yes | Yes | Yes | No |
-| TENT | TENT | Yes | Yes | Yes | No |
-| Smartcash | SMART | Yes | No | No | No |
-| Zcash | ZEC | Yes | Yes | Yes | No |
-| Zclassic | ZCL | Yes | No | No | No |
-| Zeitcoin | ZEIT | Yes | No | No | No |
-| Horizen | ZEN | Yes | Yes | Yes | No |
-| Zero | ZERO | Yes | Yes | Yes | No |
 | Bitcoin testnet | TBTC | Yes | Yes | Yes | Yes |
-| Bitcoin Cash testnet | TBCH | Yes | Yes | Yes | No |
 | Litecoin testnet | TLTC | Yes | Yes | Yes | Yes |
 
 Transactions require a block explorer API, coins without it support only address generation and translation.
+Only coins accepting legacy (version 1) transactions with Bitcoin signature hashes are supported. Coins based
+on Zcash (e.g. ZEC, BTCZ, ZERO) require Overwinter/Sapling transactions and coins with SIGHASH_FORKID
+(e.g. BCH, BTG) require BIP-143 signature hashes, so they are not supported.
 Segwit spending is supported from P2SH-P2WPKH, P2WPKH and taproot P2TR (key path) addresses, spending from
 P2WSH addresses and taproot script path is not supported (sending to them works).
 
 ### Peer-to-peer network
 Module `multicrypto.network` connects directly to nodes of the coin network (without block explorer),
 fetches addresses of their peers and broadcasts raw transactions. It is available for coins with
-`network` definition: BTC, BTG, DASH, DOGE, LTC, TBTC, TLTC, ZEC, ZEN.
+`network` definition: BTC, DASH, DOGE, LTC, TBTC, TLTC.
 ```python
 from multicrypto.coins import coins
 from multicrypto.network import Node, discover_nodes
@@ -273,7 +264,7 @@ Run `uv sync` again after pulling changes that modify `pyproject.toml` or `uv.lo
 ### Running commands
 `uv run` executes commands inside the project environment, no activation is needed:
 ```bash
-uv run checkaddress -c ZEC -a t1ggACQ3HenPuiwEaL9vBFcDtxQogHvXzvt
+uv run checkaddress -c BTC -a 14YK4mzJGo5NKkNnmVJeuEAQftLt795Gec
 ```
 If you prefer an activated shell:
 ```bash
@@ -314,17 +305,16 @@ Always commit `pyproject.toml` together with the updated `uv.lock`.
 1. Add new entry in `multicrypto/coins.py`. Prefix bytes are usually defined in chainparams.cpp or
 base58.h files.
 
-Exemplary for Horizen we have:
+Exemplary for Dash we have:
 ```python
-'ZEN': {
-    'name': 'horizen',
-    'address_prefix_bytes': b'\x20\x89',
-    'secret_prefix_bytes': b'\x80',
-    'script_prefix_bytes': b'\x1c\xbd',
-    'params': {'check_block_at_height': True},
-    'apis': [
-        {'url': 'https://explorer.zensystem.io/insight-api-zen'}
-    ]
+'DASH': {
+    'name': 'dash',
+    'message_prefix': 'DarkCoin',
+    'slip44': 5,
+    'address_prefix_bytes': b'\x4c',
+    'secret_prefix_bytes': b'\xcc',
+    'script_prefix_bytes': b'\x10',
+    'apis': [{'url': 'https://insight.dash.org/insight-api'}],
 }
 ```
 Optional `address_types` lists address types which can be derived from a private key and spent
@@ -346,10 +336,10 @@ Optional `network` entry enables `multicrypto.network`. Values come from chainpa
 (`pchMessageStart`, `nDefaultPort`, `vSeeds`) and version.h (`PROTOCOL_VERSION`):
 ```python
 'network': {
-    'magic': b'\x63\x61\x73\x68',
-    'port': 9033,
-    'protocol_version': 170002,
-    'seeds': ['dnsseed.horizen.global', 'dnsseed.zensystem.io'],
+    'magic': b'\xbf\x0c\x6b\xbd',
+    'port': 9999,
+    'protocol_version': 70240,
+    'seeds': ['dnsseed.dash.org'],
 }
 ```
 2. Update this readme with new supported coin and add appropriate tests

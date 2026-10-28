@@ -131,7 +131,7 @@ def test_decode_addr_payload():
 
 def test_node_requires_network_definition():
     with pytest.raises(ValueError, match='not defined'):
-        Node(coins['BTCH'], '127.0.0.1')
+        Node({'name': 'no network coin'}, '127.0.0.1')
 
 
 def test_node_uses_default_port():

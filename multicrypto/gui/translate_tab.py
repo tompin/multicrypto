@@ -53,7 +53,7 @@ class TranslateTab(QWidget):
         self.source_wif: Optional[str] = None
         self.address = QLineEdit()
         self.address_input_coin = coin_box('BTC')
-        self.address_output_coin = coin_box('BTG')
+        self.address_output_coin = coin_box('LTC')
         self.translated_address = QLineEdit()
         self.translated_address.setReadOnly(True)
         self.address_status = QLabel()
@@ -62,7 +62,7 @@ class TranslateTab(QWidget):
         self.key = password_field()
         self.integer = QCheckBox('Integer (decimal or hex with 0x)')
         self.show_key = QCheckBox('Show keys')
-        self.key_output_coin = coin_box('BTG')
+        self.key_output_coin = coin_box('LTC')
         self.translated_key = password_field()
         self.translated_key.setReadOnly(True)
         self.key_addresses = QTableWidget(0, 2)
