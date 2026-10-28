@@ -26,11 +26,18 @@ from PySide6.QtWidgets import (
 
 from multicrypto.address import translate_private_key
 from multicrypto.bip32 import HARDENED
-from multicrypto.coins import P2TR, coins, get_address_types
-from multicrypto.gui.dialogs import SecretDialog, ask_password, password_field, secret_line
+from multicrypto.coins import P2TR, P2WPKH, coins, get_address_types
+from multicrypto.gui.dialogs import (
+    SecretDialog,
+    ask_password,
+    monospace_label,
+    password_field,
+    secret_line,
+)
 from multicrypto.gui.forms import (
     ADDRESS_TYPE_NAMES,
     EXPECTED_ERRORS,
+    address_type_name,
     coins_with_slip44,
     fetch_balances,
     format_amount,
@@ -152,6 +159,89 @@ class NewAccountGroupDialog(QDialog):
     def accept(self):
         try:
             self.submit(self.label.text().strip(), self.coin.currentText(), self.account.value())
+        except EXPECTED_ERRORS as error:
+            QMessageBox.warning(self, self.windowTitle(), str(error))
+            return
+        super().accept()
+
+
+class NewAddressDialog(QDialog):
+    """Dialog of the new receiving address: the account group, its address type and the label.
+    The address type of the account or of the group (Native SegWit when the coin has it) is
+    selected at the start."""
+
+    def __init__(
+        self,
+        parent,
+        wallet,
+        submit,
+        account_id: Optional[str] = None,
+        group: Optional[Tuple[str, int]] = None,
+    ):
+        super().__init__(parent)
+        self.setWindowTitle('New address')
+        self.wallet = wallet
+        self.submit = submit
+        self.group = QComboBox()
+        for account_group in wallet.account_groups():
+            self.group.addItem(
+                f'{account_group.label} ({account_group.coin})',
+                group_id(account_group.coin, account_group.number),
+            )
+        self.address_type = QComboBox()
+        self.label = QLineEdit()
+        self.label.setPlaceholderText('optional')
+        self.path = QLabel()
+        self.address = monospace_label('')
+        self.address.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        form = QFormLayout(self)
+        form.addRow('Account', self.group)
+        form.addRow('Address type', self.address_type)
+        form.addRow('Label', self.label)
+        form.addRow('Path', self.path)
+        form.addRow('Address', self.address)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+        if account_id is not None:
+            account = wallet.get_account(account_id)
+            group = (account.coin, account.account)
+        if group is not None:
+            self.group.setCurrentIndex(max(0, self.group.findData(group_id(*group))))
+        self._group_changed(account_id)
+        self.group.currentIndexChanged.connect(lambda _index: self._group_changed())
+        self.address_type.currentIndexChanged.connect(lambda _index: self._show_preview())
+
+    def _group_changed(self, account_id: Optional[str] = None):
+        self.address_type.blockSignals(True)
+        self.address_type.clear()
+        if self.group.count():
+            accounts = self.wallet.get_group(*parse_group_id(self.group.currentData())).accounts
+            for account in accounts:
+                self.address_type.addItem(address_type_name(account.address_type), account.id)
+            if account_id is None:
+                native = [account.id for account in accounts if account.address_type == P2WPKH]
+                account_id = native[0] if native else accounts[0].id
+            self.address_type.setCurrentIndex(self.address_type.findData(account_id))
+        self.address_type.blockSignals(False)
+        self._show_preview()
+
+    def _show_preview(self):
+        account_id = self.address_type.currentData()
+        if account_id is None:
+            self.path.setText('')
+            self.address.setText('')
+            return
+        address = self.wallet.next_receiving_address(account_id)
+        self.path.setText(address.path)
+        self.address.setText(address.address)
+
+    def accept(self):
+        try:
+            self.submit(self.address_type.currentData(), self.label.text().strip())
         except EXPECTED_ERRORS as error:
             QMessageBox.warning(self, self.windowTitle(), str(error))
             return
@@ -382,20 +472,19 @@ class WalletTab(QWidget):
         self._select((ACCOUNT_GROUP, group_id(group.coin, group.number)))
 
     def new_address(self):
-        account_id = self._selected_account_id()
-        if account_id is None:
-            selected = self._selected()
-            if selected and selected[0] == ACCOUNT_GROUP:
-                message = 'Select an address type first'
-            else:
-                message = 'Select an account first'
-            QMessageBox.information(self, 'New address', message)
+        wallet = self.app.wallet
+        if not wallet.accounts:
+            QMessageBox.information(self, 'New address', 'Add an account first')
             return
-        label, ok = QInputDialog.getText(self, 'New address', 'Label (optional)')
-        if ok:
-            address = self._modify(lambda wallet: wallet.new_address(account_id, label.strip()))
-            if address:
-                self._select((ADDRESS, address.id))
+        selected = self._selected()
+        group = None
+        if selected and selected[0] == ACCOUNT_GROUP:
+            group = parse_group_id(selected[1])
+        NewAddressDialog(self, wallet, self.add_address, self._selected_account_id(), group).exec()
+
+    def add_address(self, account_id: str, label: str):
+        address = self.app.modify_wallet(lambda wallet: wallet.new_address(account_id, label))
+        self._select((ADDRESS, address.id))
 
     def import_wif(self):
         def submit(label, coin, wif, address_type):

@@ -917,18 +917,46 @@ def test_wallet_tree_shows_account_groups(window):
     assert native.child(1).text(2) == address.address
 
 
-def test_new_address_needs_address_type(window, monkeypatch):
+def test_new_address_dialog_defaults(window):
     unlock(window)
-    messages = []
-    monkeypatch.setattr(
-        wallet_tab_module.QMessageBox, 'information', lambda *args: messages.append(args[2])
-    )
+    wallet = window.wallet
+    btc = wallet.get_group('BTC', 0)
+
+    def dialog(**kwargs):
+        return wallet_tab_module.NewAddressDialog(
+            window.wallet_tab, wallet, lambda *args: None, **kwargs
+        )
+
+    from_group = dialog(group=('BTC', 0))
+    assert from_group.group.currentText() == 'Bitcoin #0 (BTC)'
+    assert from_group.address_type.currentText() == 'Native SegWit (p2wpkh)'
+    assert from_group.path.text() == "m/84'/0'/0'/0/1"
+    assert from_group.address.text() == wallet.next_receiving_address(btc.accounts[1].id).address
+    assert dialog(group=('DOGE', 0)).address_type.currentText() == 'Legacy (p2pkh)'
+    assert dialog(account_id=btc.accounts[0].id).address_type.currentText() == 'Taproot (p2tr)'
+    other = dialog()
+    assert other.group.currentIndex() == 0
+    other.group.setCurrentIndex(other.group.findData(wallet_tab_module.group_id('LTC', 0)))
+    assert other.address_type.count() == 4
+    assert other.path.text() == "m/84'/2'/0'/0/1"
+
+
+def test_new_address_of_selected_group(window, monkeypatch):
+    unlock(window)
     tab = window.wallet_tab
+
+    def accept(dialog):
+        dialog.label.setText('Exchange')
+        dialog.accept()
+
+    monkeypatch.setattr(wallet_tab_module.NewAddressDialog, 'exec', accept)
     tab.tree.setCurrentItem(tab.tree.topLevelItem(0))
 
     tab.new_address()
 
-    assert messages == ['Select an address type first']
+    [_, address] = window.wallet.account_addresses(btc_account(window))
+    assert (address.label, address.path) == ('Exchange', "m/84'/0'/0'/0/1")
+    assert tab.tree.currentItem().text(2) == address.address
 
 
 def test_rename_and_remove_account_group(window, monkeypatch):
