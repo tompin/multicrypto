@@ -21,10 +21,10 @@ from PySide6.QtWidgets import (
 
 from multicrypto.api import broadcast_prepared, get_utxo_from_private_keys, prepare_sweep
 from multicrypto.coins import coins, get_address_types
+from multicrypto.gui.address_picker import WalletAddressPicker
 from multicrypto.gui.dialogs import confirm, password_field, show_lines
 from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
-    address_description,
     coins_with_api,
     describe_error,
     describe_sweep,
@@ -49,14 +49,13 @@ class SweepTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.addresses: List[WalletAddress] = []  # wallet addresses of coins with API
-        self.wallet_source = QRadioButton('Wallet address')
-        self.wallet_source.setChecked(True)
-        self.key_source = QRadioButton('External private key (WIF)')
-        self.source_box = QComboBox()
         self.coin = QComboBox()
         self.coin.addItems(coins_with_api())
         self.coin.setCurrentText('BTC')
+        self.wallet_source = QRadioButton('Wallet address')
+        self.wallet_source.setChecked(True)
+        self.key_source = QRadioButton('External private key (WIF)')
+        self.source_picker = WalletAddressPicker()
         self.address_type = QComboBox()
         self.wif = password_field()
         self.wif.setPlaceholderText('used once, it is not saved in the wallet')
@@ -66,7 +65,7 @@ class SweepTab(QWidget):
         self.same_destination.setChecked(True)
         self.wallet_destination = QRadioButton('Wallet address')
         self.other_destination = QRadioButton('Other address')
-        self.destination_box = QComboBox()
+        self.destination_picker = WalletAddressPicker()
         self.destination = QLineEdit()
         self.destination_status = QLabel()
         self.fee = FeeRateField(app, self._source_coin)
@@ -76,23 +75,26 @@ class SweepTab(QWidget):
         self.progress = QLabel()
         self.prepare_button = QPushButton('Prepare sweep...')
         self.prepare_button.clicked.connect(lambda _checked=False: self.prepare())
+        coin_form = QFormLayout()
+        coin_form.addRow('Coin', self.coin)
         # radio buttons are exclusive within their group box
         source = QGroupBox('From')
         source_grid = QGridLayout(source)
-        source_grid.addWidget(self.wallet_source, 0, 0)
-        source_grid.addWidget(self.source_box, 0, 1, 1, 4)
+        source_grid.addWidget(self.wallet_source, 0, 0, alignment=Qt.AlignmentFlag.AlignTop)
+        source_grid.addWidget(self.source_picker, 0, 1, 1, 3)
         source_grid.addWidget(self.key_source, 1, 0)
-        source_grid.addWidget(self.coin, 1, 1)
-        source_grid.addWidget(self.address_type, 1, 2)
-        source_grid.addWidget(self.wif, 1, 3)
-        source_grid.addWidget(self.show_wif, 1, 4)
-        source_grid.addWidget(self.key_address, 2, 3)
-        source_grid.setColumnStretch(3, 1)
+        source_grid.addWidget(self.address_type, 1, 1)
+        source_grid.addWidget(self.wif, 1, 2)
+        source_grid.addWidget(self.show_wif, 1, 3)
+        source_grid.addWidget(self.key_address, 2, 2)
+        source_grid.setColumnStretch(2, 1)
         destination = QGroupBox('To')
         destination_grid = QGridLayout(destination)
         destination_grid.addWidget(self.same_destination, 0, 0)
-        destination_grid.addWidget(self.wallet_destination, 1, 0)
-        destination_grid.addWidget(self.destination_box, 1, 1)
+        destination_grid.addWidget(
+            self.wallet_destination, 1, 0, alignment=Qt.AlignmentFlag.AlignTop
+        )
+        destination_grid.addWidget(self.destination_picker, 1, 1)
         destination_grid.addWidget(self.other_destination, 2, 0)
         destination_grid.addWidget(self.destination, 2, 1)
         destination_grid.addWidget(self.destination_status, 3, 1)
@@ -105,6 +107,7 @@ class SweepTab(QWidget):
         advanced_form.addRow('Maximum input (satoshis)', self.maximum)
         advanced_form.addRow('Inputs per transaction', self.batch_size)
         layout = QVBoxLayout(self)
+        layout.addLayout(coin_form)
         layout.addWidget(source)
         layout.addWidget(destination)
         layout.addLayout(form)
@@ -112,15 +115,14 @@ class SweepTab(QWidget):
         layout.addWidget(self.progress)
         layout.addWidget(self.prepare_button, alignment=Qt.AlignmentFlag.AlignRight)
         layout.addStretch()
-        self.source_box.activated.connect(lambda _index: self.wallet_source.setChecked(True))
-        self.source_box.currentIndexChanged.connect(lambda _index: self._update_destinations())
-        self.wallet_source.toggled.connect(lambda _checked: self._update_destinations())
+        self.source_picker.box.activated.connect(lambda _index: self.wallet_source.setChecked(True))
+        self.wallet_source.toggled.connect(lambda _checked: self._update_same_destination())
         self.wif.textEdited.connect(lambda _text: self.key_source.setChecked(True))
         self.wif.textChanged.connect(lambda _text: self._update_key_address())
         self.show_wif.toggled.connect(self._show_wif)
         self.coin.currentTextChanged.connect(lambda _text: self._coin_changed())
         self.address_type.currentTextChanged.connect(lambda _text: self._update_key_address())
-        self.destination_box.activated.connect(
+        self.destination_picker.box.activated.connect(
             lambda _index: self.wallet_destination.setChecked(True)
         )
         self.destination.textEdited.connect(lambda _text: self.other_destination.setChecked(True))
@@ -128,28 +130,23 @@ class SweepTab(QWidget):
         self._coin_changed()
 
     def refresh(self):
-        selected = self.source_box.currentData()
-        self.addresses = [
-            address for address in self.app.wallet.addresses() if coins[address.coin].get('apis')
-        ]
-        self.source_box.clear()
-        for address in self.addresses:
-            self.source_box.addItem(address_description(address), address.id)
-        index = self.source_box.findData(selected)
-        if index >= 0:
-            self.source_box.setCurrentIndex(index)
-        self._update_destinations()
+        wallet = self.app.wallet
+        coin_symbol = self.coin.currentText()
+        addresses = [] if wallet is None else wallet.addresses()
+        addresses = [address for address in addresses if address.coin == coin_symbol]
+        self.source_picker.set_addresses(wallet, addresses)
+        self.destination_picker.set_addresses(wallet, addresses)
 
     def clear(self):
-        self.addresses = []
-        self.source_box.clear()
-        self.destination_box.clear()
+        self.source_picker.clear()
+        self.destination_picker.clear()
         self.wif.clear()
         self.destination.clear()
         self.progress.setText('')
 
     def select_source(self, address: WalletAddress):
-        self.source_box.setCurrentIndex(self.source_box.findData(address.id))
+        self.coin.setCurrentText(address.coin)
+        self.source_picker.select(address.id)
         self.wallet_source.setChecked(True)
         self.app.select_tab(self)
 
@@ -160,13 +157,11 @@ class SweepTab(QWidget):
         self.address_type.clear()
         self.address_type.addItems(get_address_types(coins[self.coin.currentText()]))
         self._update_key_address()
-        self._update_destinations()
+        self.refresh()
+        self._validate_destination()
 
     def _source_coin(self) -> Optional[str]:
-        if self.key_source.isChecked():
-            return self.coin.currentText()
-        index = self.source_box.currentIndex()
-        return self.addresses[index].coin if index >= 0 else None
+        return self.coin.currentText()
 
     def _update_key_address(self):
         if not self.wif.text().strip():
@@ -181,24 +176,12 @@ class SweepTab(QWidget):
         else:
             self.key_address.setText(address)
 
-    def _update_destinations(self):
-        """Fill the wallet addresses of the source coin, the same address needs wallet source."""
+    def _update_same_destination(self):
+        """The same address as the destination needs the wallet address as the source."""
         wallet_source = self.wallet_source.isChecked()
         self.same_destination.setEnabled(wallet_source)
         if not wallet_source and self.same_destination.isChecked():
             self.wallet_destination.setChecked(True)
-        selected = self.destination_box.currentData()
-        self.destination_box.clear()
-        if self.app.wallet is None:
-            return
-        coin_symbol = self._source_coin()
-        for address in self.app.wallet.addresses():
-            if address.coin == coin_symbol:
-                self.destination_box.addItem(address_description(address), address.id)
-        index = self.destination_box.findData(selected)
-        if index >= 0:
-            self.destination_box.setCurrentIndex(index)
-        self._validate_destination()
 
     def _validate_destination(self):
         text = self.destination.text()
@@ -220,10 +203,9 @@ class SweepTab(QWidget):
             address_type = self.address_type.currentText()
             wif, address = parse_wif(self.wif.text(), coin_symbol, address_type)
             return coin_symbol, address_type, wif, address
-        index = self.source_box.currentIndex()
-        if index < 0:
+        address = self.source_picker.current()
+        if address is None:
             raise ValueError('Select the wallet address')
-        address = self.addresses[index]
         wif = self.app.wallet.private_key_wif(address)
         return address.coin, address.address_type, wif, address.address
 
@@ -231,10 +213,10 @@ class SweepTab(QWidget):
         if self.same_destination.isChecked():
             return source_address
         if self.wallet_destination.isChecked():
-            address_id = self.destination_box.currentData()
-            if address_id is None:
+            address = self.destination_picker.current()
+            if address is None:
                 raise ValueError(f'Select the destination wallet address of {coin_symbol}')
-            return self.app.wallet.get_address(address_id).address
+            return address.address
         return parse_address(self.destination.text(), coin_symbol)
 
     def prepare(self):

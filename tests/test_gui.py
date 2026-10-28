@@ -490,7 +490,7 @@ def test_sweep_external_key_to_wallet_address(qapp, window, monkeypatch):
     assert tab.key_address.text() == EXTERNAL_ADDRESS
     assert not tab.same_destination.isEnabled()
     tab.wallet_destination.setChecked(True)
-    tab.destination_box.setCurrentIndex(tab.destination_box.findData(address.id))
+    tab.destination_picker.select(address.id)
     tab.fee.rate.setText('2')
     tab.prepare()
     wait_until(qapp, lambda: shown)
@@ -516,6 +516,21 @@ def test_sweep_validates_external_key_and_destination(window):
     assert 'Incorrect' in tab.destination_status.text()
 
 
+def test_sweep_tab_filters_wallet_addresses_by_coin(window):
+    unlock(window)
+    tab = window.sweep_tab
+    [address] = window.wallet.account_addresses(window.wallet.get_group('TLTC', 0).accounts[0])
+
+    tab.coin.setCurrentText('LTC')
+
+    assert {address.coin for address in tab.source_picker.addresses} == {'LTC'}
+    assert {address.coin for address in tab.destination_picker.addresses} == {'LTC'}
+    tab.select_source(address)
+    assert tab.coin.currentText() == 'TLTC'
+    assert tab.source_picker.current() == address
+    assert tab._source_coin() == 'TLTC'
+
+
 def test_lock_clears_sweep_key(window):
     unlock(window)
     window.sweep_tab.wif.setText(EXTERNAL_WIF)
@@ -523,7 +538,7 @@ def test_lock_clears_sweep_key(window):
     window.lock()
 
     assert window.sweep_tab.wif.text() == ''
-    assert window.sweep_tab.source_box.count() == 0
+    assert window.sweep_tab.source_picker.box.count() == 0
 
 
 def test_show_qr_of_selected_address(window, monkeypatch):
