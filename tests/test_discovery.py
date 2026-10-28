@@ -53,16 +53,15 @@ def used_addresses(wallet, items):
     }
 
 
-def test_discover_accounts_of_all_address_types():
+def test_discover_scans_account_groups():
     wallet = Wallet.create(MNEMONIC, '')
     used = used_addresses(
         wallet,
         [
-            ('BTC', 'p2wpkh', 0, RECEIVE_CHAIN, 0),
-            ('BTC', 'p2wpkh', 0, RECEIVE_CHAIN, 1),
-            ('BTC', 'p2wpkh', 0, CHANGE_CHAIN, 0),
-            ('BTC', 'p2wpkh', 1, RECEIVE_CHAIN, 3),
-            ('BTC', 'p2pkh', 0, CHANGE_CHAIN, 2),
+            ('BTC', 'p2tr', 0, RECEIVE_CHAIN, 0),
+            ('BTC', 'p2wpkh', 1, RECEIVE_CHAIN, 0),
+            ('BTC', 'p2wpkh', 1, RECEIVE_CHAIN, 1),
+            ('BTC', 'p2pkh', 3, RECEIVE_CHAIN, 0),  # after the unused group 2, it is not found
         ],
     )
     checked = []
@@ -72,13 +71,12 @@ def test_discover_accounts_of_all_address_types():
     )
 
     assert found == [
-        DiscoveredAccount('BTC', 'p2pkh', 0, [], [2]),
-        DiscoveredAccount('BTC', 'p2wpkh', 0, [0, 1], [0]),
-        DiscoveredAccount('BTC', 'p2wpkh', 1, [3], []),
+        DiscoveredAccount('BTC', 'p2tr', 0, [0], []),
+        DiscoveredAccount('BTC', 'p2wpkh', 1, [0, 1], []),
     ]
-    # p2pkh: account 0 (20 receiving, 2 + 1 + 20 change) and 1 (40), p2sh-p2wpkh: 0 (40),
-    # p2wpkh: 0 (1 + 1 + 20 receiving, 21 change), 1 (3 + 1 + 20, 20) and 2 (40), p2tr: 0 (40)
-    assert sum(checked) == 290
+    # group 0: p2tr 1 + 20 receiving and 20 change, 3 unused accounts (40 each), group 1: p2wpkh
+    # 2 + 20 and 20, 3 unused accounts, group 2: 4 unused accounts
+    assert sum(checked) == (41 + 120) + (42 + 120) + 160
 
 
 def test_discover_coin_without_api():
@@ -93,23 +91,28 @@ def test_add_discovered():
     discovered = [
         DiscoveredAccount('BTC', 'p2wpkh', 0, [0, 1], [0]),
         DiscoveredAccount('BTC', 'p2pkh', 0, [], [2]),
+        DiscoveredAccount('BTC', 'p2tr', 1, [0], []),
     ]
 
-    assert add_discovered(wallet, discovered) == 3
+    # p2wpkh 0/1 and 1/0, p2pkh 1/2 and the addresses 0/0 of four accounts of the new group 1
+    assert add_discovered(wallet, discovered) == 7
     assert add_discovered(wallet, discovered) == 0
     assert [address.path for address in wallet.account_addresses(existing)] == [
         "m/84'/0'/0'/0/0",
         "m/84'/0'/0'/0/1",
         "m/84'/0'/0'/1/0",
     ]
-    added = wallet.accounts[1]
-    assert (added.label, added.coin, added.address_type, added.account) == (
-        'BTC p2pkh #0',
-        'BTC',
-        'p2pkh',
-        0,
-    )
-    assert [address.label for address in wallet.account_addresses(added)] == ['Change 2']
+    group = wallet.get_group('BTC', 0)
+    assert [(account.label, account.address_type) for account in group.accounts] == [
+        ('Savings', 'p2wpkh'),
+        ('Savings', 'p2pkh'),
+    ]
+    assert [address.label for address in wallet.account_addresses(group.accounts[1])] == [
+        'Change 2'
+    ]
+    new_group = wallet.get_group('BTC', 1)
+    assert new_group.label == 'Bitcoin #1'
+    assert [len(account.addresses) for account in new_group.accounts] == [1, 1, 1, 1]
 
 
 def test_discover_retries_rate_limited_requests(monkeypatch):
@@ -216,7 +219,7 @@ def test_scan_account():
 
 def test_discover_keeps_accounts_found_before_error():
     wallet = Wallet.create(MNEMONIC, '')
-    used = used_addresses(wallet, [('BTC', 'p2pkh', 0, RECEIVE_CHAIN, 0)])
+    used = used_addresses(wallet, [('BTC', 'p2wpkh', 0, RECEIVE_CHAIN, 0)])
     p2sh_address = wallet.address_at(HDAccount('', 'BTC', 'p2sh-p2wpkh', 0), RECEIVE_CHAIN, 0)
     found = []
 
@@ -228,4 +231,4 @@ def test_discover_keeps_accounts_found_before_error():
     with pytest.raises(ValueError, match='broken'):
         discover(wallet, 'BTC', lambda count: None, lambda: False, tx_count, found=found)
 
-    assert found == [DiscoveredAccount('BTC', 'p2pkh', 0, [0], [])]
+    assert found == [DiscoveredAccount('BTC', 'p2wpkh', 0, [0], [])]

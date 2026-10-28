@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from multicrypto.api import RateLimitError, get_api
-from multicrypto.coins import coins, get_address_types
-from multicrypto.wallet import CHANGE_CHAIN, RECEIVE_CHAIN, HDAccount, Wallet
+from multicrypto.coins import coins
+from multicrypto.wallet import CHANGE_CHAIN, RECEIVE_CHAIN, HDAccount, Wallet, group_address_types
 
 GAP_LIMIT = 20  # unused addresses after the last used one ending the scan of the chain
 THREADS = 2
@@ -164,52 +164,57 @@ def discover(
     tx_count: Optional[Callable[[str], int]] = None,
     found: Optional[List[DiscoveredAccount]] = None,
 ) -> List[DiscoveredAccount]:
-    """Used accounts of all address types of the coin: accounts are checked from 0 to the first
-    one without transactions on the receiving and change chains. The accounts are appended to the
-    found list as soon as they are scanned, so they are available also when the scan fails."""
+    """Used accounts of all address types of the coin: the account groups (accounts of all address
+    types with the same number) are checked from 0 to the first one without transactions on the
+    receiving and change chains of all its accounts. The accounts are appended to the found list
+    as soon as they are scanned, so they are available also when the scan fails."""
     coin = _scannable_coin(coin_symbol)
     tx_count = _retrying(tx_count or coin_tx_count(coin), cancelled)
     found = [] if found is None else found
     with ThreadPoolExecutor(THREADS) as executor:
-        for address_type in get_address_types(coin):
-            for number in range(MAX_ACCOUNTS + 1):
-                if number == MAX_ACCOUNTS:
-                    raise ValueError(
-                        f'Stopped after {MAX_ACCOUNTS} accounts of {coin_symbol} {address_type}'
-                    )
+        for number in range(MAX_ACCOUNTS + 1):
+            if number == MAX_ACCOUNTS:
+                raise ValueError(f'Stopped after {MAX_ACCOUNTS} accounts of {coin_symbol}')
+            used = False
+            for address_type in group_address_types(coin_symbol):
                 account = HDAccount('', coin_symbol, address_type, number)
                 item = _scan_account(wallet, account, progress, cancelled, tx_count, executor.map)
-                if not (item.receive or item.change):
-                    break
-                found.append(item)
+                if item.receive or item.change:
+                    found.append(item)
+                    used = True
+            if not used:
+                break
     return found
+
+
+def _find_account(wallet: Wallet, item: DiscoveredAccount) -> Optional[HDAccount]:
+    for account in wallet.accounts:
+        if (account.coin, account.address_type, account.account) == (
+            item.coin,
+            item.address_type,
+            item.account,
+        ):
+            return account
+    return None
 
 
 def add_discovered(wallet: Wallet, discovered: List[DiscoveredAccount]) -> int:
     """Add the discovered accounts and addresses missing in the wallet, return the number of the
-    added addresses."""
-    added = 0
+    added addresses. The missing account group is added with the accounts of all address types."""
+    before = len(wallet.addresses())
     for item in discovered:
-        account = next(
-            (
-                account
-                for account in wallet.accounts
-                if (account.coin, account.address_type, account.account)
-                == (item.coin, item.address_type, item.account)
-            ),
-            None,
-        )
+        account = _find_account(wallet, item)
         if account is None:
-            account = wallet.add_account(
-                f'{item.coin} {item.address_type} #{item.account}',
-                item.coin,
-                item.address_type,
-                item.account,
-            )
+            try:
+                label = wallet.get_group(item.coin, item.account).label
+            except KeyError:
+                wallet.add_account_group('', item.coin, item.account)
+            else:
+                wallet.add_account(label, item.coin, item.address_type, item.account)
+            account = _find_account(wallet, item)
         present = {(address.chain, address.index) for address in account.addresses}
         for chain, indexes in ((RECEIVE_CHAIN, item.receive), (CHANGE_CHAIN, item.change)):
             for index in indexes:
                 if (chain, index) not in present:
                     wallet.add_address(account.id, chain, index)
-                    added += 1
-    return added
+    return len(wallet.addresses()) - before
