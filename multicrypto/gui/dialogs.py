@@ -39,26 +39,22 @@ def monospace_label(text: str) -> QLabel:
 
 
 def mnemonic_grid(mnemonic: str, columns: int = 4) -> QWidget:
-    """Numbered words of the mnemonic in columns to write them down, below them the warning, the
-    words in one line, which can be selected with the mouse (the words attribute), and the button
-    copying them (the copy_button attribute)."""
+    """Numbered words of the mnemonic in columns to write them down, below them the warning and
+    the button copying the words (the copy_button attribute)."""
     widget = QWidget()
     layout = QVBoxLayout(widget)
-    grid = QGridLayout()
-    layout.addLayout(grid)
+    words_widget = QWidget()
+    grid = QGridLayout(words_widget)
+    grid.setContentsMargins(0, 0, 0, 0)
     words = mnemonic.split()
     rows = (len(words) + columns - 1) // columns
     for position, word in enumerate(words):
         label = monospace_label(f'{position + 1:2}. {word}')
         label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         grid.addWidget(label, position % rows, position // rows)
-    widget.words = monospace_label(' '.join(words))
-    widget.words.setObjectName('mnemonic_words')
-    widget.words.setWordWrap(True)
-    widget.words.setTextInteractionFlags(
-        Qt.TextInteractionFlag.TextSelectableByMouse
-        | Qt.TextInteractionFlag.TextSelectableByKeyboard
-    )
+    # the window must not be smaller than the words, wrapped labels report too small height
+    words_widget.setMinimumSize(words_widget.sizeHint())
+    layout.addWidget(words_widget)
     layout.addSpacing(12)
     warning = QLabel(
         'Copying the mnemonic is dangerous: other programs and clipboard managers can read the '
@@ -67,8 +63,8 @@ def mnemonic_grid(mnemonic: str, columns: int = 4) -> QWidget:
     )
     warning.setObjectName('copy_warning')
     warning.setWordWrap(True)
+    warning.setMinimumHeight(warning.heightForWidth(words_widget.sizeHint().width()))
     layout.addWidget(warning)
-    layout.addWidget(widget.words)
     widget.copy_button = QPushButton('Copy words')
 
     def copy_words():

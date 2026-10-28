@@ -14,7 +14,6 @@ from multicrypto.scripts import address_to_script
 
 pytest.importorskip('PySide6')
 
-from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QLabel  # noqa: E402
 
 import multicrypto.gui.send_tab as send_tab_module  # noqa: E402
@@ -77,17 +76,6 @@ def test_wizard_confirms_generated_mnemonic(qapp):
     assert wizard.values()[1] == wizard.generated_mnemonic
 
 
-def test_mnemonic_words_can_be_selected_and_copied(qapp):
-    grid = mnemonic_grid(MNEMONIC)
-    words = grid.words
-
-    assert words.text() == MNEMONIC
-    assert words.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByMouse
-    assert words.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByKeyboard
-    words.setSelection(0, len(MNEMONIC))
-    assert words.selectedText() == MNEMONIC
-
-
 def test_mnemonic_copy_button_copies_words(qapp):
     from PySide6.QtWidgets import QApplication
 
@@ -104,7 +92,7 @@ def test_wizard_shows_copyable_mnemonic(qapp):
     wizard = CreateWalletWizard(None, 'wallet.mcw')
 
     assert 'cannot be copied' not in wizard.show_page.subTitle()
-    assert wizard.show_page.findChild(QLabel, 'mnemonic_words').text() == wizard.generated_mnemonic
+    assert wizard.show_page.findChild(QLabel, 'copy_warning') is not None
 
 
 def test_restore_page_shows_mnemonic_errors(qapp):
