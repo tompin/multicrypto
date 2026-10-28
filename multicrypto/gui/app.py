@@ -4,6 +4,7 @@ import argparse
 import logging
 import sys
 
+from multicrypto.gui.settings import SETTINGS_PATH, apply_scale, check_scale, initial_scale
 from multicrypto.validators import check_positive
 
 
@@ -28,6 +29,15 @@ def get_args():
         default=5,
         help='Lock the wallet after given number of minutes of inactivity. Default 5 minutes',
     )
+    parser.add_argument(
+        '-s',
+        '--scale',
+        type=check_scale,
+        required=False,
+        default=None,
+        help='Scale of the interface, e.g. 1.5, overrides the scale chosen in View menu. '
+        'Default is the scale of the system',
+    )
     return parser.parse_args()
 
 
@@ -47,6 +57,7 @@ def main():
                 'pip install "multicrypto[gui]"'
             )
         raise
+    apply_scale(initial_scale(args.scale, SETTINGS_PATH))
     app = QApplication(sys.argv[:1])
     app.setStyle('Fusion')
     window = MainWindow(WalletFile(args.wallet or DEFAULT_PATH), args.auto_lock * 60)
