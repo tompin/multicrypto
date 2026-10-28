@@ -194,14 +194,14 @@ def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     assert tree.topLevelItemCount() == 6
     assert tree.topLevelItem(0).child(1).child(1).text(2) == address.address
     assert window.balance_tab.picker.box.count() == 5
-    assert window.send_tab.sources.count() == 19
+    assert window.send_tab.sources.rowCount() == 5
 
     window.lock()
 
     assert window.wallet is None
     assert not window.wallet_file.is_unlocked
     assert tree.topLevelItemCount() == 0
-    assert window.send_tab.sources.count() == 0
+    assert window.send_tab.sources.rowCount() == 0
     assert window.balance_tab.picker.box.count() == 0
     assert 'locked' in window.status.text()
 
@@ -276,11 +276,43 @@ def test_wallet_is_locked_after_inactivity(window):
     assert window.wallet is None
 
 
+def test_send_tab_shows_sources_of_coin_in_table(window):
+    unlock(window)
+    tab = window.send_tab
+    [address] = window.wallet.account_addresses(window.wallet.get_group('LTC', 0).accounts[1])
+
+    tab.select_source(address)
+
+    assert tab.coin.currentText() == 'LTC'
+    assert tab.sources.rowCount() == 4
+    assert [tab.sources.item(1, column).text() for column in range(5)] == [
+        address.address,
+        'Litecoin #0',
+        'Native SegWit (p2wpkh)',
+        "m/84'/2'/0'/0/0",
+        'Address 0',
+    ]
+    assert tab._selected_addresses() == [address]
+
+
+def test_send_tab_keeps_selected_sources(window):
+    unlock(window)
+    tab = window.send_tab
+    first = btc_account(window)
+    second = window.modify_wallet(lambda wallet: wallet.new_address(first.id))
+    tab.select_source(window.wallet.account_addresses(first)[0])
+    tab._select_row(2)
+
+    tab.refresh()
+
+    assert tab._selected_addresses() == window.wallet.account_addresses(first)[:1] + [second]
+
+
 def test_send_tab_validates_destination(window):
     unlock(window)
     account = window.wallet.accounts[0]
     window.modify_wallet(lambda wallet: wallet.new_address(account.id, 'Savings'))
-    window.send_tab.sources.item(0).setSelected(True)
+    window.send_tab.sources.selectRow(0)
 
     window.send_tab.destination.setText('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu')
     assert 'Correct BTC address' in window.send_tab.destination_status.text()

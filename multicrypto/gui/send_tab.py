@@ -3,18 +3,20 @@
 import json
 from typing import List, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QFormLayout,
     QGroupBox,
+    QHeaderView,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -25,8 +27,9 @@ from multicrypto.gui.dialogs import confirm, show_text
 from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
     EXPECTED_ERRORS,
-    address_description,
+    address_details,
     check_sources,
+    coins_with_api,
     describe_transaction,
     extract_txid,
     parse_address,
@@ -38,14 +41,26 @@ from multicrypto.network import broadcast_transaction
 from multicrypto.wallet import CHANGE_CHAIN, WalletAddress
 
 ID_ROLE = Qt.ItemDataRole.UserRole
+SOURCE_COLUMNS = ['Address', 'Account', 'Address type', 'Path', 'Label']
 
 
 class SendTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.sources = QListWidget()
+        self.coin = QComboBox()
+        self.coin.addItems(coins_with_api())
+        self.coin.setCurrentText('BTC')
+        self.coin.currentTextChanged.connect(lambda _text: self.refresh())
+        self.sources = QTableWidget(0, len(SOURCE_COLUMNS))
+        self.sources.setHorizontalHeaderLabels(SOURCE_COLUMNS)
+        self.sources.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.sources.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.sources.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.sources.verticalHeader().hide()
+        header = self.sources.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setStretchLastSection(True)
         self.destination = QLineEdit()
         self.destination_status = QLabel()
         self.amount = QLineEdit()
@@ -71,8 +86,11 @@ class SendTab(QWidget):
         advanced_form.addRow('Limit of inputs', self.limit)
         advanced_form.addRow(self.p2p)
         advanced_form.addRow('Nodes', self.nodes)
+        coin_form = QFormLayout()
+        coin_form.addRow('Coin', self.coin)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel('From (one or more addresses with the same coin and address type)'))
+        layout.addLayout(coin_form)
+        layout.addWidget(QLabel('From (one or more addresses with the same address type)'))
         layout.addWidget(self.sources)
         layout.addLayout(form)
         layout.addWidget(advanced)
@@ -81,28 +99,47 @@ class SendTab(QWidget):
         self.sources.itemSelectionChanged.connect(self._validate_destination)
 
     def refresh(self):
-        selected = {item.data(ID_ROLE) for item in self.sources.selectedItems()}
-        self.sources.clear()
-        for address in self.app.wallet.addresses():
-            item = QListWidgetItem(address_description(address), self.sources)
-            item.setData(ID_ROLE, address.id)
-            item.setSelected(address.id in selected)
+        selected = set(self._selected_ids())
+        wallet = self.app.wallet
+        coin_symbol = self.coin.currentText()
+        addresses = [] if wallet is None else wallet.addresses()
+        addresses = [address for address in addresses if address.coin == coin_symbol]
+        self.sources.clearSelection()
+        self.sources.setRowCount(len(addresses))
+        for row, address in enumerate(addresses):
+            values = [address.address] + [text for _, text in address_details(wallet, address)]
+            for column, value in enumerate(values):
+                self.sources.setItem(row, column, QTableWidgetItem(value))
+            self.sources.item(row, 0).setData(ID_ROLE, address.id)
+            if address.id in selected:
+                self._select_row(row)
 
     def clear(self):
-        self.sources.clear()
+        self.sources.setRowCount(0)
         self.destination.clear()
         self.amount.clear()
 
     def select_source(self, address: WalletAddress):
-        for index in range(self.sources.count()):
-            item = self.sources.item(index)
-            item.setSelected(item.data(ID_ROLE) == address.id)
+        self.coin.setCurrentText(address.coin)
+        self.sources.clearSelection()
+        for row in range(self.sources.rowCount()):
+            if self.sources.item(row, 0).data(ID_ROLE) == address.id:
+                self._select_row(row)
         self.app.select_tab(self)
 
+    def _select_row(self, row: int):
+        """Add the row to the selected sources (selectRow would replace the selection)."""
+        self.sources.selectionModel().select(
+            self.sources.model().index(row, 0),
+            QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+        )
+
+    def _selected_ids(self) -> List[str]:
+        rows = sorted({index.row() for index in self.sources.selectedIndexes()})
+        return [self.sources.item(row, 0).data(ID_ROLE) for row in rows]
+
     def _selected_addresses(self) -> List[WalletAddress]:
-        return [
-            self.app.wallet.get_address(item.data(ID_ROLE)) for item in self.sources.selectedItems()
-        ]
+        return [self.app.wallet.get_address(address_id) for address_id in self._selected_ids()]
 
     def _source_coin(self) -> Optional[str]:
         try:
