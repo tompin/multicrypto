@@ -567,6 +567,17 @@ def test_add_change_address():
     ]
 
 
+def test_next_receiving_address_is_not_added():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+    wallet.new_address(account.id)
+
+    address = wallet.next_receiving_address(account.id)
+
+    assert (address.path, address.label) == ("m/84'/0'/0'/0/1", 'Address 1')
+    assert len(account.addresses) == 1
+
+
 def test_address_at_does_not_add_address():
     wallet = Wallet.create(MNEMONIC, '')
     account = wallet.add_account('Test', 'BTC', 'p2wpkh')

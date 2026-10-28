@@ -400,6 +400,12 @@ class Wallet:
         index = self._next_index(account, RECEIVE_CHAIN)
         return self.add_address(account_id, RECEIVE_CHAIN, index, label)
 
+    def next_receiving_address(self, account_id: str) -> WalletAddress:
+        """Next receiving address of the account, it is not added to the wallet."""
+        account = self.get_account(account_id)
+        index = self._next_index(account, RECEIVE_CHAIN)
+        return self._hd_address(account, HDAddress(index, f'{CHAIN_LABELS[RECEIVE_CHAIN]} {index}'))
+
     def next_change_address(self, account_id: str) -> WalletAddress:
         """Next change address of the account, it is not added to the wallet."""
         account = self.get_account(account_id)

@@ -26,20 +26,20 @@ from PySide6.QtWidgets import (
 
 from multicrypto.address import translate_private_key
 from multicrypto.bip32 import HARDENED
-from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins, get_address_types
+from multicrypto.coins import P2TR, coins, get_address_types
 from multicrypto.gui.dialogs import SecretDialog, ask_password, password_field, secret_line
-from multicrypto.gui.forms import EXPECTED_ERRORS, coins_with_slip44, fetch_balances, format_amount
+from multicrypto.gui.forms import (
+    ADDRESS_TYPE_NAMES,
+    EXPECTED_ERRORS,
+    coins_with_slip44,
+    fetch_balances,
+    format_amount,
+)
 from multicrypto.gui.qr import QrDialog
 from multicrypto.wallet import WalletAddress, account_path, check_entry, group_address_types
 
 ITEM_ROLE = Qt.ItemDataRole.UserRole
 ACCOUNT, ADDRESS, GROUP, ACCOUNT_GROUP = 'account', 'address', 'group', 'account_group'
-ADDRESS_TYPE_NAMES = {
-    P2TR: 'Taproot',
-    P2WPKH: 'Native SegWit',
-    P2SH_P2WPKH: 'SegWit',
-    P2PKH: 'Legacy',
-}
 
 
 def group_id(coin_symbol: str, number: int) -> str:

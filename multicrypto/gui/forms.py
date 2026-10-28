@@ -17,12 +17,18 @@ from multicrypto.address import (
 )
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_utxo_from_address
 from multicrypto.base58 import BASE58_ALPHABET, base58_to_bytes
-from multicrypto.coins import P2PKH, P2TR, coins, get_address_types
+from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins, get_address_types
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
 from multicrypto.utils import double_sha256, get_integer
 from multicrypto.vanity import validate_vanity_pattern
-from multicrypto.wallet import WalletAddress, WalletError, check_entry, check_new_password
+from multicrypto.wallet import (
+    Wallet,
+    WalletAddress,
+    WalletError,
+    check_entry,
+    check_new_password,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +127,33 @@ def extract_txid(result: str) -> str:
 
 def coins_with_api() -> List[str]:
     return sorted(symbol for symbol, coin in coins.items() if coin.get('apis'))
+
+
+ADDRESS_TYPE_NAMES = {
+    P2TR: 'Taproot',
+    P2WPKH: 'Native SegWit',
+    P2SH_P2WPKH: 'SegWit',
+    P2PKH: 'Legacy',
+}
+
+
+def address_type_name(address_type: str) -> str:
+    return f'{ADDRESS_TYPE_NAMES[address_type]} ({address_type})'
+
+
+def address_details(wallet: Wallet, address: WalletAddress) -> List[Tuple[str, str]]:
+    """Account, address type, path and label of the wallet address."""
+    if address.account_id is None:
+        account = 'Imported key'
+    else:
+        hd_account = wallet.get_account(address.account_id)
+        account = wallet.get_group(hd_account.coin, hd_account.account).label
+    return [
+        ('Account', account),
+        ('Address type', address_type_name(address.address_type)),
+        ('Path', address.path or '—'),
+        ('Label', address.label),
+    ]
 
 
 def address_description(address: WalletAddress) -> str:

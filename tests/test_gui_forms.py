@@ -5,6 +5,8 @@ from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_api
 from multicrypto.coins import coins
 from multicrypto.gui.forms import (
     address_description,
+    address_details,
+    address_type_name,
     check_confirmation_words,
     check_passphrase_confirmation,
     check_password_confirmation,
@@ -33,7 +35,7 @@ from multicrypto.gui.forms import (
     translated_key_addresses,
 )
 from multicrypto.network import PeerAddress
-from multicrypto.wallet import WalletAddress, WalletError
+from multicrypto.wallet import Wallet, WalletAddress, WalletError
 
 
 @pytest.mark.parametrize(
@@ -219,6 +221,29 @@ def test_check_sources():
         check_sources([])
     with pytest.raises(ValueError, match='same coin and address type'):
         check_sources([savings, legacy])
+
+
+def test_address_details():
+    wallet = Wallet.create(' '.join(['abandon'] * 11 + ['about']), '')
+    group = wallet.add_account_group('', 'BTC')
+    [address] = wallet.account_addresses(group.accounts[1])
+    imported = wallet.add_wif(
+        'Old', 'BTC', 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFUkZ1RnqvVg', 'p2pkh'
+    )
+
+    assert address_type_name('p2sh-p2wpkh') == 'SegWit (p2sh-p2wpkh)'
+    assert address_details(wallet, address) == [
+        ('Account', 'Bitcoin #0'),
+        ('Address type', 'Native SegWit (p2wpkh)'),
+        ('Path', "m/84'/0'/0'/0/0"),
+        ('Label', 'Address 0'),
+    ]
+    assert address_details(wallet, imported) == [
+        ('Account', 'Imported key'),
+        ('Address type', 'Legacy (p2pkh)'),
+        ('Path', '—'),
+        ('Label', 'Old'),
+    ]
 
 
 def test_address_description():
