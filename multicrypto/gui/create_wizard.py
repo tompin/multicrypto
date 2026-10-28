@@ -80,8 +80,7 @@ class ShowMnemonicPage(_Page):
         super().__init__(
             'Write down the mnemonic',
             'Write the words on paper in this order and keep them safe. Together with the '
-            'passphrase (if you set it) they restore all keys of the wallet. The words cannot be '
-            'copied.',
+            'passphrase (if you set it) they restore all keys of the wallet.',
         )
         layout = QVBoxLayout(self)
         layout.addWidget(mnemonic_grid(mnemonic))

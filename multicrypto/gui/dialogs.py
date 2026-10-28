@@ -39,15 +39,28 @@ def monospace_label(text: str) -> QLabel:
 
 
 def mnemonic_grid(mnemonic: str, columns: int = 4) -> QWidget:
-    """Numbered words of the mnemonic in columns, which cannot be selected or copied."""
+    """Numbered words of the mnemonic in columns to write them down, below them the words in one
+    line, which can be selected with the mouse and copied (available as the words attribute)."""
     widget = QWidget()
-    grid = QGridLayout(widget)
+    layout = QVBoxLayout(widget)
+    grid = QGridLayout()
+    layout.addLayout(grid)
     words = mnemonic.split()
     rows = (len(words) + columns - 1) // columns
     for position, word in enumerate(words):
         label = monospace_label(f'{position + 1:2}. {word}')
         label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         grid.addWidget(label, position % rows, position // rows)
+    widget.words = monospace_label(' '.join(words))
+    widget.words.setObjectName('mnemonic_words')
+    widget.words.setWordWrap(True)
+    widget.words.setTextInteractionFlags(
+        Qt.TextInteractionFlag.TextSelectableByMouse
+        | Qt.TextInteractionFlag.TextSelectableByKeyboard
+    )
+    layout.addSpacing(12)
+    layout.addWidget(QLabel('To copy the words, select them with the mouse:'))
+    layout.addWidget(widget.words)
     return widget
 
 
