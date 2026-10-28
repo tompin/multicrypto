@@ -190,6 +190,69 @@ def test_account_groups():
     assert wallet.next_group_number('LTC') == 0
 
 
+def test_add_account_group():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    group = wallet.add_account_group('Savings', 'BTC')
+    doge = wallet.add_account_group('', 'DOGE', 3)
+
+    assert [(a.label, a.address_type, a.account) for a in group.accounts] == [
+        ('Savings', 'p2tr', 0),
+        ('Savings', 'p2wpkh', 0),
+        ('Savings', 'p2sh-p2wpkh', 0),
+        ('Savings', 'p2pkh', 0),
+    ]
+    assert [[address.path for address in wallet.account_addresses(a)] for a in group.accounts] == [
+        ["m/86'/0'/0'/0/0"],
+        ["m/84'/0'/0'/0/0"],
+        ["m/49'/0'/0'/0/0"],
+        ["m/44'/0'/0'/0/0"],
+    ]
+    assert (doge.label, [a.address_type for a in doge.accounts]) == ('Dogecoin #3', ['p2pkh'])
+    assert wallet.add_account_group('', 'BTC').number == 1
+
+
+def test_add_account_group_errors_change_nothing():
+    wallet = Wallet.create(MNEMONIC, '')
+    wallet.add_account('Taproot', 'BTC', 'p2tr', 1)
+
+    with pytest.raises(ValueError, match='already in the wallet'):
+        wallet.add_account_group('', 'BTC', 1)
+    with pytest.raises(ValueError, match='Account number must be'):
+        wallet.add_account_group('', 'BTC', 2**31)
+    with pytest.raises(ValueError, match='Unknown coin'):
+        wallet.add_account_group('', 'XXX')
+
+    assert len(wallet.accounts) == 1
+
+
+def test_add_default_groups():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    wallet.add_default_groups()
+
+    assert [(g.coin, g.number, len(g.accounts)) for g in wallet.account_groups()] == [
+        (symbol, 0, len(group_address_types(symbol)))
+        for symbol, coin in coins.items()
+        if 'slip44' in coin
+    ]
+    assert len(wallet.accounts) == len(wallet.addresses()) == 18
+
+
+def test_rename_and_remove_group():
+    wallet = Wallet.create(MNEMONIC, '')
+    wallet.add_account_group('Savings', 'BTC')
+    doge = wallet.add_account_group('', 'DOGE')
+
+    wallet.rename_group('BTC', 0, 'Renamed')
+
+    assert {account.label for account in wallet.get_group('BTC', 0).accounts} == {'Renamed'}
+    wallet.remove_group('BTC', 0)
+    assert wallet.account_groups() == [doge]
+    with pytest.raises(KeyError):
+        wallet.rename_group('BTC', 0, 'Missing')
+
+
 def test_new_address_labels_and_indexes():
     wallet = Wallet.create(MNEMONIC, '')
     account = wallet.add_account('Savings', 'BTC', 'p2wpkh')

@@ -346,6 +346,40 @@ class Wallet:
         self.accounts.append(new_account)
         return new_account
 
+    def add_account_group(
+        self, label: str, coin_symbol: str, number: Optional[int] = None
+    ) -> AccountGroup:
+        """Add the accounts of all address types of the coin, each with its first address."""
+        address_types = group_address_types(coin_symbol)
+        if number is None:
+            number = self.next_group_number(coin_symbol)
+        for existing in self.accounts:
+            if (existing.coin, existing.account) == (coin_symbol, number):
+                raise ValueError(
+                    f'Account {number} of {coin_symbol} {existing.address_type} is already in '
+                    f'the wallet as "{existing.label}"'
+                )
+        label = label or group_label(coin_symbol, number)
+        for address_type in address_types:
+            account = self.add_account(label, coin_symbol, address_type, number)
+            self.new_address(account.id)
+        return self.get_group(coin_symbol, number)
+
+    def add_default_groups(self) -> None:
+        """Add the first account group of every coin with SLIP-44 coin type."""
+        for coin_symbol, coin in coins.items():
+            if 'slip44' in coin:
+                self.add_account_group('', coin_symbol, 0)
+
+    def rename_group(self, coin_symbol: str, number: int, label: str) -> None:
+        for account in self.get_group(coin_symbol, number).accounts:
+            account.label = label
+
+    def remove_group(self, coin_symbol: str, number: int) -> None:
+        """Remove the accounts of the group (the seed still derives them)."""
+        removed = self.get_group(coin_symbol, number).accounts
+        self.accounts[:] = [account for account in self.accounts if account not in removed]
+
     def get_account(self, account_id: str) -> HDAccount:
         for account in self.accounts:
             if account.id == account_id:
