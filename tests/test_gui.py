@@ -193,7 +193,7 @@ def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     assert window.wallet.fingerprint in window.status.text()
     assert tree.topLevelItemCount() == 6
     assert tree.topLevelItem(0).child(1).child(1).text(2) == address.address
-    assert window.balance_tab.address_box.count() == 19
+    assert window.balance_tab.picker.box.count() == 5
     assert window.send_tab.sources.count() == 19
 
     window.lock()
@@ -202,7 +202,7 @@ def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     assert not window.wallet_file.is_unlocked
     assert tree.topLevelItemCount() == 0
     assert window.send_tab.sources.count() == 0
-    assert window.balance_tab.address_box.count() == 0
+    assert window.balance_tab.picker.box.count() == 0
     assert 'locked' in window.status.text()
 
 
@@ -227,6 +227,22 @@ def test_wallet_address_picker(window):
     picker.clear()
     assert picker.current() is None
     assert picker.details['Account'].text() == ''
+
+
+def test_balance_tab_filters_wallet_addresses_by_coin(window, monkeypatch):
+    unlock(window)
+    tab = window.balance_tab
+    monkeypatch.setattr(tab, 'check', lambda: None)
+    [address] = window.wallet.account_addresses(window.wallet.get_group('LTC', 0).accounts[1])
+
+    tab.coin.setCurrentText('TBTC')
+
+    assert {address.coin for address in tab.picker.addresses} == {'TBTC'}
+    assert tab.picker.box.count() == 4
+    tab.check_address(address)
+    assert tab.coin.currentText() == 'LTC'
+    assert tab.picker.current() == address
+    assert tab.wallet_source.isChecked()
 
 
 def test_imported_keys_are_shown_in_separate_group(window):

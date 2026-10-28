@@ -1,7 +1,6 @@
 """Balance tab: unspent outputs of the wallet address or any other address (checkaddress)."""
 
 from argparse import Namespace
-from typing import List
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -21,8 +20,8 @@ from PySide6.QtWidgets import (
 )
 
 from multicrypto.commands.checkaddress import check_address
+from multicrypto.gui.address_picker import WalletAddressPicker
 from multicrypto.gui.forms import (
-    address_description,
     coins_with_api,
     format_amount,
     parse_address,
@@ -37,15 +36,15 @@ class BalanceTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.addresses: List[WalletAddress] = []
-        self.wallet_source = QRadioButton('Wallet address')
-        self.wallet_source.setChecked(True)
-        self.other_source = QRadioButton('Other address')
-        self.address_box = QComboBox()
-        self.address_box.activated.connect(lambda _index: self.wallet_source.setChecked(True))
         self.coin = QComboBox()
         self.coin.addItems(coins_with_api())
         self.coin.setCurrentText('BTC')
+        self.coin.currentTextChanged.connect(lambda _text: self._show_addresses())
+        self.wallet_source = QRadioButton('Wallet address')
+        self.wallet_source.setChecked(True)
+        self.other_source = QRadioButton('Other address')
+        self.picker = WalletAddressPicker()
+        self.picker.box.activated.connect(lambda _index: self.wallet_source.setChecked(True))
         self.address = QLineEdit()
         self.address.textEdited.connect(lambda _text: self.other_source.setChecked(True))
         self.minimum = QLineEdit()
@@ -61,12 +60,13 @@ class BalanceTab(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.total = QLabel()
         source = QGridLayout()
-        source.addWidget(self.wallet_source, 0, 0)
-        source.addWidget(self.address_box, 0, 1, 1, 2)
-        source.addWidget(self.other_source, 1, 0)
-        source.addWidget(self.coin, 1, 1)
-        source.addWidget(self.address, 1, 2)
-        source.setColumnStretch(2, 1)
+        source.addWidget(QLabel('Coin'), 0, 0)
+        source.addWidget(self.coin, 0, 1, alignment=Qt.AlignmentFlag.AlignLeft)
+        source.addWidget(self.wallet_source, 1, 0, alignment=Qt.AlignmentFlag.AlignTop)
+        source.addWidget(self.picker, 1, 1)
+        source.addWidget(self.other_source, 2, 0)
+        source.addWidget(self.address, 2, 1)
+        source.setColumnStretch(1, 1)
         filters = QHBoxLayout()
         for text, field in (
             ('Minimum input', self.minimum),
@@ -84,33 +84,33 @@ class BalanceTab(QWidget):
         layout.addWidget(self.total, alignment=Qt.AlignmentFlag.AlignRight)
 
     def refresh(self):
-        selected = self.address_box.currentData()
-        self.addresses = self.app.wallet.addresses()
-        self.address_box.clear()
-        for address in self.addresses:
-            self.address_box.addItem(address_description(address), address.id)
-        index = self.address_box.findData(selected)
-        if index >= 0:
-            self.address_box.setCurrentIndex(index)
+        self._show_addresses()
+
+    def _show_addresses(self):
+        wallet = self.app.wallet
+        coin_symbol = self.coin.currentText()
+        addresses = [] if wallet is None else wallet.addresses()
+        self.picker.set_addresses(
+            wallet, [address for address in addresses if address.coin == coin_symbol]
+        )
 
     def clear(self):
-        self.addresses = []
-        self.address_box.clear()
+        self.picker.clear()
         self.table.setRowCount(0)
         self.total.setText('')
 
     def check_address(self, address: WalletAddress):
-        self.address_box.setCurrentIndex(self.address_box.findData(address.id))
+        self.coin.setCurrentText(address.coin)
+        self.picker.select(address.id)
         self.wallet_source.setChecked(True)
         self.app.select_tab(self)
         self.check()
 
     def _get_address(self):
         if self.wallet_source.isChecked():
-            index = self.address_box.currentIndex()
-            if index < 0:
+            address = self.picker.current()
+            if address is None:
                 raise ValueError('Select the wallet address')
-            address = self.addresses[index]
             return address.coin, address.address
         coin_symbol = self.coin.currentText()
         return coin_symbol, parse_address(self.address.text(), coin_symbol)
