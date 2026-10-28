@@ -96,6 +96,14 @@ def unlock(window):
     window.show_wallet(window.wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE))
 
 
+def btc_account(window, address_type='p2wpkh', number=0):
+    return next(
+        account
+        for account in window.wallet.accounts
+        if (account.coin, account.address_type, account.account) == ('BTC', address_type, number)
+    )
+
+
 def answer_unlock_dialogs(monkeypatch, answers):
     """Answer the password dialogs in order, return the labels of the asked fields."""
     labels = []
@@ -153,17 +161,17 @@ def test_cancelled_passphrase_keeps_wallet_locked(window, qapp, monkeypatch):
 
 def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     unlock(window)
-    account = window.wallet.accounts[0]
+    account = btc_account(window)
 
     address = window.modify_wallet(lambda wallet: wallet.new_address(account.id, 'Savings'))
 
     tree = window.wallet_tab.tree
     assert 'unlocked' in window.status.text()
     assert window.wallet.fingerprint in window.status.text()
-    assert tree.topLevelItemCount() == 1
-    assert tree.topLevelItem(0).child(0).text(2) == address.address
-    assert window.balance_tab.address_box.count() == 1
-    assert window.send_tab.sources.count() == 1
+    assert tree.topLevelItemCount() == 18
+    assert tree.topLevelItem(1).child(1).text(2) == address.address
+    assert window.balance_tab.address_box.count() == 19
+    assert window.send_tab.sources.count() == 19
 
     window.lock()
 
@@ -180,20 +188,21 @@ def test_imported_keys_are_shown_in_separate_group(window):
 
     window.modify_wallet(lambda wallet: wallet.add_wif('Old', 'BTC', BTC_WIF, 'p2wpkh'))
 
-    group = window.wallet_tab.tree.topLevelItem(1)
+    tree = window.wallet_tab.tree
+    group = tree.topLevelItem(tree.topLevelItemCount() - 1)
     assert group.text(0).startswith('Imported keys')
     assert group.child(0).text(0) == 'Old'
 
 
 def test_modify_wallet_reverts_change_when_saving_fails(window, monkeypatch):
     unlock(window)
-    account_id = window.wallet.accounts[0].id
+    account_id = btc_account(window).id
     monkeypatch.setattr(window.wallet_file, 'save', Mock(side_effect=OSError('disk full')))
 
     with pytest.raises(OSError):
         window.modify_wallet(lambda wallet: wallet.new_address(account_id, 'Savings'))
 
-    assert window.wallet.accounts[0].addresses == []
+    assert len(btc_account(window).addresses) == 1
 
 
 def test_wallet_is_locked_after_inactivity(window):
@@ -505,7 +514,7 @@ def test_wallet_tab_adds_translated_key(window, monkeypatch):
 
     [imported] = window.wallet.imported_addresses()
     assert (imported.label, imported.coin, imported.address_type) == (
-        'Address 0 (LTC)',
+        'Address 1 (LTC)',
         'LTC',
         'p2wpkh',
     )
@@ -710,9 +719,7 @@ def test_scan_dialog_adds_discovered_addresses(qapp, window, monkeypatch):
     assert 'BTC p2tr account 0: 2 receiving, 1 change' in text
     assert 'LTC: API error: timeout' in text
     dialog.add()
-    account = window.wallet.accounts[-1]
-    assert (account.coin, account.address_type) == ('BTC', 'p2tr')
-    assert len(account.addresses) == 3
+    assert len(btc_account(window, 'p2tr').addresses) == 3
 
 
 def test_scan_dialog_cancelled_when_wallet_is_locked(qapp, window, monkeypatch):
@@ -757,10 +764,10 @@ def test_account_menu_scans_account(window, monkeypatch):
 
 def test_wallet_tab_shows_change_path(window):
     unlock(window)
-    account = window.wallet.accounts[0]
+    account = btc_account(window)
     window.modify_wallet(lambda wallet: wallet.add_address(account.id, 1, 0))
 
-    item = window.wallet_tab.tree.topLevelItem(0).child(0)
+    item = window.wallet_tab.tree.topLevelItem(1).child(1)
 
     assert (item.text(0), item.text(1)) == ('Change 0', '1/0')
 
@@ -788,9 +795,8 @@ def test_background_scan_adds_found_addresses(qapp, window):
     assert scan.start('BTC', p2tr_account_job)
     wait_until(qapp, lambda: not scan.running)
 
-    account = window.wallet.accounts[-1]
-    assert (account.coin, account.address_type, len(account.addresses)) == ('BTC', 'p2tr', 3)
-    assert scan.label.text() == 'Scan of BTC finished: added 3 addresses'
+    assert len(btc_account(window, 'p2tr').addresses) == 3
+    assert scan.label.text() == 'Scan of BTC finished: added 2 addresses'
     assert scan.cancel_button.isHidden()
 
 
@@ -829,7 +835,7 @@ def test_background_scan_cancel(qapp, window):
     wait_until(qapp, lambda: not scan.running)
 
     assert scan.label.text() == 'Scan of BTC cancelled'
-    assert len(window.wallet.accounts) == 1
+    assert len(window.wallet.addresses()) == 18
 
 
 def test_lock_cancels_background_scan(qapp, window):
@@ -858,14 +864,14 @@ def test_background_scan_error_adds_partial_results(qapp, window, monkeypatch):
     )
 
     def job(progress, cancelled, found):
-        found.append(DiscoveredAccount('BTC', 'p2tr', 0, [0], []))
+        found.append(DiscoveredAccount('BTC', 'p2tr', 0, [1], []))
         raise ValueError('API error: broken')
 
     scan = window.background_scan
     scan.start('BTC', job)
     wait_until(qapp, lambda: not scan.running)
 
-    assert window.wallet.accounts[-1].address_type == 'p2tr'
+    assert len(btc_account(window, 'p2tr').addresses) == 2
     assert 'API error: broken' in warnings[0]
     assert 'found before the error were added: 1' in warnings[0]
 

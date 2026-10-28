@@ -354,16 +354,15 @@ def read(path):
 
 def test_create_and_unlock(wallet_file):
     wallet = wallet_file.create(PASSWORD, MNEMONIC, PASSPHRASE)
-    address = wallet.new_address(wallet.accounts[0].id, 'Savings')
+    address = wallet.new_address(wallet.get_group('BTC', 0).accounts[1].id, 'Savings')
     wallet_file.save(wallet)
     wallet_file.lock()
 
     unlocked = WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE)
 
-    assert [(a.label, a.coin, a.address_type) for a in unlocked.accounts] == [
-        ('Bitcoin', 'BTC', 'p2wpkh')
-    ]
-    assert unlocked.addresses() == [address]
+    assert unlocked.accounts == wallet.accounts
+    assert len(unlocked.accounts) == 18
+    assert address in unlocked.addresses()
 
 
 def test_file_is_encrypted_and_private(wallet_file):

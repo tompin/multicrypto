@@ -546,10 +546,10 @@ class WalletFile:
         return os.path.exists(self.path)
 
     def create(self, password: str, mnemonic: str, passphrase: str) -> Wallet:
-        """Create wallet file with the mnemonic and the default Bitcoin account."""
+        """Create wallet file with the mnemonic and the first account group of every coin."""
         check_new_password(password)
         wallet = Wallet.create(mnemonic, passphrase)
-        wallet.add_account('Bitcoin', 'BTC', P2WPKH)
+        wallet.add_default_groups()
         if self.exists():
             raise WalletError(f'Wallet file {self.path} already exists')
         os.makedirs(os.path.dirname(os.path.abspath(self.path)), mode=0o700, exist_ok=True)
