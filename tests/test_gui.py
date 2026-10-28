@@ -88,6 +88,18 @@ def test_mnemonic_words_can_be_selected_and_copied(qapp):
     assert words.selectedText() == MNEMONIC
 
 
+def test_mnemonic_copy_button_copies_words(qapp):
+    from PySide6.QtWidgets import QApplication
+
+    grid = mnemonic_grid(MNEMONIC)
+
+    grid.copy_button.click()
+
+    assert QApplication.clipboard().text() == MNEMONIC
+    assert grid.copy_button.text() == 'Copied'
+    assert 'dangerous' in grid.findChild(QLabel, 'copy_warning').text()
+
+
 def test_wizard_shows_copyable_mnemonic(qapp):
     wizard = CreateWalletWizard(None, 'wallet.mcw')
 

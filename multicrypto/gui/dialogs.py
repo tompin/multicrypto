@@ -39,8 +39,9 @@ def monospace_label(text: str) -> QLabel:
 
 
 def mnemonic_grid(mnemonic: str, columns: int = 4) -> QWidget:
-    """Numbered words of the mnemonic in columns to write them down, below them the words in one
-    line, which can be selected with the mouse and copied (available as the words attribute)."""
+    """Numbered words of the mnemonic in columns to write them down, below them the warning, the
+    words in one line, which can be selected with the mouse (the words attribute), and the button
+    copying them (the copy_button attribute)."""
     widget = QWidget()
     layout = QVBoxLayout(widget)
     grid = QGridLayout()
@@ -59,8 +60,26 @@ def mnemonic_grid(mnemonic: str, columns: int = 4) -> QWidget:
         | Qt.TextInteractionFlag.TextSelectableByKeyboard
     )
     layout.addSpacing(12)
-    layout.addWidget(QLabel('To copy the words, select them with the mouse:'))
+    warning = QLabel(
+        'Copying the mnemonic is dangerous: other programs and clipboard managers can read the '
+        'clipboard, and anyone who gets the words takes the funds. After pasting the words copy '
+        'something else to replace them in the clipboard.'
+    )
+    warning.setObjectName('copy_warning')
+    warning.setWordWrap(True)
+    layout.addWidget(warning)
     layout.addWidget(widget.words)
+    widget.copy_button = QPushButton('Copy words')
+
+    def copy_words():
+        QApplication.clipboard().setText(' '.join(words))
+        widget.copy_button.setText('Copied')
+
+    widget.copy_button.clicked.connect(lambda _checked=False: copy_words())
+    buttons = QHBoxLayout()
+    buttons.addWidget(widget.copy_button)
+    buttons.addStretch()
+    layout.addLayout(buttons)
     return widget
 
 
