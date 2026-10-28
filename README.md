@@ -173,7 +173,7 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 
 9. Graphical user interface:
 ```bash
-multicrypto-gui --wallet=<WALLET FILE> --auto_lock=<MINUTES>
+multicrypto-gui --wallet=<WALLET FILE> --auto_lock=<MINUTES> --scale=<SCALE>
 ```
 The wallet is a BIP-39 mnemonic with optional passphrase, keys are derived according to BIP-32
 with BIP-44 (p2pkh), BIP-49 (p2sh-p2wpkh), BIP-84 (p2wpkh) and BIP-86 (p2tr) paths and SLIP-44 coin
@@ -209,6 +209,9 @@ used accounts and addresses of all address types (gap limit 20) of the selected 
 received in another wallet (e.g. Electrum, Sparrow) are shown. After restoring a wallet from the
 mnemonic BTC is scanned in the background (progress in the status bar), a single account is scanned
 quickly from its context menu in the Wallet tab.
+
+On high resolution screens the interface can be enlarged in *View → Scale* (applied after restart
+and remembered in `~/.multicrypto/gui.json`) or for one run with `--scale` (e.g. `--scale=1.5`).
 
 The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
 data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
