@@ -289,14 +289,16 @@ class MainWindow(QMainWindow):
 
     def _created(self, wallet: Wallet, restored: bool = False):
         self.show_wallet(wallet)
-        QMessageBox.information(
-            self,
-            'New wallet',
+        message = (
             f'The wallet {self.wallet_file.path} has been created, its fingerprint is '
-            f'{wallet.fingerprint}.',
+            f'{wallet.fingerprint}.'
         )
         if restored:
-            self.background_scan.start_coin('BTC')
+            message += (
+                '\n\nTo find used accounts and addresses, right-click a coin and choose Scan for '
+                'used addresses (or File → Scan for used addresses).'
+            )
+        QMessageBox.information(self, 'New wallet', message)
 
     def scan_addresses(self):
         if self.wallet is not None:
