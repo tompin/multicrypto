@@ -11,7 +11,7 @@ from multicrypto.commands.sweepaddress import main
 
 data = [
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '4417d9e022c8f4adf1ef6d9dbad7a1ee0ae44b7eb5cf61e86fd1a0ed22b1c180',
         'vout': 0,
         'scriptPubKey': '76a913e90a9fcb81a78aa732c5721cc0ac4ba2075b7588ac',
@@ -21,7 +21,7 @@ data = [
         'height': 114322,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'da08e8e2e3ba55f9b45ba7f0ca14f96683c3547419fcfe10e6c8ae9f3eebe4cf',
         'vout': 0,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -31,7 +31,7 @@ data = [
         'confirmations': 2,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '7c25ea822bbce5916a331f5851eacbc88d50c0f5a3be8a0dcea772f1baa43965',
         'vout': 0,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -41,7 +41,7 @@ data = [
         'confirmations': 16,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '22c66de2660bc913d2d6a2a7013a8762e92374fcb34609eb935d7fa4704f3335',
         'vout': 6,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -51,7 +51,7 @@ data = [
         'confirmations': 712,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'aea9cdf0a8210238749cc4257ea05db91ea79f33691d691a859c4036ad529f85',
         'vout': 6,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -61,7 +61,7 @@ data = [
         'confirmations': 80,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'aefcff17bb86ca19742f9418af1048138bd9623ef7936f0292754324c78fff56',
         'vout': 0,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -71,7 +71,7 @@ data = [
         'confirmations': 592,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '0e9962f9298ad2615a5caa8425f31b53baaf7c7e8e17053a006c3e9466e65a3d',
         'vout': 1,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -81,7 +81,7 @@ data = [
         'confirmations': 548,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'd72687288bc0d47317daedebd4be286de936bfdb434034c7aaae8c4d3f90d421',
         'vout': 10,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -91,7 +91,7 @@ data = [
         'confirmations': 647,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': 'ba25905edd92bb4d8a030611c255e26988da7700a4f2df3d2777d1077ad62235',
         'vout': 6,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -101,7 +101,7 @@ data = [
         'confirmations': 682,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '74410f32a5c57c9780ba28f3c7359d8314766f92d8acf9ce7c914d259463316d',
         'vout': 11,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -111,7 +111,7 @@ data = [
         'confirmations': 605,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '51984212a42e924cc1b106400ebd0deda5f1000e9e3fe280c0461f69ac461586',
         'vout': 9,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -121,7 +121,7 @@ data = [
         'confirmations': 872,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '75f537c05899d257172d9b1ebb2a2e0f33a564486d10a03bdb4766c84f63ad11',
         'vout': 1,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -131,7 +131,7 @@ data = [
         'confirmations': 60961,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'vout': 0,
         'height': 44355,
         'txid': '95c50fb3915eb7a1f87d9cc2369cfd62278029859cc03bf77496674f07a9e902',
@@ -141,7 +141,7 @@ data = [
         'confirmations': 5098,
     },
     {
-        'address': 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM',
+        'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',
         'txid': '3fd8c7ea1b87141163d3436f0dbc0f8b8915621f092a3fc12544228590123b3a',
         'vout': 1,
         'scriptPubKey': '76a91413e90a9fcb63a78aa732c5753cc0ac4ba2075b7588ac',
@@ -157,14 +157,14 @@ data = [
 @patch.object(
     sys,
     'argv',
-    ['', '-c', 'SAFE', '-b', '5', '-p', 'Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6'],
+    ['', '-c', 'DASH', '-b', '5', '-p', 'XBkD13LWPdEGGNhht19W7r84TNW2R3QK3vRGN1kn9b4Fv5ScMQd1'],
 )
 @patch('sys.stdout', new_callable=StringIO)
 def test_sweepaddress_succes(sys_stdout):
-    coin = coins['SAFE']
+    coin = coins['DASH']
     api_url = InsightAPI(coin).base_url
     send_url = '{}/tx/send'.format(api_url)
-    address_url = '{}/addr/{}/utxo'.format(api_url, 'Rt2NesjPyEEDrHiC5xtYus9tBJTgdtWBfM')
+    address_url = '{}/addr/{}/utxo'.format(api_url, 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP')
 
     http_mock.add(http_mock.GET, address_url, json=data, status=200)
     http_mock.add(
@@ -285,11 +285,11 @@ def test_sweepaddress_p2tr(sys_stdout):
     [
         '',
         '-c',
-        'SAFE',
+        'DASH',
         '-t',
         'p2sh-p2wpkh',
         '-p',
-        'Uy3kRcw1mKVCecWBasE7BEhkirVEtmLQcJ5JyCZMnQkah7X263R6',
+        'XBkD13LWPdEGGNhht19W7r84TNW2R3QK3vRGN1kn9b4Fv5ScMQd1',
     ],
 )
 @patch('sys.stdout', new_callable=StringIO)
@@ -297,7 +297,7 @@ def test_sweepaddress_address_type_not_supported(sys_stdout, caplog):
     main()
 
     assert sys_stdout.getvalue() == ''
-    assert 'Address type p2sh-p2wpkh is not supported for safecoin' in caplog.text
+    assert 'Address type p2sh-p2wpkh is not supported for dash' in caplog.text
 
 
 def sweep_p2wpkh(utxo_values, fee=10000, batch_size=50, fee_rate=None):

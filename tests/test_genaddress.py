@@ -92,10 +92,10 @@ def test_custom_p2sh_address_success(sys_stdout):
     assert sys_stdout.getvalue() == res
 
 
-@patch.object(sys, 'argv', ['', '-s', 'ZEC', '-p', 't3', '-w'])
+@patch.object(sys, 'argv', ['', '-s', 'DOGE', '-p', 'A', '-w'])
 @patch('sys.stdout', new_callable=StringIO)
 def test_segwit_address_not_supported(sys_stdout, caplog):
     main()
 
-    assert 'Address type p2sh-p2wpkh is not supported for zcash' in caplog.text
+    assert 'Address type p2sh-p2wpkh is not supported for dogecoin' in caplog.text
     assert 'Address:' not in sys_stdout.getvalue()

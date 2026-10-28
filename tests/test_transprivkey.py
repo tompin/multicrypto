@@ -14,7 +14,7 @@ def test_transprivkey_succes(sys_stdout, tmpdir):
         '-p',
         'KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp',
         '-o',
-        'ZEC',
+        'DOGE',
         '-d',
         output_dir,
     ]
@@ -22,12 +22,12 @@ def test_transprivkey_succes(sys_stdout, tmpdir):
     main()
 
     res = (
-        'Private key: KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp'
-        ', compressed: True, address: t1gU3ts9oBgy4gtc3y9FmrgbSBrSStN1WK4, coin symbol: ZEC\n'
+        'Private key: QNcdNChp1UfHrCNLTmGsRDcLKw1JN4aTTu34FdofZGJ5QHT5dNJV'
+        ', compressed: True, address: DTjYRngJWn5kdFjkmJSDGdf7pKyfUnVnGg, coin symbol: DOGE\n'
         'QR codes were saved in directory {}\n'.format(output_dir)
     )
     assert sys_stdout.getvalue() == res
-    assert os.path.isfile(os.path.join(output_dir, 't1gU3ts9oBgy4gtc3y9FmrgbSBrSStN1WK4.png'))
+    assert os.path.isfile(os.path.join(output_dir, 'DTjYRngJWn5kdFjkmJSDGdf7pKyfUnVnGg.png'))
     assert os.path.isfile(
-        os.path.join(output_dir, 't1gU3ts9oBgy4gtc3y9FmrgbSBrSStN1WK4_private_key.png')
+        os.path.join(output_dir, 'DTjYRngJWn5kdFjkmJSDGdf7pKyfUnVnGg_private_key.png')
     )

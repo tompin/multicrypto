@@ -29,10 +29,8 @@ def test_add_magic_prefix_encodes_length_of_utf8_bytes_as_varint():
     [
         ('BTC', b'Bitcoin'),
         ('TBTC', b'Bitcoin'),
-        ('TBCH', b'Bitcoin'),
         ('LTC', b'Litecoin'),
         ('TLTC', b'Litecoin'),
-        ('BTG', b'Bitcoin Gold'),
         ('DASH', b'DarkCoin'),
         ('DOGE', b'Dogecoin'),
     ],

@@ -17,7 +17,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, timedelta
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 
 from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
@@ -143,16 +142,6 @@ class InsightAPI:
             f'{self.base_url}/tx/send', json_data={'rawtx': raw_transaction}, timeout=self.timeout
         )
         return response.text
-
-    def get_history_block(self) -> Dict[str, Any]:
-        """Return the first block mined yesterday, required by coins with replay protection."""
-        yesterday = date.today() - timedelta(days=1)
-        response = http_request(
-            f'{self.base_url}/blocks',
-            params={'limit': 1, 'blockDate': yesterday.isoformat()},
-            timeout=self.timeout,
-        )
-        return response.json()['blocks'][0]
 
 
 class EsploraAPI:
@@ -335,10 +324,7 @@ def build_transaction(
         logger.info(
             'Change %s is below dust threshold %s and was added to the fee', change, dust_threshold
         )
-    history_block = {}
-    if 'check_block_at_height' in coin.get('params', {}):
-        history_block = get_api(coin).get_history_block()
-    transaction = Transaction(coin, inputs, outputs, check_block_at_height=history_block)
+    transaction = Transaction(coin, inputs, outputs)
     return PreparedTransaction(
         transaction.create(),
         inputs,

@@ -449,9 +449,9 @@ def test_translate_address_tab(window):
 
     tab.address.setText('1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi')
     tab.address_input_coin.setCurrentText('BTC')
-    tab.address_output_coin.setCurrentText('BTG')
+    tab.address_output_coin.setCurrentText('DOGE')
     tab.translate_address()
-    assert tab.translated_address.text() == 'Ga3afwEZMPHqRQ7uHyBAti7NSUX7SHppZg'
+    assert tab.translated_address.text() == 'DMLko4rFfwapsw1D6cWd1hw5QSTZpJn6vU'
 
     tab.address.setText('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu')
     tab.translate_address()

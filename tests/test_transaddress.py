@@ -18,17 +18,17 @@ def test_transaddress_succes(sys_stdout, tmpdir):
         '-i',
         'BTC',
         '-o',
-        'ZEC',
+        'DOGE',
         '-d',
         output_dir,
     ]
 
     main()
 
-    res = '1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG (BTC) -> t1UKo1hnsd2xMrUgviSDRsZLVKEZ3yU4Sxr (ZEC)\n'
+    res = '1BTC1NNjeiAmFqe2n1QJjkEa4aMyAhkpKG (BTC) -> DFbHYdKNx853nqpdWbPsHWQAwi6GSiCcFX (DOGE)\n'
     res += 'Address QR code was saved in directory {}\n'.format(output_dir)
     assert sys_stdout.getvalue() == res
-    assert os.path.isfile(os.path.join(output_dir, 't1UKo1hnsd2xMrUgviSDRsZLVKEZ3yU4Sxr.png'))
+    assert os.path.isfile(os.path.join(output_dir, 'DFbHYdKNx853nqpdWbPsHWQAwi6GSiCcFX.png'))
 
 
 def test_transaddress_bech32_not_supported():

@@ -6,6 +6,7 @@ import pytest
 from nacl import pwhash
 
 from multicrypto.address import convert_private_key_to_wif_format
+from multicrypto.coins import coins
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.wallet import (
     CHANGE_CHAIN,
@@ -48,7 +49,7 @@ def test_check_entry_returns_address():
     [
         ('XXX', BTC_WIF, 'p2pkh', 'Unknown coin XXX'),
         ('BTC', BTC_WIF, 'p2xx', 'Unknown address type'),
-        ('ZEC', BTC_WIF, 'p2wpkh', 'is not supported'),
+        ('DOGE', BTC_WIF, 'p2wpkh', 'is not supported'),
         ('TBTC', BTC_WIF, 'p2pkh', 'not in WIF format of TBTC'),
         ('BTC', BTC_WIF[:-1] + 'h', 'p2pkh', 'Incorrect checksum'),
         ('BTC', '0' + BTC_WIF[1:], 'p2pkh', 'only base58 characters'),
@@ -136,8 +137,7 @@ def test_add_account_numbers():
 @pytest.mark.parametrize(
     'coin, address_type, account, message',
     [
-        ('BTCH', 'p2pkh', None, 'no SLIP-44 coin type'),
-        ('ZEC', 'p2wpkh', None, 'is not supported'),
+        ('DOGE', 'p2wpkh', None, 'is not supported'),
         ('BTC', 'p2wpkh', 2**31, 'Account number must be'),
         ('BTC', 'p2wpkh', 0, 'already in the wallet'),
         ('XXX', 'p2pkh', None, 'Unknown coin'),
@@ -149,6 +149,14 @@ def test_add_account_errors(coin, address_type, account, message):
 
     with pytest.raises(ValueError, match=message):
         wallet.add_account('New', coin, address_type, account)
+
+
+def test_add_account_requires_slip44(monkeypatch):
+    monkeypatch.delitem(coins['DOGE'], 'slip44')
+    wallet = Wallet.create(MNEMONIC, '')
+
+    with pytest.raises(ValueError, match='no SLIP-44 coin type'):
+        wallet.add_account('New', 'DOGE', 'p2pkh')
 
 
 def test_new_address_labels_and_indexes():

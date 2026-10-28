@@ -23,7 +23,7 @@ from multicrypto.vanity import (
         ('BTC', 'p2sh-p2wpkh', '3Ab', '3Ab'),
         ('BTC', 'p2wpkh', 'BC1QXY', 'bc1qxy'),
         ('TBTC', 'p2wpkh', 'tb1qxy', 'tb1qxy'),
-        ('ZEC', 'p2pkh', 't1Zx', 't1Zx'),
+        ('DOGE', 'p2pkh', 'DAb', 'DAb'),
     ],
 )
 def test_validate_vanity_pattern(coin_symbol, address_type, pattern, expected):
@@ -53,7 +53,7 @@ def test_validate_vanity_pattern_errors(coin_symbol, address_type, pattern, erro
         ('BTC', 'p2pkh', '1', 1),
         ('BTC', 'p2sh-p2wpkh', '3A', 58),
         ('BTC', 'p2wpkh', 'bc1qxy', 32**2),
-        ('ZEC', 'p2pkh', 't1Zx', 58**2),
+        ('DOGE', 'p2pkh', 'DAb', 58**2),
     ],
 )
 def test_expected_attempts(coin_symbol, address_type, pattern, attempts):
@@ -89,7 +89,7 @@ def wif_address(coin_symbol, wif, address_type):
         ('BTC', 'p2pkh', '1A'),
         ('BTC', 'p2sh-p2wpkh', '3A'),
         ('BTC', 'p2wpkh', 'bc1qq'),
-        ('ZEC', 'p2pkh', 't1Z'),
+        ('DOGE', 'p2pkh', 'DA'),
     ],
 )
 def test_find_address(coin_symbol, address_type, pattern):
