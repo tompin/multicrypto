@@ -21,6 +21,8 @@ from multicrypto.wallet import (
     account_path,
     check_entry,
     generate_wif,
+    group_address_types,
+    group_label,
 )
 
 MNEMONIC = ' '.join(['abandon'] * 11 + ['about'])
@@ -157,6 +159,35 @@ def test_add_account_requires_slip44(monkeypatch):
 
     with pytest.raises(ValueError, match='no SLIP-44 coin type'):
         wallet.add_account('New', 'DOGE', 'p2pkh')
+
+
+def test_group_address_types_and_label():
+    assert group_address_types('BTC') == ['p2tr', 'p2wpkh', 'p2sh-p2wpkh', 'p2pkh']
+    assert group_address_types('DOGE') == ['p2pkh']
+    assert group_label('BTC', 0) == 'Bitcoin #0'
+    assert group_label('TBTC', 2) == 'Bitcoin Testnet #2'
+
+
+def test_account_groups():
+    wallet = Wallet.create(MNEMONIC, '')
+    legacy = wallet.add_account('Savings', 'BTC', 'p2pkh', 0)
+    native = wallet.add_account('Savings', 'BTC', 'p2wpkh', 0)
+    doge = wallet.add_account('Doge', 'DOGE', 'p2pkh', 0)
+    taproot = wallet.add_account('Other', 'BTC', 'p2tr', 1)
+    nested = wallet.add_account('Different', 'BTC', 'p2sh-p2wpkh', 1)
+
+    groups = wallet.account_groups()
+
+    assert [(g.coin, g.number, g.label, g.accounts) for g in groups] == [
+        ('BTC', 0, 'Savings', [native, legacy]),
+        ('DOGE', 0, 'Doge', [doge]),
+        ('BTC', 1, 'Bitcoin #1', [taproot, nested]),
+    ]
+    assert wallet.get_group('BTC', 1) == groups[2]
+    with pytest.raises(KeyError):
+        wallet.get_group('LTC', 0)
+    assert wallet.next_group_number('BTC') == 2
+    assert wallet.next_group_number('LTC') == 0
 
 
 def test_new_address_labels_and_indexes():

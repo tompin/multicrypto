@@ -36,7 +36,7 @@ from multicrypto.address import (
 from multicrypto.base58 import BASE58_ALPHABET, base58_to_bytes
 from multicrypto.bip32 import HARDENED, ExtendedKey, master_key_from_seed
 from multicrypto.bip39 import mnemonic_to_seed, normalize_mnemonic, validate_mnemonic
-from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins
+from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins, get_address_types
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.utils import double_sha256
 
@@ -52,6 +52,8 @@ DEFAULT_OPSLIMIT = pwhash.argon2id.OPSLIMIT_MODERATE
 DEFAULT_MEMLIMIT = pwhash.argon2id.MEMLIMIT_MODERATE
 MIN_PASSWORD_LENGTH = 10
 PURPOSES = {P2PKH: 44, P2SH_P2WPKH: 49, P2WPKH: 84, P2TR: 86}
+# order of the accounts of the group, like in Ledger Live
+ADDRESS_TYPE_ORDER = (P2TR, P2WPKH, P2SH_P2WPKH, P2PKH)
 RECEIVE_CHAIN = 0
 CHANGE_CHAIN = 1
 CHAIN_LABELS = {RECEIVE_CHAIN: 'Address', CHANGE_CHAIN: 'Change'}
@@ -110,6 +112,16 @@ def account_path(coin_symbol: str, address_type: str, account: int) -> str:
     return f"m/{PURPOSES[address_type]}'/{get_coin(coin_symbol)['slip44']}'/{account}'"
 
 
+def group_address_types(coin_symbol: str) -> List[str]:
+    """Address types of the coin in the order of the accounts of the group."""
+    address_types = get_address_types(get_coin(coin_symbol))
+    return [address_type for address_type in ADDRESS_TYPE_ORDER if address_type in address_types]
+
+
+def group_label(coin_symbol: str, number: int) -> str:
+    return f'{get_coin(coin_symbol)["name"].title()} #{number}'
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -140,6 +152,16 @@ class HDAccount:
     @property
     def path(self) -> str:
         return account_path(self.coin, self.address_type, self.account)
+
+
+@dataclass
+class AccountGroup:
+    """Accounts of all address types of the coin with the same number (not saved in the file)."""
+
+    coin: str
+    number: int
+    label: str
+    accounts: List[HDAccount]
 
 
 @dataclass
@@ -273,6 +295,28 @@ class Wallet:
             for account in self.accounts
             if (account.coin, account.address_type) == (coin_symbol, address_type)
         ]
+        return max(numbers, default=-1) + 1
+
+    def account_groups(self) -> List[AccountGroup]:
+        grouped: Dict[Tuple[str, int], List[HDAccount]] = {}
+        for account in self.accounts:
+            grouped.setdefault((account.coin, account.account), []).append(account)
+        groups = []
+        for (coin_symbol, number), accounts in grouped.items():
+            accounts.sort(key=lambda account: ADDRESS_TYPE_ORDER.index(account.address_type))
+            labels = {account.label for account in accounts}
+            label = labels.pop() if len(labels) == 1 else group_label(coin_symbol, number)
+            groups.append(AccountGroup(coin_symbol, number, label, accounts))
+        return groups
+
+    def get_group(self, coin_symbol: str, number: int) -> AccountGroup:
+        for group in self.account_groups():
+            if (group.coin, group.number) == (coin_symbol, number):
+                return group
+        raise KeyError(f'{coin_symbol} #{number}')
+
+    def next_group_number(self, coin_symbol: str) -> int:
+        numbers = [account.account for account in self.accounts if account.coin == coin_symbol]
         return max(numbers, default=-1) + 1
 
     def add_account(
