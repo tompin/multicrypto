@@ -156,13 +156,6 @@ def address_details(wallet: Wallet, address: WalletAddress) -> List[Tuple[str, s
     ]
 
 
-def address_description(address: WalletAddress) -> str:
-    location = address.path or 'imported'
-    return (
-        f'{address.label} · {address.coin} {address.address_type} · {location} · {address.address}'
-    )
-
-
 def coins_with_slip44() -> List[str]:
     return sorted(symbol for symbol, coin in coins.items() if 'slip44' in coin)
 

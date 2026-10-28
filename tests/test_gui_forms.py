@@ -4,7 +4,6 @@ from tests import http_mock
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_api
 from multicrypto.coins import coins
 from multicrypto.gui.forms import (
-    address_description,
     address_details,
     address_type_name,
     check_confirmation_words,
@@ -244,15 +243,6 @@ def test_address_details():
         ('Path', '—'),
         ('Label', 'Old'),
     ]
-
-
-def test_address_description():
-    imported = WalletAddress('i', 'Old', 'DOGE', 'p2pkh', 'DMLk')
-
-    assert address_description(make_address()) == (
-        f"Savings · BTC p2wpkh · m/84'/0'/0'/0/0 · {SEGWIT_ADDRESS}"
-    )
-    assert address_description(imported) == 'Old · DOGE p2pkh · imported · DMLk'
 
 
 def test_check_passphrase_confirmation():

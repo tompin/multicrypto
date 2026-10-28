@@ -185,8 +185,9 @@ wallet. When it is set, it works as an additional word of the mnemonic and it is
 asked after the password every time the wallet is unlocked, and the fingerprint of the master key
 detects a mistyped passphrase. Tabs:
 - **Wallet** - account groups (e.g. *Bitcoin #0*) with the accounts of all address types of the
-  coin (Taproot, Native SegWit, SegWit, Legacy) and their receiving addresses created on demand,
-  imported private keys (they are not covered by the mnemonic backup), address balances, showing
+  coin (Taproot, Native SegWit, SegWit, Legacy) and their receiving addresses created on demand
+  (New address... asks for the account and the address type and shows the address before adding
+  it), imported private keys (they are not covered by the mnemonic backup), address balances, showing
   private keys and the mnemonic (after entering the password again),
 - **Balance** - unspent outputs of the wallet address or any other address (like `checkaddress`),
 - **Send** - send funds from one or more wallet addresses (like `sendcrypto`), the transaction is
@@ -203,6 +204,11 @@ detects a mistyped passphrase. Tabs:
   to the wallet,
 - **Vanity** - search for an address starting with the given pattern (like `genaddress`) in many
   processes, the found key can be added to the wallet.
+
+In the Balance, Send, Sweep and Sign / Verify tabs the coin is selected first, the lists show the
+wallet addresses of this coin and the account, address type, path and label of the selected
+address (Send shows them in the columns of its table). The actions of the address in the Wallet
+tab (Check UTXO, Send from this address, Sweep this address, Sign message) select its coin.
 
 A new or restored wallet has the first account group (#0) of every coin with SLIP-44 coin type
 (BTC, LTC, DOGE, DASH and the testnets TBTC, TLTC), each account with its first receiving address.
