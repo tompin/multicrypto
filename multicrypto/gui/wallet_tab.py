@@ -1,6 +1,6 @@
-"""Wallet tab: HD accounts with their addresses and imported private keys."""
+"""Wallet tab: HD account groups with their addresses and imported private keys."""
 
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -26,14 +26,29 @@ from PySide6.QtWidgets import (
 
 from multicrypto.address import translate_private_key
 from multicrypto.bip32 import HARDENED
-from multicrypto.coins import P2TR, coins, get_address_types
+from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins, get_address_types
 from multicrypto.gui.dialogs import SecretDialog, ask_password, password_field, secret_line
 from multicrypto.gui.forms import EXPECTED_ERRORS, coins_with_slip44, fetch_balances, format_amount
 from multicrypto.gui.qr import QrDialog
-from multicrypto.wallet import WalletAddress, account_path, check_entry
+from multicrypto.wallet import WalletAddress, account_path, check_entry, group_address_types
 
 ITEM_ROLE = Qt.ItemDataRole.UserRole
-ACCOUNT, ADDRESS, GROUP = 'account', 'address', 'group'
+ACCOUNT, ADDRESS, GROUP, ACCOUNT_GROUP = 'account', 'address', 'group', 'account_group'
+ADDRESS_TYPE_NAMES = {
+    P2TR: 'Taproot',
+    P2WPKH: 'Native SegWit',
+    P2SH_P2WPKH: 'SegWit',
+    P2PKH: 'Legacy',
+}
+
+
+def group_id(coin_symbol: str, number: int) -> str:
+    return f'{coin_symbol}/{number}'
+
+
+def parse_group_id(item_id: str) -> Tuple[str, int]:
+    coin_symbol, number = item_id.rsplit('/', 1)
+    return coin_symbol, int(number)
 
 
 class _CoinTypeForm(QDialog):
@@ -90,35 +105,57 @@ class _CoinTypeForm(QDialog):
         super().accept()
 
 
-class NewAccountDialog(_CoinTypeForm):
+class NewAccountGroupDialog(QDialog):
+    """Dialog of the new account group: the accounts of all address types of the coin."""
+
     def __init__(self, parent, wallet, submit):
-        super().__init__(parent, 'New account', coins_with_slip44(), submit)
+        super().__init__(parent)
+        self.setWindowTitle('New account')
         self.wallet = wallet
+        self.submit = submit
+        self.label = QLineEdit()
+        self.coin = QComboBox()
+        self.coin.addItems(coins_with_slip44())
+        self.coin.setCurrentText('BTC')
         self.account = QSpinBox()
         self.account.setRange(0, HARDENED - 1)
-        self.path = QLabel()
-        self.form.addRow('Account number', self.account)
-        self.form.addRow('Path', self.path)
-        self.account.valueChanged.connect(self._show_path)
-        self.add_buttons()
+        self.paths = QLabel()
+        form = QFormLayout(self)
+        form.addRow('Label', self.label)
+        form.addRow('Coin', self.coin)
+        form.addRow('Account number', self.account)
+        form.addRow('Paths', self.paths)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+        self.coin.currentTextChanged.connect(self._coin_changed)
+        self.account.valueChanged.connect(self._show_paths)
+        self._coin_changed()
 
-    def update_preview(self):
-        coin, address_type = self.coin.currentText(), self.address_type.currentText()
-        if address_type:
-            self.account.setValue(self.wallet.next_account_number(coin, address_type))
-            self._show_path()
+    def _coin_changed(self):
+        self.account.setValue(self.wallet.next_group_number(self.coin.currentText()))
+        self._show_paths()
 
-    def _show_path(self):
-        self.path.setText(
-            account_path(
-                self.coin.currentText(), self.address_type.currentText(), self.account.value()
+    def _show_paths(self):
+        coin_symbol, number = self.coin.currentText(), self.account.value()
+        self.paths.setText(
+            '\n'.join(
+                f'{ADDRESS_TYPE_NAMES[address_type]}: '
+                f'{account_path(coin_symbol, address_type, number)}'
+                for address_type in group_address_types(coin_symbol)
             )
         )
 
-    def submitted_values(self):
-        coin, address_type = self.coin.currentText(), self.address_type.currentText()
-        label = self.label.text().strip() or f'{coin} {address_type} #{self.account.value()}'
-        return label, coin, address_type, self.account.value()
+    def accept(self):
+        try:
+            self.submit(self.label.text().strip(), self.coin.currentText(), self.account.value())
+        except EXPECTED_ERRORS as error:
+            QMessageBox.warning(self, self.windowTitle(), str(error))
+            return
+        super().accept()
 
 
 class ImportWifDialog(_CoinTypeForm):
@@ -236,14 +273,30 @@ class WalletTab(QWidget):
         selected = self._selected()
         self.tree.clear()
         wallet = self.app.wallet
-        for account in wallet.accounts:
-            account_item = QTreeWidgetItem(
-                self.tree,
-                [account.label, account.path, f'{account.coin} {account.address_type}', ''],
+        for group in wallet.account_groups():
+            accounts = [(account, wallet.account_addresses(account)) for account in group.accounts]
+            group_addresses = [address for _, addresses in accounts for address in addresses]
+            group_item = QTreeWidgetItem(
+                self.tree, [group.label, '', group.coin, self._sum_text(group_addresses)]
             )
-            account_item.setData(0, ITEM_ROLE, (ACCOUNT, account.id))
-            for address in wallet.account_addresses(account):
-                self._add_address_item(account_item, address, f'{address.chain}/{address.index}')
+            group_item.setData(0, ITEM_ROLE, (ACCOUNT_GROUP, group_id(group.coin, group.number)))
+            self._align_balance(group_item)
+            for account, addresses in accounts:
+                account_item = QTreeWidgetItem(
+                    group_item,
+                    [
+                        ADDRESS_TYPE_NAMES[account.address_type],
+                        account.path,
+                        '',
+                        self._sum_text(addresses),
+                    ],
+                )
+                account_item.setData(0, ITEM_ROLE, (ACCOUNT, account.id))
+                self._align_balance(account_item)
+                for address in addresses:
+                    self._add_address_item(
+                        account_item, address, f'{address.chain}/{address.index}'
+                    )
         if wallet.imported:
             group = QTreeWidgetItem(self.tree, ['Imported keys (not in mnemonic backup)'])
             group.setData(0, ITEM_ROLE, (GROUP, ''))
@@ -258,6 +311,10 @@ class WalletTab(QWidget):
             parent, [address.label, path, address.address, self._balance_text(address.id)]
         )
         item.setData(0, ITEM_ROLE, (ADDRESS, address.id))
+        self._align_balance(item)
+
+    @staticmethod
+    def _align_balance(item: QTreeWidgetItem):
         item.setTextAlignment(3, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     def _balance_text(self, address_id: str) -> str:
@@ -265,6 +322,12 @@ class WalletTab(QWidget):
         if balance is None:
             return ''
         return format_amount(balance) if isinstance(balance, int) else balance
+
+    def _sum_text(self, addresses: List[WalletAddress]) -> str:
+        """Sum of the known balances of the addresses (balances not fetched are skipped)."""
+        balances = [self.balances.get(address.id) for address in addresses]
+        known = [balance for balance in balances if isinstance(balance, int)]
+        return format_amount(sum(known)) if known else ''
 
     def clear(self):
         self.tree.clear()
@@ -280,12 +343,12 @@ class WalletTab(QWidget):
                 self.tree.setCurrentItem(item)
                 return
 
-    def _items(self):
-        for index in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(index)
-            yield top
-            for child_index in range(top.childCount()):
-                yield top.child(child_index)
+    def _items(self, parent: Optional[QTreeWidgetItem] = None):
+        parent = self.tree.invisibleRootItem() if parent is None else parent
+        for index in range(parent.childCount()):
+            child = parent.child(index)
+            yield child
+            yield from self._items(child)
 
     def selected_address(self) -> Optional[WalletAddress]:
         selected = self._selected()
@@ -300,8 +363,6 @@ class WalletTab(QWidget):
             return selected[1]
         if selected and selected[0] == ADDRESS:
             return self.app.wallet.get_address(selected[1]).account_id
-        if len(self.app.wallet.accounts) == 1:
-            return self.app.wallet.accounts[0].id
         return None
 
     def _modify(self, change):
@@ -312,17 +373,23 @@ class WalletTab(QWidget):
             return None
 
     def new_account(self):
-        def submit(label, coin, address_type, account):
-            self.app.modify_wallet(
-                lambda wallet: wallet.add_account(label, coin, address_type, account)
-            )
+        NewAccountGroupDialog(self, self.app.wallet, self.add_group).exec()
 
-        NewAccountDialog(self, self.app.wallet, submit).exec()
+    def add_group(self, label: str, coin_symbol: str, number: int):
+        group = self.app.modify_wallet(
+            lambda wallet: wallet.add_account_group(label, coin_symbol, number)
+        )
+        self._select((ACCOUNT_GROUP, group_id(group.coin, group.number)))
 
     def new_address(self):
         account_id = self._selected_account_id()
         if account_id is None:
-            QMessageBox.information(self, 'New address', 'Select an account first')
+            selected = self._selected()
+            if selected and selected[0] == ACCOUNT_GROUP:
+                message = 'Select an address type first'
+            else:
+                message = 'Select an account first'
+            QMessageBox.information(self, 'New address', message)
             return
         label, ok = QInputDialog.getText(self, 'New address', 'Label (optional)')
         if ok:
@@ -393,11 +460,21 @@ class WalletTab(QWidget):
         if not selected or selected[0] == GROUP:
             QMessageBox.information(self, 'Rename', 'Select an account or an address first')
             return
+        kind, item_id = selected
+        if kind == ACCOUNT:
+            QMessageBox.information(self, 'Rename', 'Rename the account group')
+            return
         label, ok = QInputDialog.getText(
             self, 'Rename', 'Label', QLineEdit.EchoMode.Normal, self.tree.currentItem().text(0)
         )
-        if ok and label.strip():
-            self._modify(lambda wallet: wallet.rename(selected[1], label.strip()))
+        if not (ok and label.strip()):
+            return
+        if kind == ACCOUNT_GROUP:
+            self._modify(
+                lambda wallet: wallet.rename_group(*parse_group_id(item_id), label.strip())
+            )
+        else:
+            self._modify(lambda wallet: wallet.rename(item_id, label.strip()))
 
     def remove(self):
         selected = self._selected()
@@ -406,7 +483,12 @@ class WalletTab(QWidget):
             return
         kind, item_id = selected
         label = self.tree.currentItem().text(0)
-        if kind == ACCOUNT:
+        if kind == ACCOUNT_GROUP:
+            warning = (
+                'The account group and its addresses will be removed from the list. '
+                'The mnemonic still restores them.'
+            )
+        elif kind == ACCOUNT:
             warning = (
                 'The account and its addresses will be removed from the list. '
                 'The mnemonic still restores them.'
@@ -425,7 +507,11 @@ class WalletTab(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
-        if answer == QMessageBox.StandardButton.Yes:
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if kind == ACCOUNT_GROUP:
+            self._modify(lambda wallet: wallet.remove_group(*parse_group_id(item_id)))
+        else:
             self._modify(lambda wallet: wallet.remove(item_id))
 
     def refresh_balances(self):
@@ -452,17 +538,31 @@ class WalletTab(QWidget):
             )
         return actions
 
+    def _group_actions(self, coin_symbol: str) -> Dict[str, Callable[[], None]]:
+        if not coins[coin_symbol].get('apis'):
+            return {}
+        return {'Scan for used addresses': lambda: self.app.background_scan.start_coin(coin_symbol)}
+
+    def _show_actions(self, position, item: QTreeWidgetItem, actions):
+        if not actions:
+            return
+        self.tree.setCurrentItem(item)
+        menu = QMenu(self)
+        for text, action in actions.items():
+            menu.addAction(text, action)
+        menu.exec(self.tree.viewport().mapToGlobal(position))
+
     def _show_menu(self, position):
         item = self.tree.itemAt(position)
         if not item:
             return
         kind, item_id = item.data(0, ITEM_ROLE)
+        if kind == ACCOUNT_GROUP:
+            self._show_actions(position, item, self._group_actions(parse_group_id(item_id)[0]))
+            return
         if kind == ACCOUNT:
-            self.tree.setCurrentItem(item)
-            menu = QMenu(self)
-            for text, action in self._account_actions(self.app.wallet.get_account(item_id)).items():
-                menu.addAction(text, action)
-            menu.exec(self.tree.viewport().mapToGlobal(position))
+            account = self.app.wallet.get_account(item_id)
+            self._show_actions(position, item, self._account_actions(account))
             return
         if kind != ADDRESS:
             return

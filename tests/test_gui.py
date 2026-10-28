@@ -168,8 +168,8 @@ def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     tree = window.wallet_tab.tree
     assert 'unlocked' in window.status.text()
     assert window.wallet.fingerprint in window.status.text()
-    assert tree.topLevelItemCount() == 18
-    assert tree.topLevelItem(1).child(1).text(2) == address.address
+    assert tree.topLevelItemCount() == 6
+    assert tree.topLevelItem(0).child(1).child(1).text(2) == address.address
     assert window.balance_tab.address_box.count() == 19
     assert window.send_tab.sources.count() == 19
 
@@ -767,9 +767,127 @@ def test_wallet_tab_shows_change_path(window):
     account = btc_account(window)
     window.modify_wallet(lambda wallet: wallet.add_address(account.id, 1, 0))
 
-    item = window.wallet_tab.tree.topLevelItem(1).child(1)
+    item = window.wallet_tab.tree.topLevelItem(0).child(1).child(1)
 
     assert (item.text(0), item.text(1)) == ('Change 0', '1/0')
+
+
+def test_wallet_tree_shows_account_groups(window):
+    unlock(window)
+    account = btc_account(window)
+    address = window.modify_wallet(lambda wallet: wallet.new_address(account.id))
+    first = window.wallet.account_addresses(account)[0]
+    window.wallet_tab.balances = {first.id: 1000, address.id: 500}
+    window.wallet_tab.refresh()
+
+    group = window.wallet_tab.tree.topLevelItem(0)
+    native = group.child(1)
+
+    assert [group.text(column) for column in range(4)] == ['Bitcoin #0', '', 'BTC', '0.00001500']
+    assert [native.text(column) for column in range(4)] == [
+        'Native SegWit',
+        "m/84'/0'/0'",
+        '',
+        '0.00001500',
+    ]
+    assert [group.child(index).text(0) for index in range(4)] == [
+        'Taproot',
+        'Native SegWit',
+        'SegWit',
+        'Legacy',
+    ]
+    assert group.child(0).text(3) == ''
+    assert native.child(1).text(2) == address.address
+
+
+def test_new_address_needs_address_type(window, monkeypatch):
+    unlock(window)
+    messages = []
+    monkeypatch.setattr(
+        wallet_tab_module.QMessageBox, 'information', lambda *args: messages.append(args[2])
+    )
+    tab = window.wallet_tab
+    tab.tree.setCurrentItem(tab.tree.topLevelItem(0))
+
+    tab.new_address()
+
+    assert messages == ['Select an address type first']
+
+
+def test_rename_and_remove_account_group(window, monkeypatch):
+    unlock(window)
+    tab = window.wallet_tab
+    monkeypatch.setattr(wallet_tab_module.QInputDialog, 'getText', lambda *args: ('Savings', True))
+    monkeypatch.setattr(
+        wallet_tab_module.QMessageBox,
+        'question',
+        lambda *args: wallet_tab_module.QMessageBox.StandardButton.Yes,
+    )
+    tab.tree.setCurrentItem(tab.tree.topLevelItem(0))
+
+    tab.rename()
+
+    assert window.wallet.get_group('BTC', 0).label == 'Savings'
+    assert tab.tree.currentItem().text(0) == 'Savings'
+    tab.remove()
+    assert 'BTC' not in [group.coin for group in window.wallet.account_groups()]
+
+
+def test_account_of_group_is_not_renamed(window, monkeypatch):
+    unlock(window)
+    messages = []
+    monkeypatch.setattr(
+        wallet_tab_module.QMessageBox, 'information', lambda *args: messages.append(args[2])
+    )
+    tab = window.wallet_tab
+    tab.tree.setCurrentItem(tab.tree.topLevelItem(0).child(0))
+
+    tab.rename()
+
+    assert messages == ['Rename the account group']
+
+
+def test_new_account_dialog_creates_group(window):
+    unlock(window)
+    tab = window.wallet_tab
+    dialog = wallet_tab_module.NewAccountGroupDialog(tab, window.wallet, tab.add_group)
+
+    dialog.coin.setCurrentText('DOGE')
+    assert dialog.account.value() == 1
+    assert dialog.paths.text() == "Legacy: m/44'/3'/1'"
+    dialog.coin.setCurrentText('BTC')
+    dialog.label.setText('Savings')
+    dialog.accept()
+
+    group = window.wallet.get_group('BTC', 1)
+    assert (group.label, len(group.accounts)) == ('Savings', 4)
+    assert tab.tree.currentItem().text(0) == 'Savings'
+
+
+def test_new_account_dialog_shows_error(window, monkeypatch):
+    unlock(window)
+    warnings = []
+    monkeypatch.setattr(
+        wallet_tab_module.QMessageBox, 'warning', lambda *args: warnings.append(args[2])
+    )
+    tab = window.wallet_tab
+    dialog = wallet_tab_module.NewAccountGroupDialog(tab, window.wallet, tab.add_group)
+
+    dialog.account.setValue(0)
+    dialog.accept()
+
+    assert 'already in the wallet' in warnings[0]
+
+
+def test_group_menu_scans_coin(window, monkeypatch):
+    unlock(window)
+    started = []
+    monkeypatch.setattr(window.background_scan, 'start_coin', started.append)
+
+    window.wallet_tab._group_actions('LTC')['Scan for used addresses']()
+
+    assert started == ['LTC']
+    assert window.wallet_tab._group_actions('DOGE') == {}
 
 
 def test_running_scan_keeps_wallet_unlocked(window):
