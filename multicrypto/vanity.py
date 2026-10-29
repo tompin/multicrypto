@@ -14,11 +14,14 @@ from multicrypto.address import (
     validate_pattern,
 )
 from multicrypto.bech32 import CHARSET, encode
-from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2WPKH, coins
+from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2WPKH, coins, ethereum_coins
 from multicrypto.ellipticcurve import secp256k1
+from multicrypto.ethereum import address_bytes, format_private_key, to_checksum_address
 
 VANITY_ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH)
 ATTEMPTS_PER_UPDATE = 1000
+HEX_DIGITS = '0123456789abcdef'
+ETHEREUM_START = '0x'
 
 
 def _bech32_start(coin) -> str:
@@ -30,9 +33,21 @@ def _base58_range(coin_symbol: str, address_type: str):
     return get_address_range(coins[coin_symbol][key])
 
 
+def _validate_ethereum_pattern(pattern: str) -> str:
+    if not pattern.startswith(ETHEREUM_START):
+        raise ValueError(f'Pattern must start with {ETHEREUM_START}')
+    pattern = pattern.lower()
+    for character in pattern[len(ETHEREUM_START) :]:
+        if character not in HEX_DIGITS:
+            raise ValueError(f'Character {character} is not a hexadecimal digit')
+    return pattern
+
+
 def validate_vanity_pattern(pattern: str, coin_symbol: str, address_type: str) -> str:
     """Check that an address of the type can start with the pattern, return the pattern
-    (lowercase for bech32 addresses)."""
+    (lowercase for bech32 and Ethereum addresses, Ethereum address type is not used)."""
+    if coin_symbol in ethereum_coins:
+        return _validate_ethereum_pattern(pattern)
     if address_type not in VANITY_ADDRESS_TYPES:
         raise ValueError(
             f'Vanity addresses of type {address_type} are not supported, '
@@ -58,6 +73,8 @@ def validate_vanity_pattern(pattern: str, coin_symbol: str, address_type: str) -
 
 def expected_attempts(pattern: str, coin_symbol: str, address_type: str) -> int:
     """Average number of addresses checked before one starts with the pattern."""
+    if coin_symbol in ethereum_coins:
+        return 16 ** max(0, len(pattern) - len(ETHEREUM_START))
     if address_type == P2WPKH:
         return 32 ** max(0, len(pattern) - len(_bech32_start(coins[coin_symbol])))
     fixed = len(os.path.commonprefix(_base58_range(coin_symbol, address_type)))
@@ -65,6 +82,8 @@ def expected_attempts(pattern: str, coin_symbol: str, address_type: str) -> int:
 
 
 def pattern_hint(coin_symbol: str, address_type: str) -> str:
+    if coin_symbol in ethereum_coins:
+        return f'Addresses start with {ETHEREUM_START} followed by hexadecimal digits'
     if address_type == P2WPKH:
         return f'Addresses start with {_bech32_start(coins[coin_symbol])}'
     start_address, end_address = _base58_range(coin_symbol, address_type)
@@ -83,14 +102,24 @@ def _address_function(coin, address_type: str, compressed: bool):
     )
 
 
+def _ethereum_address(point) -> str:
+    """Address in lowercase, without the checksum calculated only for the found address."""
+    return ETHEREUM_START + address_bytes(point).hex()
+
+
 def find_address(
     coin_symbol: str, address_type: str, pattern: str, compressed: bool, stop, attempts=None
 ) -> Optional[Tuple[str, str]]:
     """Check consecutive keys from a random one until the address starts with the pattern
     (return the address and WIF) or stop is set (return None). The attempts counter
-    (multiprocessing.Value) is increased every ATTEMPTS_PER_UPDATE keys."""
-    coin = coins[coin_symbol]
-    address_of = _address_function(coin, address_type, compressed)
+    (multiprocessing.Value) is increased every ATTEMPTS_PER_UPDATE keys. Ethereum address is
+    compared in lowercase and returned with the checksum and the private key in hex format."""
+    ethereum = coin_symbol in ethereum_coins
+    if ethereum:
+        address_of = _ethereum_address
+    else:
+        coin = coins[coin_symbol]
+        address_of = _address_function(coin, address_type, compressed)
     seed = secp256k1.gen_private_key()
     point = seed * secp256k1.G
     counter = 0
@@ -98,6 +127,8 @@ def find_address(
         address = address_of(point)
         if address.startswith(pattern):
             private_key = (seed + counter) % secp256k1.n
+            if ethereum:
+                return to_checksum_address(address), format_private_key(private_key)
             wif = convert_private_key_to_wif_format(
                 private_key, coin['secret_prefix_bytes'], compressed
             )
@@ -133,7 +164,7 @@ class VanitySearch:
         workers: int,
         compressed: bool = True,
     ):
-        if not compressed and address_type != P2PKH:
+        if not compressed and address_type != P2PKH and coin_symbol not in ethereum_coins:
             raise ValueError('Segwit addresses require compressed public key')
         self.pattern = validate_vanity_pattern(pattern, coin_symbol, address_type)
         self.coin_symbol = coin_symbol
@@ -181,7 +212,8 @@ class VanitySearch:
         )
 
     def result(self) -> Optional[Tuple[str, str]]:
-        """Found address and private key in WIF format or None, it does not block."""
+        """Found address and private key (in WIF format, hex for Ethereum) or None, it does not
+        block."""
         if self._result is None:
             try:
                 self._result = self._results.get_nowait()

@@ -19,13 +19,15 @@ pip install multicrypto
 The package contains below commands:
  1. `sweepaddress` - combines many inputs into one
  2. `sendcrypto` - creates raw transaction and send it to block explorer api (Insight or Esplora)
- 3. `checkaddress` - checks address balance using block explorer api (Insight or Esplora)
+ 3. `checkaddress` - checks address balance using block explorer api (Insight or Esplora), for Ethereum
+    using JSON-RPC of nodes
  4. `transaddress` - translates address to different coin format (resulting address will have the same private key) 
  5. `transprivkey` - translates WIF private key to different coin format
- 6. `genaddress` - generates vanity address for given coin
+ 6. `genaddress` - generates vanity address for given coin (also Ethereum)
  7. `signmessage`- signs message using ECDSA
  8. `verifymessage` - verifies ECDSA signed message
  9. `multicrypto-gui` - graphical user interface with HD wallet (BIP-39 mnemonic with optional passphrase)
+ 10. `sendeth` - creates EIP-1559 transaction sending ether and sends it to Ethereum node (JSON-RPC)
 
 The GUI requires optional dependencies PyNaCl and PySide6:
 ```bash
@@ -100,6 +102,13 @@ For example:
 ```bash
 checkaddress -c BTC -a 14YK4mzJGo5NKkNnmVJeuEAQftLt795Gec
 ```
+For Ethereum (`ETH`, Sepolia testnet `TETH`) the balance, the nonce (number of sent transactions)
+and the number of all transactions (from Blockscout explorer) are shown. Public nodes are used by
+default, own node is given with `--node` (can be repeated):
+```bash
+checkaddress -c ETH -a 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+checkaddress -c ETH -a 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 --node http://localhost:8545
+```
 4. Translating address between coins:
 ```bash
 transaddress --address=<ADDRESS> --input_symbol=<COIN SYMBOL> --output_symbol=<COIN SYMBOL> --file=<OUTPUT FILE> --output_dir=<DIRECTORY TO STORE QR CODE>
@@ -142,6 +151,12 @@ pattern is the beginning of the address including `bc1q` (bech32 addresses use o
 ```bash
 genaddress -s BTC -t p2wpkh -p bc1qxyz -c 4
 ```
+Ethereum vanity addresses start with `0x` followed by hexadecimal digits, the pattern is compared
+case insensitively and the address is returned with EIP-55 checksum together with the private key
+in hex format:
+```bash
+genaddress -s ETH -p 0xabc -c 4
+```
 7. Signing message proving ownership of an address:
 ```bash
 signmessage --coin_symbol=<COIN SYMBOL> --wif_private_key=<PRIVATE KEY> --message=<MESSAGE TO SIGN>
@@ -171,7 +186,24 @@ is signed `Hello World!` message by owner of BTC address 1HCfFoucNXgYLvpcN2X4Twm
 verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s H7Ul0s8Za640duU2MhsifCX1H3Ma2NKRtLvtLYye6mFpZTW0fgXbM//bXq1yeXLHphXi8BUjtBsBHy0zrZjCYsQ=
 ```
 
-9. Graphical user interface:
+9. Sending ether (Ethereum and Sepolia testnet `TETH`):
+```bash
+sendeth --coin_symbol=<ETH OR TETH> --private_key=<HEX PRIVATE KEY> --address=<ADDRESS> --value=<ETHER>
+```
+The transaction uses EIP-1559 fees. By default the nonce is the next one of the address, the gas
+limit is estimated by the node, the priority fee is the median of the recent blocks and the max fee
+per gas is twice the base fee of the next block plus the priority fee, they can be set with
+`--nonce`, `--gas_limit`, `--priority_fee` and `--max_fee` (fees in gwei). Only the base fee of
+the block is paid (it is burned) together with the priority fee, the rest of the max fee stays on
+the address. A pending transaction is replaced by a transaction with its nonce and higher fees.
+For example sending 0.01 ether:
+```bash
+sendeth -c ETH -p 0x0000000000000000000000000000000000000000000000000000000000000001 -a 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed -v 0.01
+```
+`--dry_run` prints the signed transaction without sending it, `--node` sends it to own node instead
+of the public ones (e.g. `--node http://localhost:8545` for geth, reth or nethermind).
+
+10. Graphical user interface:
 ```bash
 multicrypto-gui --wallet=<WALLET FILE> --auto_lock=<MINUTES> --scale=<SCALE>
 ```
@@ -257,6 +289,37 @@ on Zcash (e.g. ZEC, BTCZ, ZERO) require Overwinter/Sapling transactions and coin
 (e.g. BCH, BTG) require BIP-143 signature hashes, so they are not supported.
 Segwit spending is supported from P2SH-P2WPKH, P2WPKH and taproot P2TR (key path) addresses, spending from
 P2WSH addresses and taproot script path is not supported (sending to them works).
+
+### Ethereum
+| Coin | Symbol | Chain id | Address generation | Transactions |
+| --- | --- | --- | --- | --- |
+| Ethereum | ETH | 1 | Yes | Yes |
+| Ethereum Sepolia testnet | TETH | 11155111 | Yes | Yes |
+
+Ethereum coins are defined in `ethereum_coins` in `multicrypto/coins.py`, separately from the coins
+with unspent outputs. Commands `checkaddress`, `genaddress` and `sendeth` support them, the GUI
+does not support them yet. Transactions sending ether use EIP-1559 (type 2) format, transactions
+calling contracts (e.g. tokens) are not supported. Keccak-256 and RLP are implemented in pure Python
+(`multicrypto.keccak`, `multicrypto.rlp`), so there are no new dependencies.
+
+Nodes are used through JSON-RPC: requests go to the first public node from `rpcs` which responds
+(unavailable and rate limited nodes are skipped), the chain id of the node is checked before signing.
+The number of all transactions of an address comes from Blockscout explorer, which does not need
+an API key (Etherscan requires it). Direct connection to the peer-to-peer network of Ethereum
+(devp2p) is not supported.
+```python
+from multicrypto.coins import ethereum_coins
+from multicrypto.ethereum import parse_ether, parse_private_key
+from multicrypto.ethereum_api import broadcast_transaction, get_rpc, prepare_transfer
+
+coin = ethereum_coins['TETH']
+rpc = get_rpc(coin)  # or get_rpc(coin, ['http://localhost:8545'])
+prepared = prepare_transfer(
+    coin, rpc, parse_private_key('<HEX PRIVATE KEY>'), '<ADDRESS>', parse_ether('0.01')
+)
+print(prepared.transaction, prepared.signed.raw_hex)
+transaction_hash = broadcast_transaction(rpc, prepared)
+```
 
 ### Peer-to-peer network
 Module `multicrypto.network` connects directly to nodes of the coin network (without block explorer),

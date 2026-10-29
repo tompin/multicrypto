@@ -26,6 +26,24 @@ def sign(message, private_key, curve=secp256k1, hash_function=sha256):
     return r, s
 
 
+def sign_digest(digest: bytes, private_key: int, curve=secp256k1):
+    """Sign the hash of a message (e.g. Keccak-256 in Ethereum), return r, s and the recovery id
+    of the public key. The nonce is calculated like in libsecp256k1 (RFC6979 with HMAC-SHA256
+    of the digest) and s is low (EIP-2), so signatures are the same as in other wallets."""
+    k = RFC6979(None, private_key, curve.n, sha256).gen_nonce(digest)
+    point = curve.G * k
+    r = point.x % curve.n
+    s = (int.from_bytes(digest, 'big') + r * private_key) * modular_inverse(k, curve.n) % curve.n
+    if r == 0 or s == 0:  # probability below 2^-255
+        raise ValueError('Cannot sign the digest')
+    recid = (point.y & 1) | (2 if point.x >= curve.n else 0)
+    if s > curve.n // 2:
+        # the negated signature is valid for the point with the other y
+        s = curve.n - s
+        recid ^= 1
+    return r, s, recid
+
+
 def verify(message, signature, public_key, curve=secp256k1, hash_function=sha256):
     hashed_message = hash_function(message).digest()
     int_hashed_message = int.from_bytes(hashed_message, byteorder='big')
@@ -45,9 +63,9 @@ def add_magic_prefix(message: str, coin) -> bytes:
     return int_to_varint(len(prefix)) + prefix + int_to_varint(len(data)) + data
 
 
-def _recover_public_key(message, recid, r, s, curve=secp256k1, hash_function=double_sha256):
-    """Public key which signed the message, None when the signature has no key with the recovery
-    id. Calculation is based on http://www.secg.org/sec1-v2.pdf chapter 4.1.6
+def recover_public_key(digest: bytes, recid: int, r: int, s: int, curve=secp256k1):
+    """Public key which signed the hash of a message, None when the signature has no key with
+    the recovery id. Calculation is based on http://www.secg.org/sec1-v2.pdf chapter 4.1.6
     'Public Key Recovery Operation'."""
     x = r + (recid // 2) * curve.n
     if x >= curve.p:
@@ -58,8 +76,14 @@ def _recover_public_key(message, recid, r, s, curve=secp256k1, hash_function=dou
         return None
     y = beta if (beta - recid) % 2 == 0 else curve.p - beta
     R = Point(curve, x, y)
-    e = int.from_bytes(hash_function(message).digest(), byteorder='big')
+    e = int.from_bytes(digest, byteorder='big')
     return modular_inverse(r, curve.n) * (s * R - e * curve.G)
+
+
+def _recover_public_key(message, recid, r, s, curve=secp256k1, hash_function=double_sha256):
+    """Public key which signed the message, None when the signature has no key with the recovery
+    id."""
+    return recover_public_key(hash_function(message).digest(), recid, r, s, curve)
 
 
 def sign_message(
@@ -176,9 +200,11 @@ class RFC6979:
         z2 = z1 % self.n
         return self.int2octets(z2)
 
-    def gen_nonce(self):
-        """http://tools.ietf.org/html/rfc6979#section-3.2"""
-        h1 = self.hash_function(self.message).digest()
+    def gen_nonce(self, h1=None):
+        """http://tools.ietf.org/html/rfc6979#section-3.2, h1 is the hash of the message
+        when it is already calculated"""
+        if h1 is None:
+            h1 = self.hash_function(self.message).digest()
         hash_size = len(h1)
         key_and_msg = self.int2octets(self.private_key) + self.bits2octets(h1)
         v = b'\x01' * hash_size

@@ -6,7 +6,7 @@ import pytest
 from tests import http_mock
 
 from multicrypto.api import InsightAPI
-from multicrypto.coins import coins
+from multicrypto.coins import coins, ethereum_coins
 from multicrypto.commands.checkaddress import main
 
 
@@ -167,3 +167,54 @@ def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
 
     assert str(exc_info.value) == 'Connection error'
     assert get_utxo_mock.called
+
+
+ETH_ADDRESS = '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'
+ETH_NODE = ethereum_coins['ETH']['rpcs'][0]
+ETH_COUNTERS = f'https://eth.blockscout.com/api/v2/addresses/{ETH_ADDRESS}/counters'
+
+
+def add_ethereum_account_responses(node=ETH_NODE):
+    for result in ('0x16345785d8a0000', '0x3'):  # 0.1 ether, nonce 3
+        http_mock.add(http_mock.POST, node, json={'jsonrpc': '2.0', 'id': 1, 'result': result})
+
+
+@http_mock.activate
+@patch.object(sys, 'argv', ['', '-a', ETH_ADDRESS.lower(), '-c', 'eth'])
+@patch('sys.stdout', new_callable=StringIO)
+def test_checkaddress_ethereum(sys_stdout):
+    add_ethereum_account_responses()
+    http_mock.add(http_mock.GET, ETH_COUNTERS, json={'transactions_count': '5'})
+
+    main()
+
+    assert sys_stdout.getvalue() == (
+        f'ETH address {ETH_ADDRESS}\n'
+        'balance: 0.1 ETH (100000000000000000 wei)\n'
+        'sent transactions (nonce): 3\n'
+        'all transactions: 5\n'
+    )
+
+
+@http_mock.activate
+@patch.object(sys, 'argv', ['', '-a', ETH_ADDRESS, '-c', 'ETH', '--node', 'http://localhost:8545'])
+@patch('sys.stdout', new_callable=StringIO)
+def test_checkaddress_ethereum_with_own_node_and_unavailable_explorer(sys_stdout, caplog):
+    add_ethereum_account_responses('http://localhost:8545')
+    http_mock.add(http_mock.GET, ETH_COUNTERS, status=500, body='error')
+
+    main()
+
+    output = sys_stdout.getvalue()
+    assert 'Number of transactions is not available: API error: error' in caplog.text
+    assert 'sent transactions (nonce): 3\n' in output
+    assert 'all transactions' not in output
+
+
+@patch.object(sys, 'argv', ['', '-a', '0x1234', '-c', 'ETH'])
+@patch('sys.stdout', new_callable=StringIO)
+def test_checkaddress_ethereum_incorrect_address(sys_stdout, caplog):
+    main()
+
+    assert 'must have 40 hexadecimal digits' in caplog.text
+    assert sys_stdout.getvalue() == ''
