@@ -400,6 +400,14 @@ class Wallet:
         index = self._next_index(account, RECEIVE_CHAIN)
         return self.add_address(account_id, RECEIVE_CHAIN, index, label)
 
+    def last_receiving_address(self, account_id: str) -> Optional[WalletAddress]:
+        """Receiving address of the account with the highest index, None when there is none."""
+        account = self.get_account(account_id)
+        receiving = [address for address in account.addresses if address.chain == RECEIVE_CHAIN]
+        if not receiving:
+            return None
+        return self._hd_address(account, max(receiving, key=lambda address: address.index))
+
     def next_receiving_address(self, account_id: str) -> WalletAddress:
         """Next receiving address of the account, it is not added to the wallet."""
         account = self.get_account(account_id)

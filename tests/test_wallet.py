@@ -578,6 +578,17 @@ def test_next_receiving_address_is_not_added():
     assert len(account.addresses) == 1
 
 
+def test_last_receiving_address():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account('Savings', 'BTC', 'p2wpkh')
+    assert wallet.last_receiving_address(account.id) is None
+    wallet.add_address(account.id, RECEIVE_CHAIN, 3)
+    wallet.add_address(account.id, RECEIVE_CHAIN, 1)
+    wallet.add_address(account.id, CHANGE_CHAIN, 7)
+
+    assert wallet.last_receiving_address(account.id).path == "m/84'/0'/0'/0/3"
+
+
 def test_address_at_does_not_add_address():
     wallet = Wallet.create(MNEMONIC, '')
     account = wallet.add_account('Test', 'BTC', 'p2wpkh')

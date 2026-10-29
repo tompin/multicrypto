@@ -7,7 +7,6 @@ from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
-    QComboBox,
     QFormLayout,
     QGroupBox,
     QHeaderView,
@@ -23,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from multicrypto.api import broadcast_prepared, prepare_from_private_keys
 from multicrypto.coins import coins
-from multicrypto.gui.dialogs import confirm, show_text
+from multicrypto.gui.dialogs import coin_box, confirm, set_coins, show_text
 from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
     EXPECTED_ERRORS,
@@ -48,9 +47,7 @@ class SendTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.coin = QComboBox()
-        self.coin.addItems(coins_with_api())
-        self.coin.setCurrentText('BTC')
+        self.coin = coin_box(app.visible_coins(coins_with_api()))
         self.coin.currentTextChanged.connect(lambda _text: self.refresh())
         self.sources = QTableWidget(0, len(SOURCE_COLUMNS))
         self.sources.setHorizontalHeaderLabels(SOURCE_COLUMNS)
@@ -113,6 +110,9 @@ class SendTab(QWidget):
             self.sources.item(row, 0).setData(ID_ROLE, address.id)
             if address.id in selected:
                 self._select_row(row)
+
+    def update_coins(self):
+        set_coins(self.coin, self.app.visible_coins(coins_with_api()))
 
     def clear(self):
         self.sources.setRowCount(0)

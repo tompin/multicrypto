@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from multicrypto.api import broadcast_prepared, get_utxo_from_private_keys, prepare_sweep
 from multicrypto.coins import coins, get_address_types
 from multicrypto.gui.address_picker import WalletAddressPicker
-from multicrypto.gui.dialogs import confirm, password_field, show_lines
+from multicrypto.gui.dialogs import coin_box, confirm, password_field, set_coins, show_lines
 from multicrypto.gui.fee import FeeRateField
 from multicrypto.gui.forms import (
     coins_with_api,
@@ -49,9 +49,7 @@ class SweepTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.coin = QComboBox()
-        self.coin.addItems(coins_with_api())
-        self.coin.setCurrentText('BTC')
+        self.coin = coin_box(app.visible_coins(coins_with_api()))
         self.wallet_source = QRadioButton('Wallet address')
         self.wallet_source.setChecked(True)
         self.key_source = QRadioButton('External private key (WIF)')
@@ -136,6 +134,9 @@ class SweepTab(QWidget):
         addresses = [address for address in addresses if address.coin == coin_symbol]
         self.source_picker.set_addresses(wallet, addresses)
         self.destination_picker.set_addresses(wallet, addresses)
+
+    def update_coins(self):
+        set_coins(self.coin, self.app.visible_coins(coins_with_api()))
 
     def clear(self):
         self.source_picker.clear()

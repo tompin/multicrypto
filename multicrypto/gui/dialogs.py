@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +32,30 @@ def password_field() -> QLineEdit:
     field.setEchoMode(QLineEdit.EchoMode.Password)
     field.setMinimumWidth(320)
     return field
+
+
+def coin_box(symbols: List[str]) -> QComboBox:
+    """Selection of the coin as wide as its symbols, BTC is selected at the start."""
+    box = QComboBox()
+    box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+    box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    set_coins(box, symbols)
+    return box
+
+
+def set_coins(box: QComboBox, symbols: List[str]) -> None:
+    """Replace the coins, the selected coin is kept when it is still on the list."""
+    previous = box.currentText()
+    box.blockSignals(True)
+    box.clear()
+    box.addItems(symbols)
+    for symbol in (previous, 'BTC'):
+        if symbol in symbols:
+            box.setCurrentText(symbol)
+            break
+    box.blockSignals(False)
+    if box.currentText() != previous:
+        box.currentTextChanged.emit(box.currentText())
 
 
 def monospace_label(text: str) -> QLabel:

@@ -33,15 +33,30 @@ def load_scale(path: str) -> Optional[float]:
     return scale if _valid_scale(scale) else None
 
 
+def _save(path: str, settings: dict) -> None:
+    os.makedirs(os.path.dirname(os.path.abspath(path)), mode=0o700, exist_ok=True)
+    with open(path, 'w') as file:
+        json.dump(settings, file)
+
+
 def save_scale(path: str, scale: Optional[float]) -> None:
     settings = _load(path)
     if scale is None:
         settings.pop('scale', None)
     else:
         settings['scale'] = scale
-    os.makedirs(os.path.dirname(os.path.abspath(path)), mode=0o700, exist_ok=True)
-    with open(path, 'w') as file:
-        json.dump(settings, file)
+    _save(path, settings)
+
+
+def load_show_testnets(path: str) -> bool:
+    """Testnet coins are hidden by default."""
+    return _load(path).get('show_testnets') is True
+
+
+def save_show_testnets(path: str, shown: bool) -> None:
+    settings = _load(path)
+    settings['show_testnets'] = shown
+    _save(path, settings)
 
 
 def initial_scale(cli_scale: Optional[float], path: str) -> Optional[float]:

@@ -5,7 +5,6 @@ from argparse import Namespace
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QGridLayout,
     QHBoxLayout,
     QHeaderView,
@@ -21,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from multicrypto.commands.checkaddress import check_address
 from multicrypto.gui.address_picker import WalletAddressPicker
+from multicrypto.gui.dialogs import coin_box, set_coins
 from multicrypto.gui.forms import (
     coins_with_api,
     format_amount,
@@ -36,9 +36,7 @@ class BalanceTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.coin = QComboBox()
-        self.coin.addItems(coins_with_api())
-        self.coin.setCurrentText('BTC')
+        self.coin = coin_box(app.visible_coins(coins_with_api()))
         self.coin.currentTextChanged.connect(lambda _text: self._show_addresses())
         self.wallet_source = QRadioButton('Wallet address')
         self.wallet_source.setChecked(True)
@@ -61,7 +59,7 @@ class BalanceTab(QWidget):
         self.total = QLabel()
         source = QGridLayout()
         source.addWidget(QLabel('Coin'), 0, 0)
-        source.addWidget(self.coin, 0, 1, alignment=Qt.AlignmentFlag.AlignLeft)
+        source.addWidget(self.coin, 0, 1)
         source.addWidget(self.wallet_source, 1, 0, alignment=Qt.AlignmentFlag.AlignTop)
         source.addWidget(self.picker, 1, 1)
         source.addWidget(self.other_source, 2, 0)
@@ -85,6 +83,9 @@ class BalanceTab(QWidget):
 
     def refresh(self):
         self._show_addresses()
+
+    def update_coins(self):
+        set_coins(self.coin, self.app.visible_coins(coins_with_api()))
 
     def _show_addresses(self):
         wallet = self.app.wallet

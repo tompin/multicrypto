@@ -4,7 +4,15 @@ import os
 
 import pytest
 
-from multicrypto.gui.settings import apply_scale, check_scale, initial_scale, load_scale, save_scale
+from multicrypto.gui.settings import (
+    apply_scale,
+    check_scale,
+    initial_scale,
+    load_scale,
+    load_show_testnets,
+    save_scale,
+    save_show_testnets,
+)
 
 
 def test_save_and_load_scale(tmp_path):
@@ -65,3 +73,14 @@ def test_check_scale():
     for value in ('0.4', '4.5', 'nan', 'big'):
         with pytest.raises(argparse.ArgumentTypeError):
             check_scale(value)
+
+
+def test_show_testnets_setting(tmp_path):
+    path = str(tmp_path / 'gui.json')
+    assert load_show_testnets(path) is False
+    save_scale(path, 1.5)
+
+    save_show_testnets(path, True)
+
+    assert load_show_testnets(path) is True
+    assert load_scale(path) == 1.5

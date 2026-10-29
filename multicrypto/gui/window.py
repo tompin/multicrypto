@@ -3,7 +3,7 @@
 import copy
 import os
 import time
-from typing import Optional
+from typing import Iterable, List, Optional
 
 from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QActionGroup
@@ -24,10 +24,16 @@ from multicrypto.gui.background_scan import BackgroundScan
 from multicrypto.gui.balance_tab import BalanceTab
 from multicrypto.gui.create_wizard import CreateWalletWizard
 from multicrypto.gui.dialogs import SecretDialog, ask_password, mnemonic_grid
-from multicrypto.gui.forms import describe_error
+from multicrypto.gui.forms import describe_error, is_testnet
 from multicrypto.gui.scan_dialog import ScanDialog
 from multicrypto.gui.send_tab import SendTab
-from multicrypto.gui.settings import SETTINGS_PATH, load_scale, save_scale
+from multicrypto.gui.settings import (
+    SETTINGS_PATH,
+    load_scale,
+    load_show_testnets,
+    save_scale,
+    save_show_testnets,
+)
 from multicrypto.gui.sign_tab import SignTab
 from multicrypto.gui.sweep_tab import SweepTab
 from multicrypto.gui.translate_tab import TranslateTab
@@ -67,6 +73,7 @@ class MainWindow(QMainWindow):
         self.wallet_file = wallet_file
         self.auto_lock_seconds = auto_lock_seconds
         self.settings_path = settings_path
+        self.show_testnets = load_show_testnets(settings_path)
         self.wallet: Optional[Wallet] = None
         self.last_activity = time.monotonic()
         self.worker = Worker(self)
@@ -88,6 +95,7 @@ class MainWindow(QMainWindow):
             self.translate_tab,
             self.vanity_tab,
         )
+        self.coin_tabs = (self.balance_tab, self.send_tab, self.sweep_tab, self.sign_tab)
         self.tab_widget = QTabWidget()
         for tab, title in zip(
             self.tabs,
@@ -137,7 +145,12 @@ class MainWindow(QMainWindow):
         ):
             action = file_menu.addAction(text)
             action.triggered.connect(lambda _checked=False, slot=slot: slot())
-        scale_menu = self.menuBar().addMenu('&View').addMenu('Scale')
+        view_menu = self.menuBar().addMenu('&View')
+        self.testnets_action = view_menu.addAction('Show testnets')
+        self.testnets_action.setCheckable(True)
+        self.testnets_action.setChecked(self.show_testnets)
+        self.testnets_action.triggered.connect(self.set_show_testnets)
+        scale_menu = view_menu.addMenu('Scale')
         self.scale_group = QActionGroup(self)
         saved = load_scale(self.settings_path)
         for scale in SCALES:
@@ -146,6 +159,19 @@ class MainWindow(QMainWindow):
             action.setChecked(scale == saved)
             self.scale_group.addAction(action)
             action.triggered.connect(lambda _checked=False, scale=scale: self.choose_scale(scale))
+
+    def visible_coins(self, symbols: Iterable[str]) -> List[str]:
+        """The coins without testnets when they are hidden."""
+        return [symbol for symbol in symbols if self.show_testnets or not is_testnet(symbol)]
+
+    def set_show_testnets(self, shown: bool):
+        self.show_testnets = shown
+        self.testnets_action.setChecked(shown)
+        save_show_testnets(self.settings_path, shown)
+        for tab in self.coin_tabs:
+            tab.update_coins()
+        if self.wallet is not None:
+            self.wallet_tab.refresh()
 
     def choose_scale(self, scale: Optional[float]):
         save_scale(self.settings_path, scale)

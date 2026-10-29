@@ -26,7 +26,12 @@ import multicrypto.gui.wallet_tab as wallet_tab_module  # noqa: E402
 from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletWizard  # noqa: E402
 from multicrypto.gui.dialogs import mnemonic_grid  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
-from multicrypto.gui.settings import load_scale, save_scale  # noqa: E402
+from multicrypto.gui.settings import (  # noqa: E402
+    load_scale,
+    load_show_testnets,
+    save_scale,
+    save_show_testnets,
+)
 from multicrypto.gui.window import SCALE_MESSAGE, MainWindow  # noqa: E402
 from multicrypto.wallet import WalletAddress, WalletFile, check_entry  # noqa: E402
 
@@ -109,7 +114,9 @@ def window(qapp, tmp_path):
     wallet_file = WalletFile(
         str(tmp_path / 'wallet.mcw'), pwhash.argon2id.OPSLIMIT_MIN, pwhash.argon2id.MEMLIMIT_MIN
     )
-    window = MainWindow(wallet_file, settings_path=str(tmp_path / 'gui.json'))
+    settings_path = str(tmp_path / 'gui.json')
+    save_show_testnets(settings_path, True)  # the tests send testnet coins
+    window = MainWindow(wallet_file, settings_path=settings_path)
     yield window
     window.timer.stop()
     qapp.removeEventFilter(window)
@@ -243,6 +250,94 @@ def test_balance_tab_filters_wallet_addresses_by_coin(window, monkeypatch):
     assert tab.coin.currentText() == 'LTC'
     assert tab.picker.current() == address
     assert tab.wallet_source.isChecked()
+
+
+def test_testnets_are_hidden_by_default(qapp, tmp_path):
+    settings_path = str(tmp_path / 'gui.json')
+    wallet_file = WalletFile(
+        str(tmp_path / 'wallet.mcw'), pwhash.argon2id.OPSLIMIT_MIN, pwhash.argon2id.MEMLIMIT_MIN
+    )
+    window = MainWindow(wallet_file, settings_path=settings_path)
+    unlock(window)
+    tree = window.wallet_tab.tree
+
+    assert not window.testnets_action.isChecked()
+    assert [tree.topLevelItem(index).text(2) for index in range(tree.topLevelItemCount())] == [
+        'BTC',
+        'DASH',
+        'DOGE',
+        'LTC',
+    ]
+    assert 'TBTC' not in [
+        window.send_tab.coin.itemText(i) for i in range(window.send_tab.coin.count())
+    ]
+    window.sweep_tab.coin.setCurrentText('LTC')
+
+    window.set_show_testnets(True)
+
+    assert tree.topLevelItemCount() == 6
+    assert window.sweep_tab.coin.findText('TLTC') >= 0
+    assert window.sweep_tab.coin.currentText() == 'LTC'
+    assert load_show_testnets(settings_path)
+    window.timer.stop()
+    qapp.removeEventFilter(window)
+
+
+def test_account_groups_are_collapsed_and_remember_expanding(window):
+    unlock(window)
+    tab = window.wallet_tab
+    tree = tab.tree
+
+    assert not any(tree.topLevelItem(index).isExpanded() for index in range(6))
+    tree.topLevelItem(1).setExpanded(True)
+    tab.refresh()
+    assert [tree.topLevelItem(index).isExpanded() for index in range(3)] == [False, True, False]
+
+    address = tab.add_address(btc_account(window).id, 'Exchange')
+
+    assert tree.topLevelItem(0).isExpanded()
+    assert tree.currentItem().text(2) == address.address
+
+
+def test_receive_dialog_shows_last_address(window):
+    unlock(window)
+    tab = window.wallet_tab
+    account = btc_account(window)
+    [first] = window.wallet.account_addresses(account)
+    tab.balances = {first.id: 1000}
+    tab.tree.setCurrentItem(tab.tree.topLevelItem(0))
+
+    dialog = wallet_tab_module.ReceiveDialog(
+        tab, window.wallet, tab.add_address, tab.balances, group=('BTC', 0)
+    )
+
+    assert dialog.address_type.currentText() == 'Native SegWit (p2wpkh)'
+    assert dialog.address.text() == first.address
+    assert dialog.path.text() == "m/84'/0'/0'/0/0"
+    assert not dialog.image.pixmap().isNull()
+    assert not dialog.hint.isHidden()
+    dialog.new_address()
+    assert dialog.path.text() == "m/84'/0'/0'/0/1"
+    assert dialog.hint.isHidden()
+    assert len(btc_account(window).addresses) == 2
+    dialog.copy()
+    from PySide6.QtWidgets import QApplication
+
+    assert QApplication.clipboard().text() == dialog.address.text()
+
+
+def test_receive_dialog_adds_address_to_empty_account(window):
+    unlock(window)
+    tab = window.wallet_tab
+    account = btc_account(window)
+    window.modify_wallet(lambda wallet: wallet.remove(wallet.account_addresses(account)[0].id))
+
+    dialog = wallet_tab_module.ReceiveDialog(
+        tab, window.wallet, tab.add_address, tab.balances, account_id=account.id
+    )
+
+    assert dialog.path.text() == "m/84'/0'/0'/0/0"
+    assert len(btc_account(window).addresses) == 1
 
 
 def test_imported_keys_are_shown_in_separate_group(window):

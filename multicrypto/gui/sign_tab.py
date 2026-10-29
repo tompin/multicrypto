@@ -4,7 +4,6 @@ import html
 
 from PySide6.QtWidgets import (
     QApplication,
-    QComboBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -19,6 +18,7 @@ from PySide6.QtWidgets import (
 from multicrypto.coins import P2TR, coins
 from multicrypto.ecdsa import sign_message, verify_signature
 from multicrypto.gui.address_picker import WalletAddressPicker
+from multicrypto.gui.dialogs import coin_box, set_coins
 from multicrypto.gui.forms import check_signable, parse_address
 from multicrypto.wallet import WalletAddress
 
@@ -30,9 +30,7 @@ class SignTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.sign_coin = QComboBox()
-        self.sign_coin.addItems(sorted(coins))
-        self.sign_coin.setCurrentText('BTC')
+        self.sign_coin = coin_box(app.visible_coins(sorted(coins)))
         self.sign_coin.currentTextChanged.connect(lambda _text: self.refresh())
         self.sign_picker = WalletAddressPicker()
         self.sign_message = QPlainTextEdit()
@@ -44,9 +42,7 @@ class SignTab(QWidget):
         copy_button.clicked.connect(
             lambda _checked=False: QApplication.clipboard().setText(self.signature.text())
         )
-        self.verify_coin = QComboBox()
-        self.verify_coin.addItems(sorted(coins))
-        self.verify_coin.setCurrentText('BTC')
+        self.verify_coin = coin_box(app.visible_coins(sorted(coins)))
         self.verify_address = QLineEdit()
         self.verify_address.textChanged.connect(self._detect_coin)
         self.verify_message = QPlainTextEdit()
@@ -96,6 +92,10 @@ class SignTab(QWidget):
                 if address.coin == coin_symbol and address.address_type != P2TR
             ],
         )
+
+    def update_coins(self):
+        set_coins(self.sign_coin, self.app.visible_coins(sorted(coins)))
+        set_coins(self.verify_coin, self.app.visible_coins(sorted(coins)))
 
     def clear(self):
         self.sign_picker.clear()

@@ -125,6 +125,10 @@ def extract_txid(result: str) -> str:
         raise ValueError(f'Transaction was not accepted: {result}') from None
 
 
+def is_testnet(coin_symbol: str) -> bool:
+    return 'testnet' in coins[coin_symbol]['name']
+
+
 def coins_with_api() -> List[str]:
     return sorted(symbol for symbol, coin in coins.items() if coin.get('apis'))
 

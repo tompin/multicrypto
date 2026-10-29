@@ -14,6 +14,7 @@ from multicrypto.gui.forms import (
     choose_word_positions,
     coins_with_api,
     coins_with_slip44,
+    is_testnet,
     describe_error,
     describe_sweep,
     describe_transaction,
@@ -220,6 +221,10 @@ def test_check_sources():
         check_sources([])
     with pytest.raises(ValueError, match='same coin and address type'):
         check_sources([savings, legacy])
+
+
+def test_is_testnet():
+    assert [symbol for symbol in sorted(coins) if is_testnet(symbol)] == ['TBTC', 'TLTC']
 
 
 def test_address_details():
