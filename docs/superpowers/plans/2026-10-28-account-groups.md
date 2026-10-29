@@ -92,27 +92,29 @@ class AccountGroup:
 ```
 
 ```python
-    def account_groups(self) -> List[AccountGroup]:
-        grouped: Dict[Tuple[str, int], List[HDAccount]] = {}
-        for account in self.accounts:
-            grouped.setdefault((account.coin, account.account), []).append(account)
-        groups = []
-        for (coin_symbol, number), accounts in grouped.items():
-            accounts.sort(key=lambda account: ADDRESS_TYPE_ORDER.index(account.address_type))
-            labels = {account.label for account in accounts}
-            label = labels.pop() if len(labels) == 1 else group_label(coin_symbol, number)
-            groups.append(AccountGroup(coin_symbol, number, label, accounts))
-        return groups
+def account_groups(self) -> List[AccountGroup]:
+    grouped: Dict[Tuple[str, int], List[HDAccount]] = {}
+    for account in self.accounts:
+        grouped.setdefault((account.coin, account.account), []).append(account)
+    groups = []
+    for (coin_symbol, number), accounts in grouped.items():
+        accounts.sort(key=lambda account: ADDRESS_TYPE_ORDER.index(account.address_type))
+        labels = {account.label for account in accounts}
+        label = labels.pop() if len(labels) == 1 else group_label(coin_symbol, number)
+        groups.append(AccountGroup(coin_symbol, number, label, accounts))
+    return groups
 
-    def get_group(self, coin_symbol: str, number: int) -> AccountGroup:
-        for group in self.account_groups():
-            if (group.coin, group.number) == (coin_symbol, number):
-                return group
-        raise KeyError(f'{coin_symbol} #{number}')
 
-    def next_group_number(self, coin_symbol: str) -> int:
-        numbers = [account.account for account in self.accounts if account.coin == coin_symbol]
-        return max(numbers, default=-1) + 1
+def get_group(self, coin_symbol: str, number: int) -> AccountGroup:
+    for group in self.account_groups():
+        if (group.coin, group.number) == (coin_symbol, number):
+            return group
+    raise KeyError(f'{coin_symbol} #{number}')
+
+
+def next_group_number(self, coin_symbol: str) -> int:
+    numbers = [account.account for account in self.accounts if account.coin == coin_symbol]
+    return max(numbers, default=-1) + 1
 ```
 
 Import `get_address_types` z `multicrypto.coins`.
@@ -192,39 +194,42 @@ def test_rename_and_remove_group():
 - [ ] **Step 2:** FAIL. **Step 3: Implementacja** (metody `Wallet` po `add_account`):
 
 ```python
-    def add_account_group(
-        self, label: str, coin_symbol: str, number: Optional[int] = None
-    ) -> AccountGroup:
-        """Add the accounts of all address types of the coin, each with its first address."""
-        address_types = group_address_types(coin_symbol)
-        if number is None:
-            number = self.next_group_number(coin_symbol)
-        for existing in self.accounts:
-            if (existing.coin, existing.account) == (coin_symbol, number):
-                raise ValueError(
-                    f'Account {number} of {coin_symbol} {existing.address_type} is already in '
-                    f'the wallet as "{existing.label}"'
-                )
-        label = label or group_label(coin_symbol, number)
-        for address_type in address_types:
-            account = self.add_account(label, coin_symbol, address_type, number)
-            self.new_address(account.id)
-        return self.get_group(coin_symbol, number)
+def add_account_group(
+    self, label: str, coin_symbol: str, number: Optional[int] = None
+) -> AccountGroup:
+    """Add the accounts of all address types of the coin, each with its first address."""
+    address_types = group_address_types(coin_symbol)
+    if number is None:
+        number = self.next_group_number(coin_symbol)
+    for existing in self.accounts:
+        if (existing.coin, existing.account) == (coin_symbol, number):
+            raise ValueError(
+                f'Account {number} of {coin_symbol} {existing.address_type} is already in '
+                f'the wallet as "{existing.label}"'
+            )
+    label = label or group_label(coin_symbol, number)
+    for address_type in address_types:
+        account = self.add_account(label, coin_symbol, address_type, number)
+        self.new_address(account.id)
+    return self.get_group(coin_symbol, number)
 
-    def add_default_groups(self) -> None:
-        """Add the first group of every coin with SLIP-44 coin type."""
-        for coin_symbol, coin in coins.items():
-            if 'slip44' in coin:
-                self.add_account_group('', coin_symbol, 0)
 
-    def rename_group(self, coin_symbol: str, number: int, label: str) -> None:
-        for account in self.get_group(coin_symbol, number).accounts:
-            account.label = label
+def add_default_groups(self) -> None:
+    """Add the first group of every coin with SLIP-44 coin type."""
+    for coin_symbol, coin in coins.items():
+        if 'slip44' in coin:
+            self.add_account_group('', coin_symbol, 0)
 
-    def remove_group(self, coin_symbol: str, number: int) -> None:
-        """Remove the accounts of the group (the seed still derives them)."""
-        removed = self.get_group(coin_symbol, number).accounts
-        self.accounts[:] = [account for account in self.accounts if account not in removed]
+
+def rename_group(self, coin_symbol: str, number: int, label: str) -> None:
+    for account in self.get_group(coin_symbol, number).accounts:
+        account.label = label
+
+
+def remove_group(self, coin_symbol: str, number: int) -> None:
+    """Remove the accounts of the group (the seed still derives them)."""
+    removed = self.get_group(coin_symbol, number).accounts
+    self.accounts[:] = [account for account in self.accounts if account not in removed]
 ```
 
 `add_account` sprawdza SLIP-44 i zakres numeru przed dodaniem pierwszego konta, więc przy tych
@@ -418,9 +423,7 @@ def test_wallet_tree_shows_account_groups(window):
     native = group.child(1)
 
     assert [group.text(i) for i in range(4)] == ['Bitcoin #0', '', 'BTC', '0.00001500']
-    assert [native.text(i) for i in range(4)] == [
-        'Native SegWit', "m/84'/0'/0'", '', '0.00001500'
-    ]
+    assert [native.text(i) for i in range(4)] == ['Native SegWit', "m/84'/0'/0'", '', '0.00001500']
     assert native.child(1).text(2) == address.address
     assert window.wallet_tab.tree.topLevelItemCount() == 6
 
@@ -442,9 +445,7 @@ def test_new_address_needs_address_type(window, monkeypatch):
 def test_rename_and_remove_account_group(window, monkeypatch):
     unlock(window)
     tab = window.wallet_tab
-    monkeypatch.setattr(
-        wallet_tab_module.QInputDialog, 'getText', lambda *args: ('Savings', True)
-    )
+    monkeypatch.setattr(wallet_tab_module.QInputDialog, 'getText', lambda *args: ('Savings', True))
     monkeypatch.setattr(
         wallet_tab_module.QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.Yes
     )
