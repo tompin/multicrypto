@@ -1590,3 +1590,22 @@ def test_send_ethereum_requires_destination_for_max(window, monkeypatch):
     tab.fill_max()
 
     assert str(errors[0]) == 'Enter the address'
+
+
+def test_scan_dialog_lists_ethereum(window):
+    unlock(window)
+
+    dialog = scan_dialog_module.ScanDialog(window)
+
+    assert {'ETH', 'TETH'} <= set(dialog.coins)
+    dialog.deleteLater()
+
+
+def test_ethereum_group_menu_scans_coin(window, monkeypatch):
+    unlock(window)
+    started = []
+    monkeypatch.setattr(window.background_scan, 'start_coin', started.append)
+
+    window.wallet_tab._group_actions('ETH')['Scan for used addresses']()
+
+    assert started == ['ETH']

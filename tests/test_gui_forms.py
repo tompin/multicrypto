@@ -481,7 +481,7 @@ def test_coin_lists_with_ethereum():
     assert {'ETH', 'TETH'} <= set(all_coins_with_api())
     assert {'ETH', 'TETH'} <= set(coins_with_slip44())
     assert 'ETH' not in coins_with_api()  # coins with unspent outputs, e.g. for Sweep
-    assert 'ETH' not in scannable_coins()  # until discovery supports Ethereum
+    assert {'ETH', 'TETH'} <= set(scannable_coins())
     assert is_testnet('TETH') and not is_testnet('ETH')
 
 

@@ -232,3 +232,45 @@ def test_discover_keeps_accounts_found_before_error():
         discover(wallet, 'BTC', lambda count: None, lambda: False, tx_count, found=found)
 
     assert found == [DiscoveredAccount('BTC', 'p2wpkh', 0, [0], [])]
+
+
+def test_discover_ethereum_scans_only_receiving_chain():
+    wallet = Wallet.create(MNEMONIC, '')
+    used = used_addresses(
+        wallet,
+        [('ETH', 'ethereum', 0, RECEIVE_CHAIN, 3), ('ETH', 'ethereum', 1, RECEIVE_CHAIN, 0)],
+    )
+    checked = []
+
+    found = discover(
+        wallet, 'ETH', checked.append, lambda: False, tx_count=lambda address: int(address in used)
+    )
+
+    assert found == [
+        DiscoveredAccount('ETH', 'ethereum', 0, [3], []),
+        DiscoveredAccount('ETH', 'ethereum', 1, [0], []),
+    ]
+    assert sum(checked) == 24 + 21 + 20  # accounts 0, 1 and unused 2, no change chains
+
+
+def test_discover_ethereum_uses_explorer(monkeypatch):
+    explorers = []
+
+    def ethereum_usage(coin):
+        explorers.append(coin['chain_id'])
+        return lambda address: 0
+
+    monkeypatch.setattr(discovery, 'ethereum_usage', ethereum_usage)
+
+    assert discover(Wallet.create(MNEMONIC, ''), 'TETH', lambda count: None, lambda: False) == []
+    assert explorers == [11155111]
+
+
+def test_add_discovered_ethereum_account():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    added = add_discovered(wallet, [DiscoveredAccount('ETH', 'ethereum', 0, [0, 2], [])])
+
+    assert added == 2  # the address 0 of the new group and the address 2
+    [account] = wallet.get_group('ETH', 0).accounts
+    assert [address.index for address in wallet.account_addresses(account)] == [0, 2]

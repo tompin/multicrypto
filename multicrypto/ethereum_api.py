@@ -32,6 +32,7 @@ Coin = Dict[str, Any]
 # by some providers), other nodes are tried
 TRANSIENT_ERROR_CODES = (-32005, -32029, -32603)
 TRANSIENT_ERROR_MESSAGES = ('rate limit', 'too many requests')
+NOT_FOUND = 404  # HTTP status of addresses unknown to the explorer
 FEE_HISTORY_BLOCKS = 10
 FEE_PERCENTILE = 50
 MIN_PRIORITY_FEE = 10**7  # 0.01 gwei, some recent blocks can have only transactions without tip
@@ -173,6 +174,22 @@ class BlockscoutAPI:
             return len(page['items'])
         counters = self._get(f'addresses/{address}/counters')
         return max(int(counters['transactions_count']), len(page['items']))
+
+    def get_usage(self, address: str) -> int:
+        """Number of transactions of the address plus 1 when it has ether or tokens, 0 for
+        unused addresses (also unknown to the explorer). The balance and the tokens find
+        addresses which received ether only by internal transactions (e.g. from contracts) or
+        received only tokens, they have no transactions in the list."""
+        response = http_request(f'{self.base_url}/addresses/{address}', self.timeout)
+        if response.status == NOT_FOUND:
+            return 0
+        info = check_response(response, self.base_url).json()
+        holds = (
+            int(info.get('coin_balance') or 0) > 0
+            or bool(info.get('has_token_transfers'))
+            or bool(info.get('has_tokens'))
+        )
+        return self.get_tx_count(address) + int(holds)
 
 
 def get_explorer(coin: Coin, timeout: float = DEFAULT_TIMEOUT) -> BlockscoutAPI:

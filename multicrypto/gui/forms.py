@@ -196,8 +196,9 @@ def coins_with_slip44() -> List[str]:
 
 
 def scannable_coins() -> List[str]:
-    """Coins whose HD accounts can be scanned for used addresses."""
-    return sorted(set(coins_with_slip44()) & set(coins_with_api()))
+    """Coins whose HD accounts can be scanned for used addresses, Ethereum coins with the block
+    explorer."""
+    return sorted(set(coins_with_slip44()) & set(all_coins_with_api()))
 
 
 def format_coin_amount(coin_symbol: str, units: int) -> str:

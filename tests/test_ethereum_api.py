@@ -452,3 +452,48 @@ def test_max_value_estimates_gas_with_value():
 def test_max_value_insufficient_funds():
     with pytest.raises(InsufficientFundsError, match='does not cover the max fee'):
         max_value(FakeRPC(balance=1000), ADDRESS, DESTINATION)
+
+
+def add_address_info(info, status=200):
+    if status == 200:
+        http_mock.add(http_mock.GET, BLOCKSCOUT_ADDRESS, json=info)
+    else:
+        http_mock.add(http_mock.GET, BLOCKSCOUT_ADDRESS, status=status, body='error')
+
+
+EMPTY_INFO = {'coin_balance': '0', 'has_token_transfers': False, 'has_tokens': False}
+
+
+@pytest.mark.parametrize(
+    'info, transactions, usage',
+    [
+        (EMPTY_INFO, 0, 0),
+        (EMPTY_INFO, 2, 2),
+        (dict(EMPTY_INFO, coin_balance='5'), 0, 1),  # received by an internal transaction
+        (dict(EMPTY_INFO, has_token_transfers=True), 0, 1),
+        (dict(EMPTY_INFO, has_tokens=True, coin_balance=None), 1, 2),
+    ],
+)
+@http_mock.activate
+def test_blockscout_get_usage(info, transactions, usage):
+    add_address_info(info)
+    page = {'items': [{'hash': '0x1'}] * transactions, 'next_page_params': None}
+    http_mock.add(http_mock.GET, f'{BLOCKSCOUT_ADDRESS}/transactions', json=page)
+
+    assert get_explorer(ETH).get_usage(ADDRESS) == usage
+
+
+@http_mock.activate
+def test_blockscout_get_usage_of_unknown_address():
+    add_address_info(None, status=404)
+
+    assert get_explorer(ETH).get_usage(ADDRESS) == 0
+    assert len(http_mock.calls) == 1
+
+
+@http_mock.activate
+def test_blockscout_get_usage_rate_limit():
+    add_address_info(None, status=429)
+
+    with pytest.raises(RateLimitError):
+        get_explorer(ETH).get_usage(ADDRESS)

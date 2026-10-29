@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from multicrypto.api import RateLimitError, get_api
-from multicrypto.coins import coins
+from multicrypto.coins import ETHEREUM, get_any_coin, is_ethereum
+from multicrypto.ethereum_api import get_explorer
 from multicrypto.wallet import CHANGE_CHAIN, RECEIVE_CHAIN, HDAccount, Wallet, group_address_types
 
 GAP_LIMIT = 20  # unused addresses after the last used one ending the scan of the chain
@@ -17,6 +18,8 @@ THREADS = 2
 RATE_LIMIT_DELAYS = (1, 2, 4, 8, 16, 32, 60)
 # seconds between the requests of all threads, public APIs throttle faster requests
 REQUEST_INTERVAL = 0.25
+# Blockscout gets two requests for every Ethereum address
+ETHEREUM_REQUEST_INTERVAL = 2 * REQUEST_INTERVAL
 MAX_ACCOUNTS = 100
 MAX_ADDRESSES = 10000
 
@@ -68,6 +71,22 @@ def coin_tx_count(coin) -> Callable[[str], int]:
     return tx_count
 
 
+def ethereum_usage(coin) -> Callable[[str], int]:
+    """Usage of Ethereum address (transactions, ether or tokens) from the block explorer."""
+    explorer = get_explorer(coin)
+    pacer = Pacer(ETHEREUM_REQUEST_INTERVAL)
+
+    def usage(address: str) -> int:
+        pacer.wait()
+        return explorer.get_usage(address)
+
+    return usage
+
+
+def _default_tx_count(coin_symbol: str, coin) -> Callable[[str], int]:
+    return ethereum_usage(coin) if is_ethereum(coin_symbol) else coin_tx_count(coin)
+
+
 def _retrying(
     tx_count: Callable[[str], int], cancelled: Callable[[], bool]
 ) -> Callable[[str], int]:
@@ -115,8 +134,9 @@ def scan_chain(
 
 
 def _scannable_coin(coin_symbol: str):
-    coin = coins[coin_symbol]
-    if 'slip44' not in coin or not coin.get('apis'):
+    coin = get_any_coin(coin_symbol)
+    source = 'explorers' if is_ethereum(coin_symbol) else 'apis'
+    if 'slip44' not in coin or not coin.get(source):
         raise ValueError(f'{coin_symbol} cannot be scanned, it has no SLIP-44 coin type or API')
     return coin
 
@@ -129,7 +149,9 @@ def _scan_account(
     tx_count: Callable[[str], int],
     mapper: Callable,
 ) -> DiscoveredAccount:
-    chains = [
+    # Ethereum accounts have no change addresses
+    chains = (RECEIVE_CHAIN,) if account.address_type == ETHEREUM else (RECEIVE_CHAIN, CHANGE_CHAIN)
+    used = [
         scan_chain(
             lambda index, chain=chain: wallet.address_at(account, chain, index),
             tx_count,
@@ -137,9 +159,9 @@ def _scan_account(
             cancelled,
             mapper,
         )
-        for chain in (RECEIVE_CHAIN, CHANGE_CHAIN)
+        for chain in chains
     ]
-    return DiscoveredAccount(account.coin, account.address_type, account.account, *chains)
+    return DiscoveredAccount(account.coin, account.address_type, account.account, *used)
 
 
 def scan_account(
@@ -151,7 +173,7 @@ def scan_account(
 ) -> DiscoveredAccount:
     """Used receiving and change addresses of the account."""
     coin = _scannable_coin(account.coin)
-    tx_count = _retrying(tx_count or coin_tx_count(coin), cancelled)
+    tx_count = _retrying(tx_count or _default_tx_count(account.coin, coin), cancelled)
     with ThreadPoolExecutor(THREADS) as executor:
         return _scan_account(wallet, account, progress, cancelled, tx_count, executor.map)
 
@@ -169,7 +191,7 @@ def discover(
     receiving and change chains of all its accounts. The accounts are appended to the found list
     as soon as they are scanned, so they are available also when the scan fails."""
     coin = _scannable_coin(coin_symbol)
-    tx_count = _retrying(tx_count or coin_tx_count(coin), cancelled)
+    tx_count = _retrying(tx_count or _default_tx_count(coin_symbol, coin), cancelled)
     found = [] if found is None else found
     with ThreadPoolExecutor(THREADS) as executor:
         for number in range(MAX_ACCOUNTS + 1):
