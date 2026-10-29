@@ -47,7 +47,8 @@ coins = {
         'address_prefix_bytes': b'\x4c',
         'secret_prefix_bytes': b'\xcc',
         'script_prefix_bytes': b'\x10',
-        'apis': [{'url': 'https://insight.dash.org/insight-api'}],
+        # insight.dash.org stopped working (HTTP 502) in October 2026
+        'apis': [{'url': 'https://dash.atomicwallet.io/api/v2', 'type': 'blockbook'}],
         'network': {
             'magic': b'\xbf\x0c\x6b\xbd',
             'port': 9999,

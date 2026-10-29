@@ -18,8 +18,8 @@ pip install multicrypto
 
 The package contains below commands:
  1. `sweepaddress` - combines many inputs into one
- 2. `sendcrypto` - creates raw transaction and send it to block explorer api (Insight or Esplora)
- 3. `checkaddress` - checks address balance using block explorer api (Insight or Esplora), for Ethereum
+ 2. `sendcrypto` - creates raw transaction and send it to block explorer api (Insight, Esplora or Blockbook)
+ 3. `checkaddress` - checks address balance using block explorer api (Insight, Esplora or Blockbook), for Ethereum
     using JSON-RPC of nodes
  4. `transaddress` - translates address to different coin format (resulting address will have the same private key) 
  5. `transprivkey` - translates WIF private key to different coin format
@@ -437,7 +437,7 @@ Exemplary for Dash we have:
     'address_prefix_bytes': b'\x4c',
     'secret_prefix_bytes': b'\xcc',
     'script_prefix_bytes': b'\x10',
-    'apis': [{'url': 'https://insight.dash.org/insight-api'}],
+    'apis': [{'url': 'https://dash.atomicwallet.io/api/v2', 'type': 'blockbook'}],
 }
 ```
 Optional `address_types` lists address types which can be derived from a private key and spent
@@ -455,6 +455,9 @@ mempool.space, blockstream.info) need `'type': 'esplora'`, for Bitcoin:
     {'url': 'https://blockstream.info/api', 'type': 'esplora'},
 ]
 ```
+Block explorers with the API v2 of Blockbook (explorer of Trezor) need `'type': 'blockbook'` and
+the URL ending with `/api/v2` (see DASH above). Unspent outputs of coinbase transactions with less
+than 100 confirmations are skipped, nodes reject transactions spending them.
 Optional `network` entry enables `multicrypto.network`. Values come from chainparams.cpp
 (`pchMessageStart`, `nDefaultPort`, `vSeeds`) and version.h (`PROTOCOL_VERSION`):
 ```python

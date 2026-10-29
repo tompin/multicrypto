@@ -5,6 +5,7 @@ import pytest
 from tests import http_mock
 
 from multicrypto.api import (
+    BlockbookAPI,
     EsploraAPI,
     InsightAPI,
     InsufficientFundsError,
@@ -21,6 +22,10 @@ from multicrypto.api import (
     send_from_private_keys,
 )
 from multicrypto.coins import coins
+from multicrypto.scripts import address_to_script
+from tests.conftest import INSIGHT_API
+
+pytestmark = pytest.mark.usefixtures('dash_insight')
 
 data = [
     {
@@ -639,8 +644,8 @@ def test_prepare_from_private_keys_needs_fee_or_rate():
         )
 
 
-INSIGHT_COIN = coins['DASH']
-INSIGHT_URL = get_api(INSIGHT_COIN).base_url
+INSIGHT_COIN = {**coins['DASH'], 'apis': [INSIGHT_API]}
+INSIGHT_URL = INSIGHT_API['url']
 ESPLORA_TBTC_URL = get_api(coins['TBTC']).base_url
 DASH_ADDRESS = 'XrtW64ZWLEu8VsRCDuqHKUTGMeJxSgjRNb'
 
@@ -699,3 +704,140 @@ def test_rate_limit_error():
         get_api(coins['TBTC']).get_tx_count(SWEEP_ADDRESS)
     with pytest.raises(RateLimitError):
         get_api(INSIGHT_COIN).get_tx_count(DASH_ADDRESS)
+
+
+BLOCKBOOK_URL = 'https://dash.atomicwallet.io/api/v2'
+BLOCKBOOK_COIN = {**coins['DASH'], 'apis': [{'url': BLOCKBOOK_URL, 'type': 'blockbook'}]}
+BLOCKBOOK_ADDRESS = 'XssjzLKgsfATYGqTQmiJURQzeKdpL5K1k3'
+
+
+def test_get_api_selects_blockbook():
+    assert isinstance(get_api(BLOCKBOOK_COIN), BlockbookAPI)
+
+
+@http_mock.activate
+def test_blockbook_api_get_utxo():
+    http_mock.add(
+        http_mock.GET,
+        f'{BLOCKBOOK_URL}/utxo/{BLOCKBOOK_ADDRESS}',
+        json=[
+            {
+                'txid': '11' * 32,
+                'vout': 1,
+                'value': '150000000',
+                'height': 2563000,
+                'confirmations': 535,
+            },
+            {'txid': '22' * 32, 'vout': 0, 'value': '5000', 'confirmations': 0},
+            # coinbase outputs can be spent after 100 confirmations
+            {
+                'txid': '33' * 32,
+                'vout': 0,
+                'value': '41145721',
+                'height': 2563532,
+                'confirmations': 3,
+                'coinbase': True,
+            },
+            {
+                'txid': '44' * 32,
+                'vout': 2,
+                'value': '700',
+                'height': 2563000,
+                'confirmations': 535,
+                'coinbase': True,
+            },
+        ],
+    )
+
+    utxos = BlockbookAPI(BLOCKBOOK_COIN).get_utxo(BLOCKBOOK_ADDRESS)
+
+    script = address_to_script(BLOCKBOOK_ADDRESS, coins['DASH']).hex()
+    assert utxos == [
+        {
+            'address': BLOCKBOOK_ADDRESS,
+            'txid': '11' * 32,
+            'vout': 1,
+            'scriptPubKey': script,
+            'satoshis': 150000000,
+            'amount': 1.5,
+            'height': 2563000,
+            'confirmations': 535,
+        },
+        {
+            'address': BLOCKBOOK_ADDRESS,
+            'txid': '22' * 32,
+            'vout': 0,
+            'scriptPubKey': script,
+            'satoshis': 5000,
+            'amount': 0.00005,
+            'height': None,
+            'confirmations': 0,
+        },
+        {
+            'address': BLOCKBOOK_ADDRESS,
+            'txid': '44' * 32,
+            'vout': 2,
+            'scriptPubKey': script,
+            'satoshis': 700,
+            'amount': 0.000007,
+            'height': 2563000,
+            'confirmations': 535,
+        },
+    ]
+
+
+@http_mock.activate
+def test_blockbook_api_get_tx_count():
+    http_mock.add(
+        http_mock.GET,
+        f'{BLOCKBOOK_URL}/address/{BLOCKBOOK_ADDRESS}',
+        json={'address': BLOCKBOOK_ADDRESS, 'balance': '0', 'unconfirmedTxs': 1, 'txs': 320788},
+    )
+
+    assert BlockbookAPI(BLOCKBOOK_COIN).get_tx_count(BLOCKBOOK_ADDRESS) == 320789
+    assert http_mock.calls[0].request.url.endswith('?details=basic')
+
+
+@http_mock.activate
+def test_blockbook_api_estimate_fee_rates():
+    for blocks, result in ((1, '0.00002'), (3, '0.00001'), (6, '-1'), (144, '0.000015')):
+        http_mock.add(
+            http_mock.GET, f'{BLOCKBOOK_URL}/estimatefee/{blocks}', json={'result': result}
+        )
+
+    # coins per kilobyte, -1 when the estimate is not available
+    assert BlockbookAPI(BLOCKBOOK_COIN).estimate_fee_rates() == {1: 2.0, 3: 1.0, 144: 1.5}
+
+
+@http_mock.activate
+def test_blockbook_api_send_raw_transaction():
+    http_mock.add(http_mock.POST, f'{BLOCKBOOK_URL}/sendtx/', json={'result': 'ab' * 32})
+
+    result = BlockbookAPI(BLOCKBOOK_COIN).send_raw_transaction('0100')
+
+    assert result == '{"txid": "%s"}' % ('ab' * 32)
+    assert http_mock.calls[0].request.body == '0100'
+    assert http_mock.calls[0].request.headers['content-type'] == 'text/plain'
+
+
+@http_mock.activate
+def test_blockbook_api_send_raw_transaction_rejected():
+    http_mock.add(
+        http_mock.POST,
+        f'{BLOCKBOOK_URL}/sendtx/',
+        json={'error': '-22: TX decode failed'},
+        status=400,
+    )
+
+    with pytest.raises(ValueError, match='Transaction rejected: -22: TX decode failed'):
+        BlockbookAPI(BLOCKBOOK_COIN).send_raw_transaction('0100')
+
+
+@http_mock.activate
+def test_blockbook_api_rate_limit():
+    http_mock.add(
+        http_mock.GET, f'{BLOCKBOOK_URL}/utxo/{BLOCKBOOK_ADDRESS}', status=429, body='slow down'
+    )
+
+    with pytest.raises(RateLimitError):
+        BlockbookAPI(BLOCKBOOK_COIN).get_utxo(BLOCKBOOK_ADDRESS)

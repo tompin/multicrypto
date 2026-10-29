@@ -2,9 +2,10 @@
 
 The module consists of two layers:
 
-* thin HTTP clients for the block explorer configured for a coin: :class:`InsightAPI` and
-  :class:`EsploraAPI` (mempool.space, blockstream.info), selected by the ``type`` of the API
-  definition (``insight`` by default) using :func:`get_api`,
+* thin HTTP clients for the block explorer configured for a coin: :class:`InsightAPI`,
+  :class:`EsploraAPI` (mempool.space, blockstream.info) and :class:`BlockbookAPI` (explorer of
+  Trezor), selected by the ``type`` of the API definition (``insight`` by default) using
+  :func:`get_api`,
 * UTXO helpers which collect unspent outputs, build transactions and broadcast them
   using the client.
 """
@@ -37,6 +38,7 @@ INITIAL_VSIZE = 100
 FEE_RATE_ATTEMPTS = 5
 FEE_TARGETS = (1, 3, 6, 144)  # confirmation targets in blocks of the fee estimates
 SATOSHIS_PER_COIN = 10**8
+COINBASE_MATURITY = 100  # confirmations after which outputs of coinbase transactions can be spent
 # Some APIs behind Cloudflare reject the default Python-urllib user agent
 USER_AGENT = 'multicrypto'
 
@@ -202,7 +204,72 @@ class EsploraAPI:
         return json.dumps({'txid': response.text})
 
 
-API_CLIENTS = {'insight': InsightAPI, 'esplora': EsploraAPI}
+class BlockbookAPI:
+    """HTTP client for the API v2 of Blockbook (block explorer of Trezor) selected in the coin
+    definition. Responses are converted to the Insight API format."""
+
+    def __init__(self, coin: Coin, timeout: float = DEFAULT_TIMEOUT):
+        definition = coin['apis'][coin.get('current_api_index', 0)]
+        self.coin = coin
+        self.base_url = definition['url']
+        self.timeout = timeout
+
+    def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        response = http_request(f'{self.base_url}/{path}', timeout=self.timeout, params=params)
+        return check_response(response, self.base_url).json()
+
+    def get_utxo(self, address: str) -> List[Utxo]:
+        """Unspent outputs without immature outputs of coinbase transactions, which nodes
+        reject in transactions."""
+        # Blockbook doesn't return locking script, but it is the same for all outputs of an address
+        script = address_to_script(address, self.coin).hex()
+        utxos = []
+        for utxo in self._get(f'utxo/{address}'):
+            if utxo.get('coinbase') and utxo['confirmations'] < COINBASE_MATURITY:
+                continue
+            satoshis = int(utxo['value'])
+            utxos.append(
+                {
+                    'address': address,
+                    'txid': utxo['txid'],
+                    'vout': utxo['vout'],
+                    'scriptPubKey': script,
+                    'satoshis': satoshis,
+                    'amount': satoshis / SATOSHIS_PER_COIN,
+                    'height': utxo.get('height') or None,
+                    'confirmations': utxo['confirmations'],
+                }
+            )
+        return utxos
+
+    def get_tx_count(self, address: str) -> int:
+        data = self._get(f'address/{address}', params={'details': 'basic'})
+        return data['txs'] + data.get('unconfirmedTxs', 0)
+
+    def estimate_fee_rates(self) -> Dict[int, float]:
+        """Fee rates in satoshis per virtual byte for the confirmation targets."""
+        rates = {}
+        for blocks in FEE_TARGETS:
+            # coins per kilobyte, -1 when the estimate is not available
+            rate = float(self._get(f'estimatefee/{blocks}')['result'])
+            if rate > 0:
+                rates[blocks] = round(rate * SATOSHIS_PER_COIN / 1000, 3)
+        return rates
+
+    def send_raw_transaction(self, raw_transaction: str) -> str:
+        response = http_request(
+            f'{self.base_url}/sendtx/', data=raw_transaction, timeout=self.timeout
+        )
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            data = {'error': response.text}
+        if not response.ok or 'result' not in data:
+            raise ValueError(f'Transaction rejected: {data.get("error", response.text)}')
+        return json.dumps({'txid': data['result']})
+
+
+API_CLIENTS = {'insight': InsightAPI, 'esplora': EsploraAPI, 'blockbook': BlockbookAPI}
 
 
 def get_api(coin: Coin, timeout: float = DEFAULT_TIMEOUT):

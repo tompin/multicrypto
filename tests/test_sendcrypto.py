@@ -10,6 +10,8 @@ from multicrypto.coins import coins
 from multicrypto.commands.sendcrypto import main
 from multicrypto.network import PeerAddress, TransactionRejectedError
 
+pytestmark = pytest.mark.usefixtures('dash_insight')
+
 ARGS = [
     '',
     '-a',

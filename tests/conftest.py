@@ -2,6 +2,11 @@ import os
 
 import pytest
 
+from multicrypto.coins import coins
+
+# Insight API of DASH, the tests of the Insight client and of the commands use DASH with it
+INSIGHT_API = {'url': 'https://insight.dash.org/insight-api'}
+
 
 @pytest.fixture(scope='session')
 def qapp():
@@ -18,3 +23,9 @@ def qapp():
     for widget in app.topLevelWidgets():
         widget.deleteLater()
     app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+@pytest.fixture
+def dash_insight(monkeypatch):
+    """DASH with the Insight API (it uses Blockbook since insight.dash.org stopped working)."""
+    monkeypatch.setitem(coins['DASH'], 'apis', [INSIGHT_API])

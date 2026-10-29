@@ -9,6 +9,8 @@ from multicrypto.api import InsightAPI, get_api
 from multicrypto.coins import coins
 from multicrypto.commands.sweepaddress import main
 
+pytestmark = pytest.mark.usefixtures('dash_insight')
+
 data = [
     {
         'address': 'Xv6RRWCicwBN7noVTFtLBkEgcsKqMk7UcP',

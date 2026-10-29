@@ -9,6 +9,8 @@ from multicrypto.api import InsightAPI
 from multicrypto.coins import coins, ethereum_coins
 from multicrypto.commands.checkaddress import main
 
+pytestmark = pytest.mark.usefixtures('dash_insight')
+
 
 @http_mock.activate
 @patch.object(
