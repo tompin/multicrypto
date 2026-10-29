@@ -12,9 +12,9 @@ jobs:
 
     steps:
       - name: Get code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up uv and Python ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.3.0  # no major version tags since v8
         with:
           version: "0.13.0"
           python-version: ${{ matrix.python-version }}
