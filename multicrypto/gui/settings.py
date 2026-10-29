@@ -48,6 +48,22 @@ def save_scale(path: str, scale: Optional[float]) -> None:
     _save(path, settings)
 
 
+def load_auto_lock(path: str) -> Optional[int]:
+    """Minutes of inactivity locking the wallet, None means that it is never locked by itself."""
+    minutes = _load(path).get('auto_lock')
+    valid = isinstance(minutes, int) and not isinstance(minutes, bool) and minutes > 0
+    return minutes if valid else None
+
+
+def save_auto_lock(path: str, minutes: Optional[int]) -> None:
+    settings = _load(path)
+    if minutes is None:
+        settings.pop('auto_lock', None)
+    else:
+        settings['auto_lock'] = minutes
+    _save(path, settings)
+
+
 def load_show_testnets(path: str) -> bool:
     """Testnet coins are hidden by default."""
     return _load(path).get('show_testnets') is True

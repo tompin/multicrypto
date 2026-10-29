@@ -28,8 +28,10 @@ from multicrypto.gui.create_wizard import RESTORE_PAGE, SHOW_PAGE, CreateWalletW
 from multicrypto.gui.dialogs import mnemonic_grid  # noqa: E402
 from multicrypto.gui.qr import QUIET_ZONE, QrDialog, qr_image  # noqa: E402
 from multicrypto.gui.settings import (  # noqa: E402
+    load_auto_lock,
     load_scale,
     load_show_testnets,
+    save_auto_lock,
     save_scale,
     save_show_testnets,
 )
@@ -369,13 +371,43 @@ def test_modify_wallet_reverts_change_when_saving_fails(window, monkeypatch):
     assert len(btc_account(window).addresses) == 1
 
 
-def test_wallet_is_locked_after_inactivity(window):
+def test_wallet_is_not_locked_by_default(window):
     unlock(window)
-    window.last_activity -= window.auto_lock_seconds
+    window.last_activity -= 24 * 60 * 60
+
+    window.tick()
+
+    assert window.wallet is not None
+    assert window.auto_lock_seconds is None
+    assert 'locks in' not in window.status.text()
+    assert auto_lock_actions(window)['Never'].isChecked()
+
+
+def test_wallet_is_locked_after_chosen_inactivity(window):
+    unlock(window)
+    auto_lock_actions(window)['15 minutes'].trigger()
+    assert 'locks in 15:00' in window.status.text() or 'locks in 14:59' in window.status.text()
+    window.last_activity -= 15 * 60
 
     window.tick()
 
     assert window.wallet is None
+    assert load_auto_lock(window.settings_path) == 15
+
+
+def test_auto_lock_from_settings_and_command_line(qapp, tmp_path):
+    settings_path = str(tmp_path / 'gui.json')
+    save_auto_lock(settings_path, 30)
+    wallet_file = WalletFile(str(tmp_path / 'wallet.mcw'))
+    saved = MainWindow(wallet_file, settings_path=settings_path)
+    overridden = MainWindow(wallet_file, auto_lock_minutes=5, settings_path=settings_path)
+
+    assert saved.auto_lock_seconds == 30 * 60
+    assert auto_lock_actions(saved)['30 minutes'].isChecked()
+    assert overridden.auto_lock_seconds == 5 * 60
+    assert auto_lock_actions(overridden)['5 minutes'].isChecked()
+    close_window(qapp, saved)
+    close_window(qapp, overridden)
 
 
 def test_send_tab_shows_sources_of_coin_in_table(window):
@@ -1140,6 +1172,7 @@ def test_group_menu_scans_coin(window, monkeypatch):
 def test_running_scan_keeps_wallet_unlocked(window):
     unlock(window)
     dialog = scan_dialog_module.ScanDialog(window)
+    window.set_auto_lock(5)
     window.last_activity -= window.auto_lock_seconds
 
     dialog._show_progress()
@@ -1245,6 +1278,7 @@ def test_background_scan_keeps_wallet_unlocked(qapp, window):
     unlock(window)
     scan = window.background_scan
     scan.running = True
+    window.set_auto_lock(5)
     window.last_activity -= window.auto_lock_seconds
 
     scan._show_progress()
@@ -1252,6 +1286,10 @@ def test_background_scan_keeps_wallet_unlocked(qapp, window):
 
     assert window.wallet is not None
     scan.running = False
+
+
+def auto_lock_actions(window):
+    return {action.text(): action for action in window.auto_lock_group.actions()}
 
 
 def scale_actions(window):

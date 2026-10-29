@@ -29,8 +29,10 @@ from multicrypto.gui.scan_dialog import ScanDialog
 from multicrypto.gui.send_tab import SendTab
 from multicrypto.gui.settings import (
     SETTINGS_PATH,
+    load_auto_lock,
     load_scale,
     load_show_testnets,
+    save_auto_lock,
     save_scale,
     save_show_testnets,
 )
@@ -42,7 +44,7 @@ from multicrypto.gui.wallet_tab import WalletTab
 from multicrypto.gui.worker import Worker
 from multicrypto.wallet import MIN_PASSWORD_LENGTH, Wallet, WalletError, WalletFile
 
-AUTO_LOCK_SECONDS = 5 * 60
+AUTO_LOCK_MINUTES = (None, 5, 15, 30, 60)  # None never locks the wallet by itself
 WALLET_FILE_FILTER = 'multicrypto wallet (*.mcw);;All files (*)'
 ACTIVITY_EVENTS = (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove)
 SCALES = (None, 1, 1.25, 1.5, 1.75, 2, 2.5, 3)
@@ -66,13 +68,17 @@ class MainWindow(QMainWindow):
     def __init__(
         self,
         wallet_file: WalletFile,
-        auto_lock_seconds: int = AUTO_LOCK_SECONDS,
+        auto_lock_minutes: Optional[int] = None,
         settings_path: str = SETTINGS_PATH,
     ):
         super().__init__()
         self.wallet_file = wallet_file
-        self.auto_lock_seconds = auto_lock_seconds
         self.settings_path = settings_path
+        if auto_lock_minutes is None:  # the command line overrides the saved setting
+            auto_lock_minutes = load_auto_lock(settings_path)
+        self.auto_lock_seconds: Optional[int] = (
+            None if auto_lock_minutes is None else auto_lock_minutes * 60
+        )
         self.show_testnets = load_show_testnets(settings_path)
         self.wallet: Optional[Wallet] = None
         self.last_activity = time.monotonic()
@@ -150,6 +156,16 @@ class MainWindow(QMainWindow):
         self.testnets_action.setCheckable(True)
         self.testnets_action.setChecked(self.show_testnets)
         self.testnets_action.triggered.connect(self.set_show_testnets)
+        auto_lock_menu = view_menu.addMenu('Auto lock')
+        self.auto_lock_group = QActionGroup(self)
+        for minutes in AUTO_LOCK_MINUTES:
+            action = auto_lock_menu.addAction('Never' if minutes is None else f'{minutes} minutes')
+            action.setCheckable(True)
+            action.setChecked(minutes == self._auto_lock_minutes())
+            self.auto_lock_group.addAction(action)
+            action.triggered.connect(
+                lambda _checked=False, minutes=minutes: self.choose_auto_lock(minutes)
+            )
         scale_menu = view_menu.addMenu('Scale')
         self.scale_group = QActionGroup(self)
         saved = load_scale(self.settings_path)
@@ -159,6 +175,24 @@ class MainWindow(QMainWindow):
             action.setChecked(scale == saved)
             self.scale_group.addAction(action)
             action.triggered.connect(lambda _checked=False, scale=scale: self.choose_scale(scale))
+
+    def _auto_lock_minutes(self) -> Optional[int]:
+        return None if self.auto_lock_seconds is None else self.auto_lock_seconds // 60
+
+    def set_auto_lock(self, minutes: Optional[int]):
+        """Lock the wallet after the minutes of inactivity, None never locks it by itself."""
+        self.auto_lock_seconds = None if minutes is None else minutes * 60
+        self.last_activity = time.monotonic()
+        for action in self.auto_lock_group.actions():
+            action.setChecked(
+                action.text() == ('Never' if minutes is None else f'{minutes} minutes')
+            )
+        if self.wallet is not None:
+            self._update_unlocked_status()
+
+    def choose_auto_lock(self, minutes: Optional[int]):
+        save_auto_lock(self.settings_path, minutes)
+        self.set_auto_lock(minutes)
 
     def visible_coins(self, symbols: Iterable[str]) -> List[str]:
         """The coins without testnets when they are hidden."""
@@ -200,15 +234,16 @@ class MainWindow(QMainWindow):
             self._update_unlocked_status()
 
     def _update_unlocked_status(self):
+        status = f'{self.wallet_file.path} · fingerprint {self.wallet.fingerprint} · unlocked'
+        if self.auto_lock_seconds is None:
+            self.status.setText(status)
+            return
         remaining = self.auto_lock_seconds - (time.monotonic() - self.last_activity)
         if remaining <= 0:
             self.lock()
             return
         minutes, seconds = divmod(int(remaining), 60)
-        self.status.setText(
-            f'{self.wallet_file.path} · fingerprint {self.wallet.fingerprint} · unlocked · '
-            f'locks in {minutes}:{seconds:02d}'
-        )
+        self.status.setText(f'{status} · locks in {minutes}:{seconds:02d}')
 
     def _show_locked(self):
         if self.wallet_file.exists():
