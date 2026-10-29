@@ -31,7 +31,12 @@ from multicrypto.coins import (
     is_ethereum,
 )
 from multicrypto.ellipticcurve import secp256k1
-from multicrypto.ethereum_api import PreparedEthereumTransaction, get_rpc
+from multicrypto.ethereum_api import (
+    EthereumRPC,
+    NodeUnavailableError,
+    PreparedEthereumTransaction,
+    get_rpc,
+)
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
 from multicrypto.utils import double_sha256, get_integer
 from multicrypto.vanity import validate_vanity_pattern
@@ -240,30 +245,34 @@ def check_confirmation_words(mnemonic: str, answers: Dict[int, str]) -> None:
             raise ValueError(f'Word {position} is not correct, check the written mnemonic')
 
 
+def _fetch_balance(address: WalletAddress, rpcs: Dict[str, EthereumRPC]) -> int:
+    if is_ethereum(address.coin):
+        if address.coin not in rpcs:
+            rpcs[address.coin] = get_rpc(ethereum_coins[address.coin])
+        return rpcs[address.coin].get_balance(address.address)
+    utxos = get_utxo_from_address(coins[address.coin], address.address)
+    return sum(utxo['satoshis'] for utxo in utxos)
+
+
 def fetch_balances(addresses: List[WalletAddress]) -> Dict[str, Union[int, str]]:
     """Return the sum of unspent outputs, or the balance in wei of Ethereum addresses (or
-    the error message) for the address ids."""
+    the error message) for the address ids. After the API of a coin cannot be connected (e.g.
+    timeout) the other addresses of the coin get the same error without waiting for it again."""
     balances: Dict[str, Union[int, str]] = {}
-    rpcs = {}
+    rpcs: Dict[str, EthereumRPC] = {}
+    unavailable: Dict[str, str] = {}  # error messages of the coins whose API cannot be connected
     for address in addresses:
-        if is_ethereum(address.coin):
-            if address.coin not in rpcs:
-                rpcs[address.coin] = get_rpc(ethereum_coins[address.coin])
+        if not is_ethereum(address.coin) and not coins[address.coin].get('apis'):
+            balances[address.id] = 'no API'
+        elif address.coin in unavailable:
+            balances[address.id] = unavailable[address.coin]
+        else:
             try:
-                balances[address.id] = rpcs[address.coin].get_balance(address.address)
+                balances[address.id] = _fetch_balance(address, rpcs)
+            except (OSError, NodeUnavailableError) as error:
+                balances[address.id] = unavailable[address.coin] = f'error: {error}'
             except EXPECTED_ERRORS as error:
                 balances[address.id] = f'error: {error}'
-            continue
-        coin = coins[address.coin]
-        if not coin.get('apis'):
-            balances[address.id] = 'no API'
-            continue
-        try:
-            utxos = get_utxo_from_address(coin, address.address)
-        except EXPECTED_ERRORS as error:
-            balances[address.id] = f'error: {error}'
-        else:
-            balances[address.id] = sum(utxo['satoshis'] for utxo in utxos)
     return balances
 
 

@@ -2,7 +2,7 @@ import pytest
 from tests import http_mock
 
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_api
-from multicrypto.coins import coins
+from multicrypto.coins import coins, ethereum_coins
 from multicrypto.gui.forms import (
     add_private_key,
     address_details,
@@ -623,3 +623,39 @@ def test_source_wif_of_ethereum_address():
     address = wallet.add_ethereum_key('Key', 'ETH', '00' * 31 + '01')
 
     assert source_wif(wallet, address) == KEY_1_WIF
+
+
+@http_mock.activate
+def test_fetch_balances_skips_coin_after_connection_error():
+    api_url = get_api(coins['BTC']).base_url
+    ltc = [make_address(name, coin='LTC', address=f'ltc-{name}') for name in 'ab']
+    http_mock.add(http_mock.GET, f'{api_url}/address/{SEGWIT_ADDRESS}/utxo', json=[])
+
+    # no response for LTC, http_mock refuses the connection like an unavailable API
+    balances = fetch_balances(ltc + [make_address('c')])
+
+    assert (
+        balances['a']
+        == balances['b']
+        == (
+            'error: <urlopen error Connection refused by http_mock: '
+            'https://litecoinspace.org/api/address/ltc-a/utxo>'
+        )
+    )
+    assert balances['c'] == 0
+    requested = [call.request.url for call in http_mock.calls]
+    assert not any('ltc-b' in url for url in requested)
+
+
+@http_mock.activate
+def test_fetch_balances_skips_ethereum_coin_when_no_node_responds():
+    addresses = [
+        make_address(name, coin='ETH', address_type='ethereum', address=ETH_KEY_ADDRESS)
+        for name in 'ab'
+    ]
+
+    balances = fetch_balances(addresses)
+
+    assert balances['a'] == balances['b']
+    assert balances['a'].startswith('error: No Ethereum node responded')
+    assert len(http_mock.calls) == len(ethereum_coins['ETH']['rpcs'])
