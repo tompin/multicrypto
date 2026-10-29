@@ -14,13 +14,17 @@ from multicrypto.ethereum import (
     decode_transaction,
     format_ether,
     format_private_key,
+    hash_message,
     parse_ether,
     parse_gwei,
     parse_private_key,
     private_key_to_address,
     public_key_to_address,
+    recover_message_signer,
+    sign_message,
     to_checksum_address,
     validate_address,
+    verify_message,
 )
 from multicrypto.keccak import keccak256
 
@@ -252,3 +256,65 @@ def test_transaction_max_fee():
 def test_transaction_rejects_incorrect_fields(fields, message):
     with pytest.raises(ValueError, match=message):
         make_transaction(**fields)
+
+
+# Example of personal_sign from the documentation of web3.py (sign_message with encode_defunct)
+MESSAGE_VECTORS = [
+    (
+        0xB25C7DB31FEED9122727BF0939DC769A96564B2DE4C4726D035B36ECF1E5B364,
+        'I♥SF',
+        '0xe6ca9bba58c88611fad66a6ce8f996908195593807c4b38bd528d2cff09d4eb3'
+        '3e5bfbbf4d3e39b1a2fd816a7680c19ebebaf3a141b239934ad43cb33fcec8ce1c',
+    ),
+]
+
+
+def test_hash_message_adds_prefix_with_length_of_utf8_bytes():
+    assert hash_message('I♥SF') == keccak256(b'\x19Ethereum Signed Message:\n6I\xe2\x99\xa5SF')
+
+
+@pytest.mark.parametrize('private_key, message, signature', MESSAGE_VECTORS)
+def test_sign_message(private_key, message, signature):
+    assert sign_message(message, private_key) == signature
+
+
+@pytest.mark.parametrize('private_key, message, signature', MESSAGE_VECTORS)
+def test_verify_message(private_key, message, signature):
+    address = private_key_to_address(private_key)
+
+    assert verify_message(message, signature, address)
+    assert verify_message(message, signature.upper().replace('0X', '0x'), address.lower())
+    assert not verify_message(message + '!', signature, address)
+    assert not verify_message(message, signature, EIP155_ADDRESS)
+
+
+@pytest.mark.parametrize('message', ['abc', 'Hello World'])
+def test_recover_message_signer_accepts_v_and_recovery_id(message):
+    signature = sign_message(message, EIP155_PRIVATE_KEY)
+    recid = int(signature[-2:], 16) - 27
+
+    assert recid in (0, 1)
+    assert recover_message_signer(message, signature) == EIP155_ADDRESS
+    assert recover_message_signer(message, signature[:-2] + f'{recid:02x}') == EIP155_ADDRESS
+    assert recover_message_signer(message, signature[2:]) == EIP155_ADDRESS
+
+
+@pytest.mark.parametrize(
+    'signature, message',
+    [
+        ('0x' + '11' * 64, '65 bytes'),
+        ('0x' + 'zz' * 65, 'hexadecimal'),
+        ('0x' + '11' * 64 + '1d', 'Incorrect v'),
+        ('0x' + '00' * 64 + '1b', 'out of range'),
+    ],
+)
+def test_recover_message_signer_rejects_incorrect_signatures(signature, message):
+    with pytest.raises(ValueError, match=message):
+        recover_message_signer('abc', signature)
+
+
+def test_verify_message_rejects_incorrect_address():
+    signature = sign_message('abc', EIP155_PRIVATE_KEY)
+
+    with pytest.raises(ValueError, match='40 hexadecimal'):
+        verify_message('abc', signature, '0x1234')

@@ -2,9 +2,10 @@ import argparse
 import logging
 import sys
 
-from multicrypto.coins import coins
+from multicrypto import ethereum
+from multicrypto.coins import coins, ethereum_coins
 from multicrypto.ecdsa import verify_signature
-from multicrypto.validators import check_coin_symbol
+from multicrypto.validators import check_any_coin_symbol
 
 
 logger = logging.getLogger(__name__)
@@ -13,10 +14,11 @@ logger = logging.getLogger(__name__)
 def get_args():
     parser = argparse.ArgumentParser(
         description='Verify message using ECDSA (elliptic curve digital signature algorithm) and '
-        'bitcoin standard secp256k1 curve. Signatures of segwit addresses follow BIP-137.'
+        'bitcoin standard secp256k1 curve. Signatures of segwit addresses follow BIP-137, '
+        'Ethereum signatures are in hex like signatures of personal_sign (EIP-191).'
     )
     parser.add_argument(
-        '-c', '--coin_symbol', type=check_coin_symbol, required=True, help='Coin symbol'
+        '-c', '--coin_symbol', type=check_any_coin_symbol, required=True, help='Coin symbol'
     )
     parser.add_argument('-m', '--message', type=str, required=True, help='Message which was signed')
     parser.add_argument('-s', '--signed_message', type=str, required=True, help='Signed message')
@@ -30,9 +32,12 @@ def main():
     args = get_args()
     logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
     try:
-        valid = verify_signature(
-            coins[args.coin_symbol], args.message, args.signed_message, args.address
-        )
+        if args.coin_symbol in ethereum_coins:
+            valid = ethereum.verify_message(args.message, args.signed_message, args.address)
+        else:
+            valid = verify_signature(
+                coins[args.coin_symbol], args.message, args.signed_message, args.address
+            )
     except ValueError as error:
         logger.error(error)
         return

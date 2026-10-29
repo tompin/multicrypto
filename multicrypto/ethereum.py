@@ -8,7 +8,7 @@ against replaying it on another chain (e.g. a testnet transaction on the mainnet
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 from multicrypto import rlp
 from multicrypto.ecdsa import recover_public_key, sign_digest
@@ -25,6 +25,9 @@ ETHER = 10**ETHER_DECIMALS
 TRANSFER_GAS = 21000
 EIP1559_TYPE = 2
 SIGNED_FIELDS = 12
+MESSAGE_PREFIX = b'\x19Ethereum Signed Message:\n'
+SIGNATURE_SIZE = 65
+V_OFFSET = 27
 
 ADDRESS_PATTERN = re.compile(r'[0-9a-fA-F]{40}')
 PRIVATE_KEY_PATTERN = re.compile(r'(0[xX])?[0-9a-fA-F]{64}')
@@ -81,6 +84,47 @@ def parse_private_key(value: str) -> int:
 
 def format_private_key(private_key: int) -> str:
     return f'0x{private_key:064x}'
+
+
+def hash_message(message: str) -> bytes:
+    """Hash of the message signed with personal_sign (EIP-191 version 0x45) like in MetaMask:
+    the message is prefixed with its length in bytes in decimal."""
+    data = message.encode()
+    return keccak256(MESSAGE_PREFIX + str(len(data)).encode() + data)
+
+
+def sign_message(message: str, private_key: int) -> str:
+    """Signature in hex of 65 bytes: r, s and v (27 + recovery id)."""
+    r, s, recid = sign_digest(hash_message(message), private_key)
+    if recid > 1:  # probability below 2^-127
+        raise ValueError('Cannot sign the message')
+    return f'0x{r:064x}{s:064x}{V_OFFSET + recid:02x}'
+
+
+def recover_message_signer(message: str, signature: str) -> Optional[str]:
+    """Address which signed the message, None when the signature has no key. The last byte of
+    the signature can be v (27 or 28) or the recovery id (0 or 1)."""
+    hex_signature = signature.strip()
+    if hex_signature[:2].lower() == '0x':
+        hex_signature = hex_signature[2:]
+    try:
+        data = bytes.fromhex(hex_signature)
+    except ValueError:
+        raise ValueError('Signature must be hexadecimal') from None
+    if len(data) != SIGNATURE_SIZE:
+        raise ValueError(f'Signature must have {SIGNATURE_SIZE} bytes, it has {len(data)}')
+    r, s, v = int.from_bytes(data[:32], 'big'), int.from_bytes(data[32:64], 'big'), data[64]
+    recid = v - V_OFFSET if v >= V_OFFSET else v
+    if recid not in (0, 1):
+        raise ValueError(f'Incorrect v of the signature: {v}')
+    if not (0 < r < secp256k1.n and 0 < s < secp256k1.n):
+        raise ValueError('Values of the signature are out of range')
+    public_key = recover_public_key(hash_message(message), recid, r, s)
+    return public_key_to_address(public_key) if public_key is not None else None
+
+
+def verify_message(message: str, signature: str, address: str) -> bool:
+    return recover_message_signer(message, signature) == validate_address(address)
 
 
 def parse_units(value: Union[str, Decimal], decimals: int) -> int:

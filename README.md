@@ -129,6 +129,12 @@ to Dogecoin private key we enter:
 ```bash
 transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o DOGE
 ```
+The same private key gives Ethereum address, `-o ETH` returns the private key in hex format
+(Ethereum private keys are translated to other coins as integers with `0x` prefix and `-i`):
+```bash
+transprivkey -p KwDiDMtpksBAcfyHsVS5XzmirtyjKWSeaeM9U1QppugixMUeKMqp -o ETH
+transprivkey -p 0x0000000000000000000000000000000000000000000000000000000000000001 -i -o BTC
+```
 6. Generating address with given pattern and corresponding private key:
 ```bash
 genaddress --pattern=<PATTERN> --symbol=<COIN SYMBOL> --cores=<INT> --output_dir=<DIRECTORY TO STORE QR CODES>
@@ -176,6 +182,13 @@ signmessage -c BTC -p <PRIVATE KEY> -t p2wpkh -m "Hello World!"
 `verifymessage` accepts signatures of all these address types, also segwit signatures made with
 the header of p2pkh address.
 
+Ethereum messages (`-c ETH`, private key in hex format) are signed like `personal_sign` of
+MetaMask (EIP-191), the signature is 65 bytes in hex:
+```bash
+signmessage -c ETH -p 0xb25c7db31feed9122727bf0939dc769a96564b2de4c4726d035b36ecf1e5b364 -m "I♥SF"
+verifymessage -c ETH -a 0x5ce9454909639D2D17A3F753ce7d93fa0b9aB12E -m "I♥SF" -s 0xe6ca9bba58c88611fad66a6ce8f996908195593807c4b38bd528d2cff09d4eb33e5bfbbf4d3e39b1a2fd816a7680c19ebebaf3a141b239934ad43cb33fcec8ce1c
+```
+
 8. Verifying if signed message was created using private key of given address:
 ```bash
 verifymessage --coin_symbol=<COIN SYMBOL> --address=<ADDRESS> --message=<MESSAGE> --signed_message=<SIGNED MESSAGE>
@@ -188,17 +201,26 @@ verifymessage -c BTC -a 1HCfFoucNXgYLvpcN2X4TwmUXJjGUMJ2hi -m "Hello World!" -s 
 
 9. Sending ether (Ethereum and Sepolia testnet `TETH`):
 ```bash
-sendeth --coin_symbol=<ETH OR TETH> --private_key=<HEX PRIVATE KEY> --address=<ADDRESS> --value=<ETHER>
+sendeth --coin_symbol=<ETH OR TETH> --address=<ADDRESS> --value=<ETHER>
 ```
+The private key in hex format is asked without echo (or read from the standard input), so it is
+not saved in the shell history, it can be also given with `--private_key` (`-p`). The summary of
+the transaction is shown with warnings about probably mistaken fees (max fee per gas lower than
+the base fee, more than 10 times the suggested one or max fee higher than the value) and the
+transaction is sent after confirmation, `--yes` (`-y`) sends it without asking (required when
+the standard input is not a terminal). `--wait` waits until the transaction is mined (at most 300
+seconds or the given number of seconds) and shows its status, block and paid fee.
 The transaction uses EIP-1559 fees. By default the nonce is the next one of the address, the gas
 limit is estimated by the node, the priority fee is the median of the recent blocks and the max fee
 per gas is twice the base fee of the next block plus the priority fee, they can be set with
 `--nonce`, `--gas_limit`, `--priority_fee` and `--max_fee` (fees in gwei). Only the base fee of
 the block is paid (it is burned) together with the priority fee, the rest of the max fee stays on
 the address. A pending transaction is replaced by a transaction with its nonce and higher fees.
-For example sending 0.01 ether:
+For example sending 0.01 ether and waiting for confirmation, then sending with the private key
+from a file without asking:
 ```bash
-sendeth -c ETH -p 0x0000000000000000000000000000000000000000000000000000000000000001 -a 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed -v 0.01
+sendeth -c ETH -a 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed -v 0.01 --wait
+sendeth -c ETH -a 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed -v 0.01 --yes < private_key.txt
 ```
 `--dry_run` prints the signed transaction without sending it, `--node` sends it to own node instead
 of the public ones (e.g. `--node http://localhost:8545` for geth, reth or nethermind).
@@ -297,8 +319,8 @@ P2WSH addresses and taproot script path is not supported (sending to them works)
 | Ethereum Sepolia testnet | TETH | 11155111 | Yes | Yes |
 
 Ethereum coins are defined in `ethereum_coins` in `multicrypto/coins.py`, separately from the coins
-with unspent outputs. Commands `checkaddress`, `genaddress` and `sendeth` support them, the GUI
-does not support them yet. Transactions sending ether use EIP-1559 (type 2) format, transactions
+with unspent outputs. Commands `checkaddress`, `genaddress`, `signmessage`, `verifymessage`,
+`transprivkey` and `sendeth` support them, the GUI does not support them yet. Transactions sending ether use EIP-1559 (type 2) format, transactions
 calling contracts (e.g. tokens) are not supported. Keccak-256 and RLP are implemented in pure Python
 (`multicrypto.keccak`, `multicrypto.rlp`), so there are no new dependencies.
 
