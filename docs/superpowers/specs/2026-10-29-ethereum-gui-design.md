@@ -93,7 +93,8 @@ The form changes when an Ethereum coin is selected:
   the public nodes of the coin.
 - *Prepare transaction* runs `prepare_transfer` in the worker, the confirmation shows From, To,
   Value, Nonce, Gas limit, Max fee per gas, Priority fee per gas, Max fee, the balance after
-  the transaction (at least) and the warnings of `fee_warnings()` in red. *Send* runs
+  the transaction (at least) and the warnings of `fee_warnings()` in red (the confirmation
+  dialog shows all `Warning` rows in red, also the warnings of coins with unspent outputs). *Send* runs
   `broadcast_transaction` and shows the transaction hash.
 
 Waiting for the receipt is not shown in the GUI, balances are refreshed with *Refresh balances*.
@@ -108,8 +109,9 @@ Waiting for the receipt is not shown in the GUI, balances are refreshed with *Re
 - `discovery` uses `get_usage` as the transaction count of Ethereum coins and scans only
   the receiving chain of their accounts. The gap limit, the account discovery from #0, pacing and
   retrying after rate limits (Blockscout returns HTTP 429, `RateLimitError`) are unchanged.
-- ETH and TETH are in the scan dialog (TETH only with shown testnets), in the menus and in
-  the background scan after restoring a wallet. Results are added with `add_discovered`.
+- ETH and TETH are in the scan dialog (it lists testnets also when they are hidden, like TBTC)
+  and in the scan actions of the menus of their groups and accounts. Restored wallets are not
+  scanned automatically, like for other coins. Results are added with `add_discovered`.
 - When Blockscout fails, the scan fails like it does when the API of a coin with unspent
   outputs fails. Nodes alone are not enough, the nonce does not count received transactions.
 
