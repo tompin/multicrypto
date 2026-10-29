@@ -22,6 +22,7 @@ from multicrypto.gui.forms import (
     key_entry_address,
     scannable_coins,
     describe_error,
+    describe_ethereum_transaction,
     describe_sweep,
     describe_transaction,
     extract_txid,
@@ -30,16 +31,21 @@ from multicrypto.gui.forms import (
     format_duration,
     parse_address,
     parse_amount,
+    parse_ether_amount,
     parse_fee_rate,
+    parse_gwei_field,
     parse_int,
     parse_nodes,
     parse_private_key_input,
+    parse_rpc_nodes,
     parse_thresholds,
     parse_vanity_pattern,
     parse_wif,
     translate_address_text,
     translated_key_addresses,
 )
+from multicrypto.ethereum import GWEI, Transaction
+from multicrypto.ethereum_api import FeeSuggestion, PreparedEthereumTransaction
 from multicrypto.network import PeerAddress
 from multicrypto.wallet import Wallet, WalletAddress, WalletError
 
@@ -523,3 +529,73 @@ def test_fetch_balances_of_ethereum_addresses():
     )
 
     assert balances == {'e': 10**18}
+
+
+def test_parse_ether_amount():
+    assert parse_ether_amount(' 0,5 ') == 5 * 10**17
+    for text, message in (('0', 'greater than zero'), ('abc', 'not a number'), ('', 'Enter')):
+        with pytest.raises(ValueError, match=message):
+            parse_ether_amount(text)
+
+
+def test_parse_gwei_field():
+    assert parse_gwei_field('', 'Max fee') is None
+    assert parse_gwei_field('1,5', 'Max fee') == 15 * 10**8
+    with pytest.raises(ValueError, match='Max fee: abc is not a number'):
+        parse_gwei_field('abc', 'Max fee')
+
+
+def test_parse_rpc_nodes():
+    assert parse_rpc_nodes('') == []
+    assert parse_rpc_nodes('http://localhost:8545, https://node.example') == [
+        'http://localhost:8545',
+        'https://node.example',
+    ]
+    with pytest.raises(ValueError, match='must start with http'):
+        parse_rpc_nodes('localhost:8545')
+
+
+def make_prepared(max_fee_per_gas=22 * GWEI, value=10**17):
+    transaction = Transaction(
+        chain_id=11155111,
+        nonce=3,
+        max_priority_fee_per_gas=2 * GWEI,
+        max_fee_per_gas=max_fee_per_gas,
+        gas_limit=21000,
+        to='0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+        value=value,
+    )
+    return PreparedEthereumTransaction(
+        transaction,
+        transaction.sign(1),
+        '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        10**18,
+        FeeSuggestion(10 * GWEI, 2 * GWEI),
+    )
+
+
+def test_describe_ethereum_transaction():
+    rows = describe_ethereum_transaction(make_prepared(), 'TETH', 'public nodes')
+
+    assert rows == [
+        ('From', '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+        ('To', '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed'),
+        ('Amount', '0.1 TETH'),
+        ('Nonce', '3'),
+        ('Gas limit', '21000'),
+        ('Max fee per gas', '22 gwei'),
+        ('Priority fee per gas', '2 gwei'),
+        ('Max fee', '0.000462 TETH'),
+        ('Balance after', 'at least 0.899538 TETH'),
+        ('Broadcast', 'public nodes'),
+    ]
+
+
+def test_describe_ethereum_transaction_with_warning():
+    rows = describe_ethereum_transaction(make_prepared(max_fee_per_gas=5 * GWEI), 'ETH', 'own node')
+
+    assert rows[-1] == (
+        'Warning',
+        'Max fee per gas 5 gwei is lower than the base fee 10 gwei of the next block, '
+        'the transaction will wait until the base fee drops',
+    )

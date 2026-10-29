@@ -31,7 +31,7 @@ from multicrypto.coins import (
     is_ethereum,
 )
 from multicrypto.ellipticcurve import secp256k1
-from multicrypto.ethereum_api import get_rpc
+from multicrypto.ethereum_api import PreparedEthereumTransaction, get_rpc
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
 from multicrypto.utils import double_sha256, get_integer
 from multicrypto.vanity import validate_vanity_pattern
@@ -330,6 +330,64 @@ def describe_transaction(
     if _fee_rate(prepared) > HIGH_FEE_RATE:
         rows.append(('Warning', f'Fee rate is above {HIGH_FEE_RATE} sat/vB'))
     return rows
+
+
+def parse_ether_amount(text: str) -> int:
+    """Amount in ether, e.g. 0.25, in wei."""
+    value = text.strip().replace(',', '.')
+    if not value:
+        raise ValueError('Enter the amount')
+    wei = ethereum.parse_ether(value)
+    if wei <= 0:
+        raise ValueError('Amount must be greater than zero')
+    return wei
+
+
+def parse_gwei_field(text: str, name: str) -> Optional[int]:
+    """Fee per gas in gwei in wei, None for the empty field (the fee is suggested)."""
+    value = text.strip().replace(',', '.')
+    if not value:
+        return None
+    try:
+        return ethereum.parse_gwei(value)
+    except ValueError as error:
+        raise ValueError(f'{name}: {error}') from None
+
+
+def parse_rpc_nodes(text: str) -> List[str]:
+    """URLs of JSON-RPC of Ethereum nodes separated with commas or whitespace."""
+    urls = text.replace(',', ' ').split()
+    for url in urls:
+        if not url.startswith(('http://', 'https://')):
+            raise ValueError(f'URL of the node {url} must start with http:// or https://')
+    return urls
+
+
+def describe_ethereum_transaction(
+    prepared: PreparedEthereumTransaction, coin_symbol: str, broadcast_target: str
+) -> List[Tuple[str, str]]:
+    """Rows of the summary shown before the Ethereum transaction is broadcast."""
+    transaction = prepared.transaction
+
+    def ether(wei: int) -> str:
+        return f'{ethereum.format_ether(wei)} {coin_symbol}'
+
+    rows = [
+        ('From', prepared.sender),
+        ('To', transaction.to),
+        ('Amount', ether(transaction.value)),
+        ('Nonce', str(transaction.nonce)),
+        ('Gas limit', str(transaction.gas_limit)),
+        ('Max fee per gas', f'{ethereum.format_gwei(transaction.max_fee_per_gas)} gwei'),
+        (
+            'Priority fee per gas',
+            f'{ethereum.format_gwei(transaction.max_priority_fee_per_gas)} gwei',
+        ),
+        ('Max fee', ether(transaction.max_fee)),
+        ('Balance after', f'at least {ether(prepared.balance - prepared.max_total)}'),
+        ('Broadcast', broadcast_target),
+    ]
+    return rows + [('Warning', warning) for warning in prepared.fee_warnings()]
 
 
 def parse_wif(text: str, coin_symbol: str, address_type: str) -> Tuple[str, str]:

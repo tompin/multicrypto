@@ -11,12 +11,14 @@ from multicrypto.ethereum_api import (
     BlockscoutAPI,
     EthereumRPC,
     FeeSuggestion,
+    MaxValue,
     NodeUnavailableError,
     Receipt,
     RpcError,
     broadcast_transaction,
     get_explorer,
     get_rpc,
+    max_value,
     prepare_transfer,
     suggest_fees,
     wait_for_receipt,
@@ -421,3 +423,32 @@ def test_fee_warning_when_max_fee_is_higher_than_value():
     warnings = prepared_with(value=1).fee_warnings()
 
     assert warnings == ['Max fee 0.000462 is higher than the sent value 0.000000000000000001']
+
+
+def test_max_value_with_suggested_fees():
+    result = max_value(FakeRPC(), ADDRESS, DESTINATION.lower())
+
+    assert result == MaxValue(10**18 - 21000 * 22 * GWEI, 2 * GWEI, 22 * GWEI)
+
+
+def test_max_value_with_given_fees():
+    result = max_value(FakeRPC(), ADDRESS, DESTINATION, GWEI, 3 * GWEI)
+
+    assert result == MaxValue(10**18 - 21000 * 3 * GWEI, GWEI, 3 * GWEI)
+
+
+def test_max_value_estimates_gas_with_value():
+    rpc = FakeRPC(gas=204600)
+    values = []
+    estimate = rpc.estimate_gas
+    rpc.estimate_gas = lambda sender, to, value, data=b'': (
+        values.append(value) or estimate(sender, to, value)
+    )
+
+    assert max_value(rpc, ADDRESS, DESTINATION).value == 10**18 - 204600 * 22 * GWEI
+    assert values == [1]
+
+
+def test_max_value_insufficient_funds():
+    with pytest.raises(InsufficientFundsError, match='does not cover the max fee'):
+        max_value(FakeRPC(balance=1000), ADDRESS, DESTINATION)

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from multicrypto.gui.forms import check_password_confirmation
 
 SECRET_DISPLAY_SECONDS = 30
+WARNING_COLOR = '#c62828'
 
 
 def password_field() -> QLineEdit:
@@ -180,6 +181,8 @@ class ConfirmDialog(QDialog):
             name_label = QLabel(f'<b>{name}:</b>')
             value_label = QLabel(value)
             value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            if name == 'Warning':
+                value_label.setStyleSheet(f'color: {WARNING_COLOR}')
             grid.addWidget(name_label, row, 0, Qt.AlignmentFlag.AlignTop)
             grid.addWidget(value_label, row, 1)
         confirm_button = QPushButton(confirm_text)

@@ -843,11 +843,13 @@ class WalletTab(QWidget):
         menu = QMenu(self)
         menu.addAction('Copy address', self.copy_address)
         menu.addAction('Show QR...', self.show_qr)
-        if not is_ethereum(address.coin):
-            menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
-            menu.addAction(
-                'Send from this address', lambda: self.app.send_tab.select_source(address)
-            )
+        ethereum = is_ethereum(address.coin)
+        menu.addAction(
+            'Check balance' if ethereum else 'Check UTXO',
+            lambda: self.app.balance_tab.check_address(address),
+        )
+        menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
+        if not ethereum:
             if get_any_coin(address.coin).get('apis'):
                 menu.addAction(
                     'Sweep this address', lambda: self.app.sweep_tab.select_source(address)

@@ -201,6 +201,22 @@ def suggest_fees(rpc: EthereumRPC) -> FeeSuggestion:
     return FeeSuggestion(base_fee, max(tip, MIN_PRIORITY_FEE))
 
 
+def _resolve_fees(
+    suggestion: FeeSuggestion,
+    max_priority_fee_per_gas: Optional[int],
+    max_fee_per_gas: Optional[int],
+):
+    """Fees per gas: the given ones, missing ones from the suggestion (the priority fee is not
+    above the given max fee)."""
+    if max_priority_fee_per_gas is None:
+        max_priority_fee_per_gas = suggestion.max_priority_fee_per_gas
+        if max_fee_per_gas is not None:
+            max_priority_fee_per_gas = min(max_priority_fee_per_gas, max_fee_per_gas)
+    if max_fee_per_gas is None:
+        max_fee_per_gas = 2 * suggestion.base_fee_per_gas + max_priority_fee_per_gas
+    return max_priority_fee_per_gas, max_fee_per_gas
+
+
 @dataclass(frozen=True)
 class PreparedEthereumTransaction:
     """Signed transaction which can be shown for confirmation before broadcasting."""
@@ -270,13 +286,9 @@ def prepare_transfer(
     if gas_limit is None:
         gas_limit = rpc.estimate_gas(sender, destination, value)
     suggestion = suggest_fees(rpc)
-    if max_priority_fee_per_gas is None or max_fee_per_gas is None:
-        if max_priority_fee_per_gas is None:
-            max_priority_fee_per_gas = suggestion.max_priority_fee_per_gas
-            if max_fee_per_gas is not None:
-                max_priority_fee_per_gas = min(max_priority_fee_per_gas, max_fee_per_gas)
-        if max_fee_per_gas is None:
-            max_fee_per_gas = 2 * suggestion.base_fee_per_gas + max_priority_fee_per_gas
+    max_priority_fee_per_gas, max_fee_per_gas = _resolve_fees(
+        suggestion, max_priority_fee_per_gas, max_fee_per_gas
+    )
     transaction = Transaction(
         chain_id=chain_id,
         nonce=nonce,
@@ -321,3 +333,37 @@ def wait_for_receipt(
         if receipt is not None or clock() >= deadline:
             return receipt
         sleep(min(interval, max(0.0, deadline - clock())))
+
+
+@dataclass(frozen=True)
+class MaxValue:
+    """The most wei which can be sent with the fees, the fees are used for the transaction."""
+
+    value: int
+    max_priority_fee_per_gas: int
+    max_fee_per_gas: int
+
+
+def max_value(
+    rpc: EthereumRPC,
+    sender: str,
+    destination: str,
+    max_priority_fee_per_gas: Optional[int] = None,
+    max_fee_per_gas: Optional[int] = None,
+) -> MaxValue:
+    """The balance minus the max fee of the transfer to the destination. Gas is estimated with
+    1 wei, because creating an account by sending ether costs more gas than a transfer without
+    value. The unused part of the max fee stays on the address."""
+    destination = validate_address(destination)
+    balance = rpc.get_balance(sender)
+    gas_limit = rpc.estimate_gas(sender, destination, 1)
+    max_priority_fee_per_gas, max_fee_per_gas = _resolve_fees(
+        suggest_fees(rpc), max_priority_fee_per_gas, max_fee_per_gas
+    )
+    max_fee = gas_limit * max_fee_per_gas
+    if balance <= max_fee:
+        raise InsufficientFundsError(
+            f'Balance {format_ether(balance)} of {sender} does not cover the max fee '
+            f'{format_ether(max_fee)}'
+        )
+    return MaxValue(balance - max_fee, max_priority_fee_per_gas, max_fee_per_gas)

@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from unittest.mock import Mock
@@ -9,16 +10,18 @@ from tests import http_mock
 
 from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
 from multicrypto.api import get_api
-from multicrypto.coins import coins
-from multicrypto.ethereum import parse_private_key, private_key_to_address
+from multicrypto.coins import coins, ethereum_coins
+from multicrypto.ethereum import GWEI, decode_transaction, parse_private_key, private_key_to_address
 from multicrypto.scripts import address_to_script
 
 pytest.importorskip('PySide6')
 
 from PySide6.QtCore import QEvent  # noqa: E402
-from PySide6.QtWidgets import QLabel  # noqa: E402
+from PySide6.QtWidgets import QAbstractItemView, QLabel  # noqa: E402
 
+import multicrypto.gui.balance_tab as balance_tab_module  # noqa: E402
 import multicrypto.gui.send_tab as send_tab_module  # noqa: E402
+from multicrypto.commands.checkaddress import EthereumAccount  # noqa: E402
 from multicrypto.gui.address_picker import WalletAddressPicker  # noqa: E402
 import multicrypto.gui.scan_dialog as scan_dialog_module  # noqa: E402
 from multicrypto.discovery import Cancelled, DiscoveredAccount  # noqa: E402
@@ -1417,3 +1420,173 @@ def test_show_key_of_ethereum_address(window, monkeypatch):
     [(title, secret)] = shown
     assert title == 'Private key (hex) of "Address 0"'
     assert parse_private_key(secret) == window.wallet.private_key(address)
+
+
+def test_confirm_dialog_shows_warnings_in_red(qapp):
+    from multicrypto.gui.dialogs import ConfirmDialog
+
+    dialog = ConfirmDialog(None, 'Confirm', [('Amount', '1'), ('Warning', 'High fee')], 'Send')
+
+    labels = {label.text(): label for label in dialog.findChildren(QLabel)}
+    assert 'c62828' in labels['High fee'].styleSheet()
+    assert labels['1'].styleSheet() == ''
+    dialog.deleteLater()
+
+
+def test_balance_tab_checks_ethereum_address(qapp, window, monkeypatch):
+    unlock(window)
+    tab = window.balance_tab
+    address = ethereum_address(window, 'TETH')
+    checked = []
+
+    def check(args):
+        checked.append((args.coin_symbol, args.address, args.node))
+        return EthereumAccount(args.address, 10**18 + 5, 3, None)
+
+    monkeypatch.setattr(balance_tab_module, 'check_ethereum_address', check)
+
+    tab.check_address(address)
+    wait_until(qapp, lambda: tab.account.text())
+
+    assert checked == [('TETH', address.address, None)]
+    assert tab.account.text() == (
+        f'Address: {address.address}\n'
+        'Balance: 1.000000000000000005 TETH (1000000000000000005 wei)\n'
+        'Sent transactions (nonce): 3\n'
+        'All transactions: not available'
+    )
+    assert tab.filters.isHidden() and tab.table.isHidden() and tab.total.isHidden()
+    tab.coin.setCurrentText('BTC')
+    assert not tab.filters.isHidden() and tab.account.isHidden()
+
+
+ETH_DESTINATION = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed'
+TETH_NODE = ethereum_coins['TETH']['rpcs'][0]
+FEE_HISTORY = {'baseFeePerGas': [hex(GWEI), hex(2 * GWEI)], 'reward': [[hex(GWEI)]]}
+
+
+def add_node_results(results, node=TETH_NODE):
+    for result in results:
+        http_mock.add(http_mock.POST, node, json={'jsonrpc': '2.0', 'id': 1, 'result': result})
+
+
+def test_send_tab_form_of_ethereum(window):
+    unlock(window)
+    tab = window.send_tab
+
+    tab.select_source(ethereum_address(window, 'TETH'))
+
+    assert tab.sources.selectionMode() == QAbstractItemView.SelectionMode.SingleSelection
+    assert not tab.form.isRowVisible(tab.fee)
+    assert tab.form.isRowVisible(tab.ethereum_fees)
+    assert not tab.advanced_form.isRowVisible(tab.minimum)
+    assert not tab.advanced_form.isRowVisible(tab.p2p)
+    assert not tab.max_button.isHidden()
+    tab.coin.setCurrentText('BTC')
+    assert tab.sources.selectionMode() == QAbstractItemView.SelectionMode.ExtendedSelection
+    assert tab.form.isRowVisible(tab.fee) and not tab.form.isRowVisible(tab.ethereum_fees)
+    assert tab.max_button.isHidden()
+
+
+@http_mock.activate
+def test_send_ethereum(qapp, window, monkeypatch):
+    unlock(window)
+    address = ethereum_address(window, 'TETH')
+    add_node_results([hex(11155111), hex(10**18), '0x0', '0x5208', FEE_HISTORY, '0xhash'])
+    confirmations, sent = [], []
+    monkeypatch.setattr(
+        send_tab_module,
+        'confirm',
+        lambda parent, title, rows, button: confirmations.append(dict(rows)) or True,
+    )
+    monkeypatch.setattr(
+        send_tab_module, 'show_text', lambda parent, title, label, text: sent.append(text)
+    )
+    tab = window.send_tab
+
+    tab.select_source(address)
+    tab.destination.setText(ETH_DESTINATION.lower())
+    tab.amount.setText('0.5')
+    tab.prepare()
+    wait_until(qapp, lambda: sent)
+
+    assert sent == ['0xhash']
+    rows = confirmations[0]
+    assert (rows['From'], rows['To'], rows['Amount']) == (
+        address.address,
+        ETH_DESTINATION,
+        '0.5 TETH',
+    )
+    assert rows['Broadcast'] == 'public nodes'
+    raw = json.loads(http_mock.calls[-1].request.body)['params'][0]
+    transaction, sender = decode_transaction(bytes.fromhex(raw[2:]))
+    assert (sender, transaction.chain_id, transaction.value) == (
+        address.address,
+        11155111,
+        5 * 10**17,
+    )
+    assert transaction.max_fee_per_gas == 5 * GWEI  # 2 * base fee 2 gwei + tip 1 gwei
+
+
+@http_mock.activate
+def test_send_ethereum_with_given_fees_and_own_node(qapp, window, monkeypatch):
+    unlock(window)
+    address = ethereum_address(window, 'TETH')
+    node = 'http://localhost:8545'
+    add_node_results([hex(11155111), hex(10**18), '0x0', '0x5208', FEE_HISTORY, '0xhash'], node)
+    confirmations = []
+    monkeypatch.setattr(
+        send_tab_module,
+        'confirm',
+        lambda parent, title, rows, button: confirmations.append(dict(rows)) or False,
+    )
+    tab = window.send_tab
+
+    tab.select_source(address)
+    tab.destination.setText(ETH_DESTINATION)
+    tab.amount.setText('0.1')
+    tab.priority_fee.setText('0.5')
+    tab.max_fee.setText('1.5')
+    tab.nodes.setText(node)
+    tab.prepare()
+    wait_until(qapp, lambda: confirmations)
+
+    assert confirmations[0]['Max fee per gas'] == '1.5 gwei'
+    assert confirmations[0]['Priority fee per gas'] == '0.5 gwei'
+    assert confirmations[0]['Broadcast'] == 'own node'
+    methods = [json.loads(call.request.body)['method'] for call in http_mock.calls]
+    assert 'eth_sendRawTransaction' not in methods  # not confirmed
+
+
+@http_mock.activate
+def test_send_ethereum_max_and_suggest(qapp, window):
+    unlock(window)
+    tab = window.send_tab
+    tab.select_source(ethereum_address(window, 'TETH'))
+    tab.destination.setText(ETH_DESTINATION)
+    add_node_results([hex(10**18), '0x5208', FEE_HISTORY])
+
+    tab.fill_max()
+    wait_until(qapp, lambda: tab.amount.text())
+
+    assert tab.amount.text() == '0.999895'  # 1 - 21000 * 5 gwei
+    assert (tab.priority_fee.text(), tab.max_fee.text()) == ('1', '5')
+    assert 'stays on the address' in tab.amount_note.text()
+    tab.priority_fee.clear()
+    tab.max_fee.clear()
+    add_node_results([FEE_HISTORY])
+    tab.suggest_fees()
+    wait_until(qapp, lambda: tab.max_fee.text())
+    assert (tab.priority_fee.text(), tab.max_fee.text()) == ('1', '5')
+
+
+def test_send_ethereum_requires_destination_for_max(window, monkeypatch):
+    unlock(window)
+    errors = []
+    monkeypatch.setattr(window, 'show_error', errors.append)
+    tab = window.send_tab
+    tab.select_source(ethereum_address(window, 'TETH'))
+
+    tab.fill_max()
+
+    assert str(errors[0]) == 'Enter the address'
