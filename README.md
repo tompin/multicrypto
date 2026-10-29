@@ -187,7 +187,7 @@ detects a mistyped passphrase. Tabs:
 - **Wallet** - account groups (e.g. *Bitcoin #0*) with the accounts of all address types of the
   coin (Taproot, Native SegWit, SegWit, Legacy) and their receiving addresses created on demand
   (New address... asks for the account and the address type and shows the address before adding
-  it), imported private keys (they are not covered by the mnemonic backup), address balances, showing
+  it, Receive... shows the latest address of the account with its QR code), imported private keys (they are not covered by the mnemonic backup), address balances, showing
   private keys and the mnemonic (after entering the password again),
 - **Balance** - unspent outputs of the wallet address or any other address (like `checkaddress`),
 - **Send** - send funds from one or more wallet addresses (like `sendcrypto`), the transaction is
@@ -204,6 +204,11 @@ detects a mistyped passphrase. Tabs:
   to the wallet,
 - **Vanity** - search for an address starting with the given pattern (like `genaddress`) in many
   processes, the found key can be added to the wallet.
+
+The account groups are collapsed to one row with the balance of the group, the expanded groups are
+kept until the wallet is locked. The testnet coins (TBTC, TLTC) are hidden unless *View → Show
+testnets* is checked (remembered in `~/.multicrypto/gui.json`), the Translate and Vanity tabs
+show all coins.
 
 In the Balance, Send, Sweep and Sign / Verify tabs the coin is selected first, the lists show the
 wallet addresses of this coin and the account, address type, path and label of the selected
