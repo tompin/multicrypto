@@ -17,13 +17,9 @@ from PySide6.QtWidgets import (
 )
 
 from multicrypto.discovery import Cancelled, DiscoveredAccount, add_discovered, discover
-from multicrypto.gui.forms import EXPECTED_ERRORS, coins_with_api, coins_with_slip44, describe_error
+from multicrypto.gui.forms import EXPECTED_ERRORS, describe_error, scannable_coins
 
 COLUMNS = 6
-
-
-def scannable_coins() -> List[str]:
-    return sorted(set(coins_with_slip44()) & set(coins_with_api()))
 
 
 class ScanDialog(QDialog):

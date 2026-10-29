@@ -10,6 +10,7 @@ from tests import http_mock
 from multicrypto.address import convert_private_key_to_coin_address, get_private_key_from_wif_format
 from multicrypto.api import get_api
 from multicrypto.coins import coins
+from multicrypto.ethereum import parse_private_key, private_key_to_address
 from multicrypto.scripts import address_to_script
 
 pytest.importorskip('PySide6')
@@ -208,7 +209,7 @@ def test_wallet_is_shown_when_unlocked_and_cleared_when_locked(window):
     tree = window.wallet_tab.tree
     assert 'unlocked' in window.status.text()
     assert window.wallet.fingerprint in window.status.text()
-    assert tree.topLevelItemCount() == 6
+    assert tree.topLevelItemCount() == 8  # groups #0 of 6 coins with UTXO, ETH and TETH
     assert tree.topLevelItem(0).child(1).child(1).text(2) == address.address
     assert window.balance_tab.picker.box.count() == 5
     assert window.send_tab.sources.rowCount() == 5
@@ -277,6 +278,7 @@ def test_testnets_are_hidden_by_default(qapp, tmp_path):
         'DASH',
         'DOGE',
         'LTC',
+        'ETH',
     ]
     assert 'TBTC' not in [
         window.send_tab.coin.itemText(i) for i in range(window.send_tab.coin.count())
@@ -285,7 +287,7 @@ def test_testnets_are_hidden_by_default(qapp, tmp_path):
 
     window.set_show_testnets(True)
 
-    assert tree.topLevelItemCount() == 6
+    assert tree.topLevelItemCount() == 8
     assert window.sweep_tab.coin.findText('TLTC') >= 0
     assert window.sweep_tab.coin.currentText() == 'LTC'
     assert load_show_testnets(settings_path)
@@ -1233,7 +1235,7 @@ def test_background_scan_cancel(qapp, window):
     wait_until(qapp, lambda: not scan.running)
 
     assert scan.label.text() == 'Scan of BTC cancelled'
-    assert len(window.wallet.addresses()) == 18
+    assert len(window.wallet.addresses()) == 20
 
 
 def test_lock_cancels_background_scan(qapp, window):
@@ -1318,3 +1320,100 @@ def test_choosing_scale_saves_it(window, monkeypatch):
     assert load_scale(window.settings_path) is None
     assert scale_actions(window)['Auto (system)'].isChecked()
     assert messages == [SCALE_MESSAGE] * 2
+
+
+ETH_KEY = '46' * 32
+ETH_KEY_ADDRESS = '0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F'
+
+
+def ethereum_address(window, coin_symbol='ETH'):
+    [account] = window.wallet.get_group(coin_symbol, 0).accounts
+    return window.wallet.account_addresses(account)[0]
+
+
+def tree_item(tab, kind, item_id):
+    return next(
+        item
+        for item in tab._items()
+        if tuple(item.data(0, wallet_tab_module.ITEM_ROLE)) == (kind, item_id)
+    )
+
+
+def test_wallet_tree_shows_ethereum_group_and_balances(window):
+    unlock(window)
+    tab = window.wallet_tab
+    address = ethereum_address(window)
+    tab.balances = {address.id: 10**18 + 5}
+
+    tab.refresh()
+
+    group = tree_item(tab, wallet_tab_module.ACCOUNT_GROUP, 'ETH/0')
+    assert [group.text(column) for column in range(4)] == [
+        'Ethereum #0',
+        '',
+        'ETH',
+        '1.000000000000000005',
+    ]
+    account = group.child(0)
+    assert (account.text(0), account.text(1)) == ('Ethereum', "m/44'/60'/0'")
+    item = tree_item(tab, wallet_tab_module.ADDRESS, address.id)
+    assert (item.text(1), item.text(2), item.text(3)) == (
+        '0/0',
+        address.address,
+        '1.000000000000000005',
+    )
+    assert private_key_to_address(window.wallet.private_key(address)) == address.address
+
+
+def test_import_ethereum_key(window, monkeypatch):
+    unlock(window)
+
+    def fill(dialog):
+        dialog.label.setText('Imported')
+        dialog.coin.setCurrentText('ETH')
+        dialog.wif.setText('0x' + ETH_KEY)
+        assert dialog.address.text() == ETH_KEY_ADDRESS
+        assert not dialog.form.isRowVisible(dialog.address_type)
+        assert dialog.form.labelForField(dialog.wif).text() == 'Private key (hex)'
+        dialog.accept()
+
+    monkeypatch.setattr(wallet_tab_module.ImportWifDialog, 'exec', fill)
+    window.wallet_tab.import_wif()
+
+    [imported] = window.wallet.imported_addresses()
+    assert (imported.coin, imported.address_type, imported.address) == (
+        'ETH',
+        'ethereum',
+        ETH_KEY_ADDRESS,
+    )
+
+
+def test_import_dialog_shows_address_type_of_bitcoin(window):
+    unlock(window)
+    dialog = wallet_tab_module.ImportWifDialog(
+        window.wallet_tab, lambda *args: None, ['BTC', 'ETH']
+    )
+
+    dialog.coin.setCurrentText('ETH')
+    dialog.coin.setCurrentText('BTC')
+
+    assert dialog.form.isRowVisible(dialog.address_type)
+    assert dialog.form.labelForField(dialog.wif).text() == 'Private key (WIF)'
+
+
+def test_show_key_of_ethereum_address(window, monkeypatch):
+    unlock(window)
+    address = ethereum_address(window)
+    shown = []
+    monkeypatch.setattr(wallet_tab_module, 'secret_line', lambda secret: secret)
+    monkeypatch.setattr(
+        wallet_tab_module,
+        'SecretDialog',
+        lambda parent, title, text, secret: shown.append((title, secret)) or Mock(),
+    )
+
+    window.wallet_tab._show_key(address, True)
+
+    [(title, secret)] = shown
+    assert title == 'Private key (hex) of "Address 0"'
+    assert parse_private_key(secret) == window.wallet.private_key(address)

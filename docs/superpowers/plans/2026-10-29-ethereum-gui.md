@@ -322,49 +322,49 @@ class ImportedKey:
 Po `add_wif` dodaj:
 
 ```python
-    def add_ethereum_key(
-        self, label: str, coin_symbol: str, private_key_hex: str
-    ) -> WalletAddress:
-        """Import Ethereum private key in hex format, raise ValueError when it is incorrect or
-        present."""
-        if not is_ethereum(coin_symbol):
-            raise ValueError(f'{coin_symbol} is not an Ethereum coin')
-        key_hex = ethereum.format_private_key(ethereum.parse_private_key(private_key_hex))
-        for key in self.imported:
-            if (key.coin, key.wif) == (coin_symbol, key_hex):
-                raise ValueError(f'Address {key.address} is already in the wallet as "{key.label}"')
-        key = ImportedKey(label, coin_symbol, key_hex, ETHEREUM)
-        self.imported.append(key)
-        return self._imported_address(key)
+def add_ethereum_key(self, label: str, coin_symbol: str, private_key_hex: str) -> WalletAddress:
+    """Import Ethereum private key in hex format, raise ValueError when it is incorrect or
+    present."""
+    if not is_ethereum(coin_symbol):
+        raise ValueError(f'{coin_symbol} is not an Ethereum coin')
+    key_hex = ethereum.format_private_key(ethereum.parse_private_key(private_key_hex))
+    for key in self.imported:
+        if (key.coin, key.wif) == (coin_symbol, key_hex):
+            raise ValueError(f'Address {key.address} is already in the wallet as "{key.label}"')
+    key = ImportedKey(label, coin_symbol, key_hex, ETHEREUM)
+    self.imported.append(key)
+    return self._imported_address(key)
 ```
 
 `private_key_wif` i nowe metody (zastąp `private_key_wif`):
 
 ```python
-    def private_key(self, address: WalletAddress) -> int:
-        if address.account_id is None:
-            key = self._locate(address.id)[0]
-            if key.address_type == ETHEREUM:
-                return ethereum.parse_private_key(key.wif)
-            return get_private_key_from_wif_format(key.wif)[0]
-        account = self.get_account(address.account_id)
-        return self._derive(account, address.chain, address.index).private_key
+def private_key(self, address: WalletAddress) -> int:
+    if address.account_id is None:
+        key = self._locate(address.id)[0]
+        if key.address_type == ETHEREUM:
+            return ethereum.parse_private_key(key.wif)
+        return get_private_key_from_wif_format(key.wif)[0]
+    account = self.get_account(address.account_id)
+    return self._derive(account, address.chain, address.index).private_key
 
-    def private_key_wif(self, address: WalletAddress) -> str:
-        if address.address_type == ETHEREUM:
-            raise ValueError('Ethereum private keys are not in WIF format')
-        if address.account_id is None:
-            return self._locate(address.id)[0].wif
-        account = self.get_account(address.account_id)
-        return generate_wif(
-            account.coin, self._derive(account, address.chain, address.index).private_key
-        )
 
-    def exported_private_key(self, address: WalletAddress) -> str:
-        """Private key in WIF format, or in hex format for Ethereum."""
-        if address.address_type == ETHEREUM:
-            return ethereum.format_private_key(self.private_key(address))
-        return self.private_key_wif(address)
+def private_key_wif(self, address: WalletAddress) -> str:
+    if address.address_type == ETHEREUM:
+        raise ValueError('Ethereum private keys are not in WIF format')
+    if address.account_id is None:
+        return self._locate(address.id)[0].wif
+    account = self.get_account(address.account_id)
+    return generate_wif(
+        account.coin, self._derive(account, address.chain, address.index).private_key
+    )
+
+
+def exported_private_key(self, address: WalletAddress) -> str:
+    """Private key in WIF format, or in hex format for Ethereum."""
+    if address.address_type == ETHEREUM:
+        return ethereum.format_private_key(self.private_key(address))
+    return self.private_key_wif(address)
 ```
 
 - [ ] **Step 4:** `uv run python -m pytest tests/test_wallet.py tests/test_coins.py -q` — PASS.
@@ -425,11 +425,11 @@ def test_add_private_key():
 
 @http_mock.activate
 def test_fetch_balances_of_ethereum_addresses():
-    http_mock.add(
-        http_mock.POST, ETH_NODE, json={'jsonrpc': '2.0', 'id': 1, 'result': hex(10**18)}
-    )
+    http_mock.add(http_mock.POST, ETH_NODE, json={'jsonrpc': '2.0', 'id': 1, 'result': hex(10**18)})
 
-    balances = fetch_balances([make_address('e', coin='ETH', address_type='ethereum', address=ETH_KEY_ADDRESS)])
+    balances = fetch_balances(
+        [make_address('e', coin='ETH', address_type='ethereum', address=ETH_KEY_ADDRESS)]
+    )
 
     assert balances == {'e': 10**18}
 ```
@@ -646,7 +646,9 @@ def test_import_ethereum_key(window, monkeypatch):
 
 def test_import_dialog_shows_address_type_of_bitcoin(window):
     unlock(window)
-    dialog = wallet_tab_module.ImportWifDialog(window.wallet_tab, lambda *args: None, ['BTC', 'ETH'])
+    dialog = wallet_tab_module.ImportWifDialog(
+        window.wallet_tab, lambda *args: None, ['BTC', 'ETH']
+    )
 
     dialog.coin.setCurrentText('ETH')
     dialog.coin.setCurrentText('BTC')
@@ -758,25 +760,27 @@ class ImportWifDialog(_CoinTypeForm):
 W `refresh`: `visible = set(self.app.visible_coins(all_coins()))`; `_add_address_item` i salda:
 
 ```python
-    def _add_address_item(self, parent: QTreeWidgetItem, address: WalletAddress, path: str):
-        item = QTreeWidgetItem(
-            parent, [address.label, path, address.address, self._balance_text(address)]
-        )
-        item.setData(0, ITEM_ROLE, (ADDRESS, address.id))
-        self._align_balance(item)
+def _add_address_item(self, parent: QTreeWidgetItem, address: WalletAddress, path: str):
+    item = QTreeWidgetItem(
+        parent, [address.label, path, address.address, self._balance_text(address)]
+    )
+    item.setData(0, ITEM_ROLE, (ADDRESS, address.id))
+    self._align_balance(item)
 
-    def _balance_text(self, address: WalletAddress) -> str:
-        balance = self.balances.get(address.id)
-        if balance is None:
-            return ''
-        return format_coin_amount(address.coin, balance) if isinstance(balance, int) else balance
 
-    def _sum_text(self, addresses: List[WalletAddress]) -> str:
-        """Sum of the known balances of the addresses of one coin (balances not fetched are
-        skipped)."""
-        balances = [self.balances.get(address.id) for address in addresses]
-        known = [balance for balance in balances if isinstance(balance, int)]
-        return format_coin_amount(addresses[0].coin, sum(known)) if known else ''
+def _balance_text(self, address: WalletAddress) -> str:
+    balance = self.balances.get(address.id)
+    if balance is None:
+        return ''
+    return format_coin_amount(address.coin, balance) if isinstance(balance, int) else balance
+
+
+def _sum_text(self, addresses: List[WalletAddress]) -> str:
+    """Sum of the known balances of the addresses of one coin (balances not fetched are
+    skipped)."""
+    balances = [self.balances.get(address.id) for address in addresses]
+    known = [balance for balance in balances if isinstance(balance, int)]
+    return format_coin_amount(addresses[0].coin, sum(known)) if known else ''
 ```
 
 `import_wif`:
@@ -807,45 +811,38 @@ Akcje menu (ETH nie ma jeszcze skanowania, sprawdzania salda, wysyłki, podpisó
 tłumaczenia — dochodzą w kolejnych fazach):
 
 ```python
-    def _account_actions(self, account) -> Dict[str, Callable[[], None]]:
-        actions = {'New address...': self.new_address}
-        if account.coin in scannable_coins():
-            actions['Scan for used addresses'] = lambda: self.app.background_scan.start_account(
-                account
-            )
-        return actions
+def _account_actions(self, account) -> Dict[str, Callable[[], None]]:
+    actions = {'New address...': self.new_address}
+    if account.coin in scannable_coins():
+        actions['Scan for used addresses'] = lambda: self.app.background_scan.start_account(account)
+    return actions
 
-    def _group_actions(self, coin_symbol: str) -> Dict[str, Callable[[], None]]:
-        if coin_symbol not in scannable_coins():
-            return {}
-        return {'Scan for used addresses': lambda: self.app.background_scan.start_coin(coin_symbol)}
+
+def _group_actions(self, coin_symbol: str) -> Dict[str, Callable[[], None]]:
+    if coin_symbol not in scannable_coins():
+        return {}
+    return {'Scan for used addresses': lambda: self.app.background_scan.start_coin(coin_symbol)}
 ```
 
 W `_show_menu` część adresu:
 
 ```python
-        self.tree.setCurrentItem(item)
-        address = self.app.wallet.get_address(item_id)
-        menu = QMenu(self)
-        menu.addAction('Copy address', self.copy_address)
-        menu.addAction('Show QR...', self.show_qr)
-        if not is_ethereum(address.coin):
-            menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
-            menu.addAction(
-                'Send from this address', lambda: self.app.send_tab.select_source(address)
-            )
-            if get_any_coin(address.coin).get('apis'):
-                menu.addAction(
-                    'Sweep this address', lambda: self.app.sweep_tab.select_source(address)
-                )
-            sign_action = menu.addAction(
-                'Sign message', lambda: self.app.sign_tab.select_address(address)
-            )
-            sign_action.setEnabled(address.address_type != P2TR)
-            menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
-        menu.addAction('Rename...', self.rename)
-        menu.addAction('Show key...', self.show_key)
-        menu.exec(self.tree.viewport().mapToGlobal(position))
+self.tree.setCurrentItem(item)
+address = self.app.wallet.get_address(item_id)
+menu = QMenu(self)
+menu.addAction('Copy address', self.copy_address)
+menu.addAction('Show QR...', self.show_qr)
+if not is_ethereum(address.coin):
+    menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
+    menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
+    if get_any_coin(address.coin).get('apis'):
+        menu.addAction('Sweep this address', lambda: self.app.sweep_tab.select_source(address))
+    sign_action = menu.addAction('Sign message', lambda: self.app.sign_tab.select_address(address))
+    sign_action.setEnabled(address.address_type != P2TR)
+    menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
+menu.addAction('Rename...', self.rename)
+menu.addAction('Show key...', self.show_key)
+menu.exec(self.tree.viewport().mapToGlobal(position))
 ```
 
 `TranslateKeyDialog` i `WalletTab.translate_key` zostają bez zmian do Task 16 (dalej używają
@@ -896,8 +893,8 @@ def test_max_value_estimates_gas_with_value():
     rpc = FakeRPC(gas=204600)
     values = []
     estimate = rpc.estimate_gas
-    rpc.estimate_gas = lambda sender, to, value, data=b'': values.append(value) or estimate(
-        sender, to, value
+    rpc.estimate_gas = lambda sender, to, value, data=b'': (
+        values.append(value) or estimate(sender, to, value)
     )
 
     assert max_value(rpc, ADDRESS, DESTINATION).value == 10**18 - 204600 * 22 * GWEI
@@ -1233,66 +1230,71 @@ W `__init__`: `self.coin = coin_box(app.visible_coins(all_coins_with_api()))`,
 Metody:
 
 ```python
-    def update_coins(self):
-        set_coins(self.coin, self.app.visible_coins(all_coins_with_api()))
+def update_coins(self):
+    set_coins(self.coin, self.app.visible_coins(all_coins_with_api()))
 
-    def _coin_changed(self):
-        self._show_addresses()
-        self._update_mode()
 
-    def _update_mode(self):
-        """Ethereum addresses have a balance instead of unspent outputs."""
-        ethereum = is_ethereum(self.coin.currentText())
-        self.filters.setVisible(not ethereum)
-        self.table.setVisible(not ethereum)
-        self.total.setVisible(not ethereum)
-        self.account.setVisible(ethereum)
+def _coin_changed(self):
+    self._show_addresses()
+    self._update_mode()
 
-    def clear(self):
-        self.picker.clear()
-        self.table.setRowCount(0)
-        self.total.setText('')
-        self.account.setText('')
 
-    def check(self):
-        try:
-            coin_symbol, address = self._get_address()
-            if not is_ethereum(coin_symbol):
-                minimum, maximum, limit = parse_thresholds(
-                    self.minimum.text(), self.maximum.text(), self.limit.text()
-                )
-        except ValueError as error:
-            self.app.show_error(error)
-            return
-        self.check_button.setEnabled(False)
-        if is_ethereum(coin_symbol):
-            args = Namespace(coin_symbol=coin_symbol, address=address, node=None)
-            self.app.worker.run(
-                lambda: check_ethereum_address(args),
-                lambda account: self._show_account(account, coin_symbol),
-                self._failed,
+def _update_mode(self):
+    """Ethereum addresses have a balance instead of unspent outputs."""
+    ethereum = is_ethereum(self.coin.currentText())
+    self.filters.setVisible(not ethereum)
+    self.table.setVisible(not ethereum)
+    self.total.setVisible(not ethereum)
+    self.account.setVisible(ethereum)
+
+
+def clear(self):
+    self.picker.clear()
+    self.table.setRowCount(0)
+    self.total.setText('')
+    self.account.setText('')
+
+
+def check(self):
+    try:
+        coin_symbol, address = self._get_address()
+        if not is_ethereum(coin_symbol):
+            minimum, maximum, limit = parse_thresholds(
+                self.minimum.text(), self.maximum.text(), self.limit.text()
             )
-            return
-        args = Namespace(
-            coin_symbol=coin_symbol,
-            address=address,
-            minimum_input_threshold=minimum,
-            maximum_input_threshold=maximum,
-            limit_inputs=limit,
-        )
+    except ValueError as error:
+        self.app.show_error(error)
+        return
+    self.check_button.setEnabled(False)
+    if is_ethereum(coin_symbol):
+        args = Namespace(coin_symbol=coin_symbol, address=address, node=None)
         self.app.worker.run(
-            lambda: check_address(args), lambda utxos: self._show(utxos, coin_symbol), self._failed
+            lambda: check_ethereum_address(args),
+            lambda account: self._show_account(account, coin_symbol),
+            self._failed,
         )
+        return
+    args = Namespace(
+        coin_symbol=coin_symbol,
+        address=address,
+        minimum_input_threshold=minimum,
+        maximum_input_threshold=maximum,
+        limit_inputs=limit,
+    )
+    self.app.worker.run(
+        lambda: check_address(args), lambda utxos: self._show(utxos, coin_symbol), self._failed
+    )
 
-    def _show_account(self, account, coin_symbol: str):
-        self.check_button.setEnabled(True)
-        tx_count = 'not available' if account.tx_count is None else str(account.tx_count)
-        self.account.setText(
-            f'Address: {account.address}\n'
-            f'Balance: {format_ether(account.balance)} {coin_symbol} ({account.balance} wei)\n'
-            f'Sent transactions (nonce): {account.nonce}\n'
-            f'All transactions: {tx_count}'
-        )
+
+def _show_account(self, account, coin_symbol: str):
+    self.check_button.setEnabled(True)
+    tx_count = 'not available' if account.tx_count is None else str(account.tx_count)
+    self.account.setText(
+        f'Address: {account.address}\n'
+        f'Balance: {format_ether(account.balance)} {coin_symbol} ({account.balance} wei)\n'
+        f'Sent transactions (nonce): {account.nonce}\n'
+        f'All transactions: {tx_count}'
+    )
 ```
 
 Do importów Qt dodaj `QWidget` (już jest) — sprawdź, że `QWidget` jest zaimportowany.
@@ -1381,9 +1383,7 @@ def test_send_ethereum_with_given_fees_and_own_node(qapp, window, monkeypatch):
     unlock(window)
     address = ethereum_address(window, 'TETH')
     node = 'http://localhost:8545'
-    add_node_results(
-        [hex(11155111), hex(10**18), '0x0', '0x5208', FEE_HISTORY, '0xhash'], node
-    )
+    add_node_results([hex(11155111), hex(10**18), '0x0', '0x5208', FEE_HISTORY, '0xhash'], node)
     confirmations = []
     monkeypatch.setattr(
         send_tab_module,
@@ -1484,9 +1484,7 @@ UTXO_SOURCES_TEXT = 'From (one or more addresses with the same address type)'
 ETHEREUM_SOURCES_TEXT = 'From (one address)'
 P2P_NODES_PLACEHOLDER = 'optional, host[:port] separated with commas'
 RPC_NODES_PLACEHOLDER = 'optional, JSON-RPC URLs of own nodes separated with commas'
-MAX_NOTE = (
-    'The unused part of the max fee stays on the address, the fee paid is usually lower.'
-)
+MAX_NOTE = 'The unused part of the max fee stays on the address, the fee paid is usually lower.'
 ```
 
 W `__init__`: `self.coin = coin_box(app.visible_coins(all_coins_with_api()))`;
@@ -1544,148 +1542,160 @@ oraz `self.sources_label = QLabel(UTXO_SOURCES_TEXT)` dodane do layoutu zamiast
 Metody:
 
 ```python
-    def refresh(self):
-        self._update_mode()
-        ...  # dotychczasowa treść refresh
+def refresh(self):
+    self._update_mode()
+    ...  # dotychczasowa treść refresh
 
-    def update_coins(self):
-        set_coins(self.coin, self.app.visible_coins(all_coins_with_api()))
 
-    def _update_mode(self):
-        """Ethereum transactions have one source address and fees per gas in gwei."""
-        ethereum = is_ethereum(self.coin.currentText())
-        self.sources.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection
-            if ethereum
-            else QAbstractItemView.SelectionMode.ExtendedSelection
-        )
-        self.sources_label.setText(ETHEREUM_SOURCES_TEXT if ethereum else UTXO_SOURCES_TEXT)
-        self.max_button.setVisible(ethereum)
-        self.form.setRowVisible(self.amount_note, ethereum and bool(self.amount_note.text()))
-        self.form.setRowVisible(self.fee, not ethereum)
-        self.form.setRowVisible(self.ethereum_fees, ethereum)
-        for widget in (self.minimum, self.maximum, self.limit, self.p2p):
-            self.advanced_form.setRowVisible(widget, not ethereum)
-        self.nodes.setPlaceholderText(RPC_NODES_PLACEHOLDER if ethereum else P2P_NODES_PLACEHOLDER)
+def update_coins(self):
+    set_coins(self.coin, self.app.visible_coins(all_coins_with_api()))
 
-    def clear(self):
-        self.sources.setRowCount(0)
-        self.destination.clear()
-        self.amount.clear()
-        self.amount_note.clear()
-        self.priority_fee.clear()
-        self.max_fee.clear()
 
-    def _single_source(self) -> WalletAddress:
-        addresses = self._selected_addresses()
-        if len(addresses) != 1:
-            raise ValueError('Select one source address')
-        return addresses[0]
+def _update_mode(self):
+    """Ethereum transactions have one source address and fees per gas in gwei."""
+    ethereum = is_ethereum(self.coin.currentText())
+    self.sources.setSelectionMode(
+        QAbstractItemView.SelectionMode.SingleSelection
+        if ethereum
+        else QAbstractItemView.SelectionMode.ExtendedSelection
+    )
+    self.sources_label.setText(ETHEREUM_SOURCES_TEXT if ethereum else UTXO_SOURCES_TEXT)
+    self.max_button.setVisible(ethereum)
+    self.form.setRowVisible(self.amount_note, ethereum and bool(self.amount_note.text()))
+    self.form.setRowVisible(self.fee, not ethereum)
+    self.form.setRowVisible(self.ethereum_fees, ethereum)
+    for widget in (self.minimum, self.maximum, self.limit, self.p2p):
+        self.advanced_form.setRowVisible(widget, not ethereum)
+    self.nodes.setPlaceholderText(RPC_NODES_PLACEHOLDER if ethereum else P2P_NODES_PLACEHOLDER)
 
-    def _ethereum_rpc(self, coin_symbol: str):
-        """Client of the nodes entered in the form (public nodes when empty) and its
-        description."""
-        nodes = parse_rpc_nodes(self.nodes.text())
-        rpc = ethereum_api.get_rpc(ethereum_coins[coin_symbol], nodes)
-        return rpc, 'own node' if nodes else 'public nodes'
 
-    def _ethereum_fees(self):
-        return (
-            parse_gwei_field(self.priority_fee.text(), 'Priority fee'),
-            parse_gwei_field(self.max_fee.text(), 'Max fee'),
-        )
+def clear(self):
+    self.sources.setRowCount(0)
+    self.destination.clear()
+    self.amount.clear()
+    self.amount_note.clear()
+    self.priority_fee.clear()
+    self.max_fee.clear()
 
-    def suggest_fees(self):
-        try:
-            rpc, _ = self._ethereum_rpc(self.coin.currentText())
-        except ValueError as error:
-            self.app.show_error(error)
-            return
-        self.suggest_button.setEnabled(False)
-        self.app.worker.run(
-            lambda: ethereum_api.suggest_fees(rpc), self._show_suggestion, self._fees_failed
-        )
 
-    def _show_suggestion(self, suggestion):
-        self.suggest_button.setEnabled(True)
-        self.priority_fee.setText(format_gwei(suggestion.max_priority_fee_per_gas))
-        self.max_fee.setText(format_gwei(suggestion.max_fee_per_gas))
+def _single_source(self) -> WalletAddress:
+    addresses = self._selected_addresses()
+    if len(addresses) != 1:
+        raise ValueError('Select one source address')
+    return addresses[0]
 
-    def _fees_failed(self, error):
-        self.suggest_button.setEnabled(True)
-        self.max_button.setEnabled(True)
+
+def _ethereum_rpc(self, coin_symbol: str):
+    """Client of the nodes entered in the form (public nodes when empty) and its
+    description."""
+    nodes = parse_rpc_nodes(self.nodes.text())
+    rpc = ethereum_api.get_rpc(ethereum_coins[coin_symbol], nodes)
+    return rpc, 'own node' if nodes else 'public nodes'
+
+
+def _ethereum_fees(self):
+    return (
+        parse_gwei_field(self.priority_fee.text(), 'Priority fee'),
+        parse_gwei_field(self.max_fee.text(), 'Max fee'),
+    )
+
+
+def suggest_fees(self):
+    try:
+        rpc, _ = self._ethereum_rpc(self.coin.currentText())
+    except ValueError as error:
         self.app.show_error(error)
+        return
+    self.suggest_button.setEnabled(False)
+    self.app.worker.run(
+        lambda: ethereum_api.suggest_fees(rpc), self._show_suggestion, self._fees_failed
+    )
 
-    def fill_max(self):
-        coin_symbol = self.coin.currentText()
-        try:
-            source = self._single_source()
-            destination = parse_address(self.destination.text(), coin_symbol)
-            priority_fee, max_fee = self._ethereum_fees()
-            rpc, _ = self._ethereum_rpc(coin_symbol)
-        except ValueError as error:
-            self.app.show_error(error)
-            return
-        self.max_button.setEnabled(False)
-        self.app.worker.run(
-            lambda: ethereum_api.max_value(
-                rpc, source.address, destination, priority_fee, max_fee
-            ),
-            self._show_max,
-            self._fees_failed,
-        )
 
-    def _show_max(self, result):
-        self.max_button.setEnabled(True)
-        self.amount.setText(format_ether(result.value))
-        self.priority_fee.setText(format_gwei(result.max_priority_fee_per_gas))
-        self.max_fee.setText(format_gwei(result.max_fee_per_gas))
-        self.amount_note.setText(MAX_NOTE)
-        self.form.setRowVisible(self.amount_note, True)
+def _show_suggestion(self, suggestion):
+    self.suggest_button.setEnabled(True)
+    self.priority_fee.setText(format_gwei(suggestion.max_priority_fee_per_gas))
+    self.max_fee.setText(format_gwei(suggestion.max_fee_per_gas))
 
-    def prepare(self):
-        coin_symbol = self.coin.currentText()
-        if is_ethereum(coin_symbol):
-            self._prepare_ethereum(coin_symbol)
-            return
-        ...  # dotychczasowa treść prepare
 
-    def _prepare_ethereum(self, coin_symbol: str):
-        try:
-            source = self._single_source()
-            destination = parse_address(self.destination.text(), coin_symbol)
-            value = parse_ether_amount(self.amount.text())
-            priority_fee, max_fee = self._ethereum_fees()
-            rpc, target = self._ethereum_rpc(coin_symbol)
-        except ValueError as error:
-            self.app.show_error(error)
-            return
-        coin = ethereum_coins[coin_symbol]
-        private_key = self.app.wallet.private_key(source)
-        self.prepare_button.setEnabled(False)
-        self.app.worker.run(
-            lambda: ethereum_api.prepare_transfer(
-                coin,
-                rpc,
-                private_key,
-                destination,
-                value,
-                max_priority_fee_per_gas=priority_fee,
-                max_fee_per_gas=max_fee,
-            ),
-            lambda prepared: self._confirm_ethereum(rpc, coin_symbol, prepared, target),
-            self._failed,
-        )
+def _fees_failed(self, error):
+    self.suggest_button.setEnabled(True)
+    self.max_button.setEnabled(True)
+    self.app.show_error(error)
 
-    def _confirm_ethereum(self, rpc, coin_symbol: str, prepared, target: str):
-        self.prepare_button.setEnabled(True)
-        rows = describe_ethereum_transaction(prepared, coin_symbol, target)
-        if not confirm(self, 'Confirm transaction', rows, 'Send'):
-            return
-        self.prepare_button.setEnabled(False)
-        self.app.worker.run(
-            lambda: ethereum_api.broadcast_transaction(rpc, prepared), self._sent, self._failed
-        )
+
+def fill_max(self):
+    coin_symbol = self.coin.currentText()
+    try:
+        source = self._single_source()
+        destination = parse_address(self.destination.text(), coin_symbol)
+        priority_fee, max_fee = self._ethereum_fees()
+        rpc, _ = self._ethereum_rpc(coin_symbol)
+    except ValueError as error:
+        self.app.show_error(error)
+        return
+    self.max_button.setEnabled(False)
+    self.app.worker.run(
+        lambda: ethereum_api.max_value(rpc, source.address, destination, priority_fee, max_fee),
+        self._show_max,
+        self._fees_failed,
+    )
+
+
+def _show_max(self, result):
+    self.max_button.setEnabled(True)
+    self.amount.setText(format_ether(result.value))
+    self.priority_fee.setText(format_gwei(result.max_priority_fee_per_gas))
+    self.max_fee.setText(format_gwei(result.max_fee_per_gas))
+    self.amount_note.setText(MAX_NOTE)
+    self.form.setRowVisible(self.amount_note, True)
+
+
+def prepare(self):
+    coin_symbol = self.coin.currentText()
+    if is_ethereum(coin_symbol):
+        self._prepare_ethereum(coin_symbol)
+        return
+    ...  # dotychczasowa treść prepare
+
+
+def _prepare_ethereum(self, coin_symbol: str):
+    try:
+        source = self._single_source()
+        destination = parse_address(self.destination.text(), coin_symbol)
+        value = parse_ether_amount(self.amount.text())
+        priority_fee, max_fee = self._ethereum_fees()
+        rpc, target = self._ethereum_rpc(coin_symbol)
+    except ValueError as error:
+        self.app.show_error(error)
+        return
+    coin = ethereum_coins[coin_symbol]
+    private_key = self.app.wallet.private_key(source)
+    self.prepare_button.setEnabled(False)
+    self.app.worker.run(
+        lambda: ethereum_api.prepare_transfer(
+            coin,
+            rpc,
+            private_key,
+            destination,
+            value,
+            max_priority_fee_per_gas=priority_fee,
+            max_fee_per_gas=max_fee,
+        ),
+        lambda prepared: self._confirm_ethereum(rpc, coin_symbol, prepared, target),
+        self._failed,
+    )
+
+
+def _confirm_ethereum(self, rpc, coin_symbol: str, prepared, target: str):
+    self.prepare_button.setEnabled(True)
+    rows = describe_ethereum_transaction(prepared, coin_symbol, target)
+    if not confirm(self, 'Confirm transaction', rows, 'Send'):
+        return
+    self.prepare_button.setEnabled(False)
+    self.app.worker.run(
+        lambda: ethereum_api.broadcast_transaction(rpc, prepared), self._sent, self._failed
+    )
 ```
 
 W `_sent` dodaj `self.amount_note.clear()` i `self.form.setRowVisible(self.amount_note, False)`
@@ -1704,22 +1714,18 @@ musi dawać komunikat `Enter the address` w teście z kroku 1, gdy źródło jes
   salda miało nazwę zależną od monety:
 
 ```python
-        ethereum = is_ethereum(address.coin)
-        menu.addAction(
-            'Check balance' if ethereum else 'Check UTXO',
-            lambda: self.app.balance_tab.check_address(address),
-        )
-        menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
-        if not ethereum:
-            if get_any_coin(address.coin).get('apis'):
-                menu.addAction(
-                    'Sweep this address', lambda: self.app.sweep_tab.select_source(address)
-                )
-            sign_action = menu.addAction(
-                'Sign message', lambda: self.app.sign_tab.select_address(address)
-            )
-            sign_action.setEnabled(address.address_type != P2TR)
-            menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
+ethereum = is_ethereum(address.coin)
+menu.addAction(
+    'Check balance' if ethereum else 'Check UTXO',
+    lambda: self.app.balance_tab.check_address(address),
+)
+menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
+if not ethereum:
+    if get_any_coin(address.coin).get('apis'):
+        menu.addAction('Sweep this address', lambda: self.app.sweep_tab.select_source(address))
+    sign_action = menu.addAction('Sign message', lambda: self.app.sign_tab.select_address(address))
+    sign_action.setEnabled(address.address_type != P2TR)
+    menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
 ```
 
 - [ ] **Step 2:** `uv run python -m pytest -q && uv run ruff check . && uv run ruff format --check .` — PASS.
@@ -2244,7 +2250,9 @@ def test_translate_ethereum_key_to_bitcoin_in_wallet(window, monkeypatch):
 def test_translate_bitcoin_key_to_ethereum_in_wallet(window, monkeypatch):
     unlock(window)
     address = window.modify_wallet(
-        lambda wallet: wallet.add_wif('Btc', 'BTC', 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn', 'p2pkh')
+        lambda wallet: wallet.add_wif(
+            'Btc', 'BTC', 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn', 'p2pkh'
+        )
     )
 
     def accept(dialog):
@@ -2369,10 +2377,8 @@ W `__init__`: `self.key_output_coin = coin_box('LTC')` →
 `add_to_wallet` — `submit`:
 
 ```python
-        def submit(label, coin, key, address_type):
-            self.app.modify_wallet(
-                lambda wallet: add_private_key(wallet, label, coin, key, address_type)
-            )
+def submit(label, coin, key, address_type):
+    self.app.modify_wallet(lambda wallet: add_private_key(wallet, label, coin, key, address_type))
 ```
 
 - [ ] **Step 4:** `uv run python -m pytest tests/test_gui_forms.py tests/test_gui.py -q` — PASS.

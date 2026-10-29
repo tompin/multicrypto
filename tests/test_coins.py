@@ -1,6 +1,18 @@
+import pytest
 import validators
 
-from multicrypto.coins import ADDRESS_TYPES, P2PKH, P2SH_P2WPKH, P2WPKH, coins, get_address_types
+from multicrypto.coins import (
+    ADDRESS_TYPES,
+    ETHEREUM,
+    P2PKH,
+    P2SH_P2WPKH,
+    P2WPKH,
+    coins,
+    ethereum_coins,
+    get_address_types,
+    get_any_coin,
+    is_ethereum,
+)
 
 
 def test_apis_urls_not_ending_with_slash():
@@ -47,3 +59,20 @@ def test_slip44_coin_types():
         'TBTC': 1,
         'TLTC': 1,
     }
+
+
+def test_get_any_coin():
+    assert get_any_coin('BTC') is coins['BTC']
+    assert get_any_coin('TETH') is ethereum_coins['TETH']
+    with pytest.raises(ValueError, match='Unknown coin XYZ'):
+        get_any_coin('XYZ')
+
+
+def test_is_ethereum():
+    assert is_ethereum('ETH') and is_ethereum('TETH')
+    assert not is_ethereum('BTC')
+
+
+def test_address_types_of_ethereum_coins():
+    assert get_address_types(ethereum_coins['ETH']) == (ETHEREUM,)
+    assert get_address_types(coins['DOGE']) == ('p2pkh',)

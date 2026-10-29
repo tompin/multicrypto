@@ -6,6 +6,7 @@ import secrets
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional, Tuple, Union
 
+from multicrypto import ethereum
 from multicrypto.address import (
     convert_private_key_to_coin_address,
     convert_private_key_to_wif_format,
@@ -17,8 +18,20 @@ from multicrypto.address import (
 )
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_utxo_from_address
 from multicrypto.base58 import BASE58_ALPHABET, base58_to_bytes
-from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins, get_address_types
+from multicrypto.coins import (
+    ETHEREUM,
+    P2PKH,
+    P2SH_P2WPKH,
+    P2TR,
+    P2WPKH,
+    coins,
+    ethereum_coins,
+    get_address_types,
+    get_any_coin,
+    is_ethereum,
+)
 from multicrypto.ellipticcurve import secp256k1
+from multicrypto.ethereum_api import get_rpc
 from multicrypto.network import NetworkError, PeerAddress, parse_node_address
 from multicrypto.utils import double_sha256, get_integer
 from multicrypto.vanity import validate_vanity_pattern
@@ -87,6 +100,8 @@ def parse_address(text: str, coin_symbol: str) -> str:
     address = text.strip()
     if not address:
         raise ValueError('Enter the address')
+    if is_ethereum(coin_symbol):
+        return ethereum.validate_address(address)
     try:
         validate_address(address, coin_symbol)
     except ValueError:
@@ -126,11 +141,22 @@ def extract_txid(result: str) -> str:
 
 
 def is_testnet(coin_symbol: str) -> bool:
-    return 'testnet' in coins[coin_symbol]['name']
+    return 'testnet' in get_any_coin(coin_symbol)['name']
+
+
+def all_coins() -> List[str]:
+    return sorted([*coins, *ethereum_coins])
 
 
 def coins_with_api() -> List[str]:
+    """Coins with unspent outputs and block explorer API."""
     return sorted(symbol for symbol, coin in coins.items() if coin.get('apis'))
+
+
+def all_coins_with_api() -> List[str]:
+    """Coins with API, Ethereum coins use nodes and block explorers."""
+    ethereum_symbols = [symbol for symbol, coin in ethereum_coins.items() if coin.get('rpcs')]
+    return sorted(coins_with_api() + ethereum_symbols)
 
 
 ADDRESS_TYPE_NAMES = {
@@ -138,10 +164,13 @@ ADDRESS_TYPE_NAMES = {
     P2WPKH: 'Native SegWit',
     P2SH_P2WPKH: 'SegWit',
     P2PKH: 'Legacy',
+    ETHEREUM: 'Ethereum',
 }
 
 
 def address_type_name(address_type: str) -> str:
+    if address_type == ETHEREUM:
+        return ADDRESS_TYPE_NAMES[ETHEREUM]
     return f'{ADDRESS_TYPE_NAMES[address_type]} ({address_type})'
 
 
@@ -161,7 +190,36 @@ def address_details(wallet: Wallet, address: WalletAddress) -> List[Tuple[str, s
 
 
 def coins_with_slip44() -> List[str]:
-    return sorted(symbol for symbol, coin in coins.items() if 'slip44' in coin)
+    return sorted(
+        symbol for symbol, coin in {**coins, **ethereum_coins}.items() if 'slip44' in coin
+    )
+
+
+def scannable_coins() -> List[str]:
+    """Coins whose HD accounts can be scanned for used addresses."""
+    return sorted(set(coins_with_slip44()) & set(coins_with_api()))
+
+
+def format_coin_amount(coin_symbol: str, units: int) -> str:
+    """Amount in satoshis, or in wei for Ethereum coins, in coin units."""
+    if is_ethereum(coin_symbol):
+        return ethereum.format_ether(units)
+    return format_amount(units)
+
+
+def key_entry_address(coin_symbol: str, key: str, address_type: str) -> str:
+    """Address of the private key entered for the coin: hex for Ethereum, WIF for other coins."""
+    if is_ethereum(coin_symbol):
+        return ethereum.private_key_to_address(ethereum.parse_private_key(key))
+    return check_entry(coin_symbol, key, address_type)
+
+
+def add_private_key(
+    wallet: Wallet, label: str, coin_symbol: str, key: str, address_type: str
+) -> WalletAddress:
+    if is_ethereum(coin_symbol):
+        return wallet.add_ethereum_key(label, coin_symbol, key)
+    return wallet.add_wif(label, coin_symbol, key, address_type)
 
 
 def check_passphrase_confirmation(passphrase: str, confirmation: str) -> None:
@@ -182,9 +240,19 @@ def check_confirmation_words(mnemonic: str, answers: Dict[int, str]) -> None:
 
 
 def fetch_balances(addresses: List[WalletAddress]) -> Dict[str, Union[int, str]]:
-    """Return the sum of unspent outputs (or the error message) for the address ids."""
+    """Return the sum of unspent outputs, or the balance in wei of Ethereum addresses (or
+    the error message) for the address ids."""
     balances: Dict[str, Union[int, str]] = {}
+    rpcs = {}
     for address in addresses:
+        if is_ethereum(address.coin):
+            if address.coin not in rpcs:
+                rpcs[address.coin] = get_rpc(ethereum_coins[address.coin])
+            try:
+                balances[address.id] = rpcs[address.coin].get_balance(address.address)
+            except EXPECTED_ERRORS as error:
+                balances[address.id] = f'error: {error}'
+            continue
         coin = coins[address.coin]
         if not coin.get('apis'):
             balances[address.id] = 'no API'

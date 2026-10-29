@@ -5,9 +5,12 @@ import stat
 import pytest
 from nacl import pwhash
 
-from multicrypto.address import convert_private_key_to_wif_format
-from multicrypto.coins import coins
+from multicrypto.address import convert_private_key_to_wif_format, get_private_key_from_wif_format
+from multicrypto.bip32 import master_key_from_seed
+from multicrypto.bip39 import mnemonic_to_seed
+from multicrypto.coins import coins, ethereum_coins
 from multicrypto.ellipticcurve import secp256k1
+from multicrypto.ethereum import private_key_to_address
 from multicrypto.wallet import (
     CHANGE_CHAIN,
     HEADER_SIZE,
@@ -231,12 +234,13 @@ def test_add_default_groups():
 
     wallet.add_default_groups()
 
+    expected_coins = {**coins, **ethereum_coins}
     assert [(g.coin, g.number, len(g.accounts)) for g in wallet.account_groups()] == [
         (symbol, 0, len(group_address_types(symbol)))
-        for symbol, coin in coins.items()
+        for symbol, coin in expected_coins.items()
         if 'slip44' in coin
     ]
-    assert len(wallet.accounts) == len(wallet.addresses()) == 18
+    assert len(wallet.accounts) == len(wallet.addresses()) == 20
 
 
 def test_rename_and_remove_group():
@@ -361,7 +365,7 @@ def test_create_and_unlock(wallet_file):
     unlocked = WalletFile(wallet_file.path).unlock(PASSWORD, PASSPHRASE)
 
     assert unlocked.accounts == wallet.accounts
-    assert len(unlocked.accounts) == 18
+    assert len(unlocked.accounts) == 20  # 18 accounts of coins with UTXO, ETH and TETH
     assert address in unlocked.addresses()
 
 
@@ -609,3 +613,96 @@ def test_wallet_without_chain_field_is_loaded():
     loaded = Wallet.from_json(json.dumps(data).encode())
 
     assert loaded.accounts[0].addresses[0].chain == RECEIVE_CHAIN
+
+
+ETH_KEY = '46' * 32
+ETH_KEY_ADDRESS = '0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F'
+METAMASK_ADDRESS = '0x9858EfFD232B4033E47d90003D41EC34EcaEda94'  # m/44'/60'/0'/0/0 of MNEMONIC
+
+
+@pytest.mark.parametrize('coin_symbol', ['ETH', 'TETH'])
+def test_ethereum_group_has_metamask_addresses(coin_symbol):
+    wallet = Wallet.create(MNEMONIC, '')
+
+    group = wallet.add_account_group('', coin_symbol)
+
+    [account] = group.accounts
+    assert (account.address_type, account.path) == ('ethereum', "m/44'/60'/0'")
+    wallet.new_address(account.id)
+    first, second = wallet.account_addresses(account)
+    assert (first.path, first.address) == ("m/44'/60'/0'/0/0", METAMASK_ADDRESS)
+    root = master_key_from_seed(mnemonic_to_seed(MNEMONIC))
+    expected = private_key_to_address(root.derive_path("m/44'/60'/0'/0/1").private_key)
+    assert (second.path, second.address) == ("m/44'/60'/0'/0/1", expected)
+    assert group.label == ('Ethereum #0' if coin_symbol == 'ETH' else 'Ethereum Sepolia Testnet #0')
+
+
+def test_private_key_of_ethereum_address():
+    wallet = Wallet.create(MNEMONIC, '')
+    account = wallet.add_account_group('', 'ETH').accounts[0]
+    [address] = wallet.account_addresses(account)
+
+    private_key = wallet.private_key(address)
+
+    assert private_key_to_address(private_key) == METAMASK_ADDRESS
+    assert wallet.exported_private_key(address) == f'0x{private_key:064x}'
+    with pytest.raises(ValueError, match='not in WIF format'):
+        wallet.private_key_wif(address)
+
+
+def test_add_ethereum_key():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    address = wallet.add_ethereum_key('Key', 'ETH', ETH_KEY)
+
+    assert (address.coin, address.address_type, address.address) == (
+        'ETH',
+        'ethereum',
+        ETH_KEY_ADDRESS,
+    )
+    assert wallet.imported[0].wif == '0x' + ETH_KEY
+    assert wallet.private_key(address) == int(ETH_KEY, 16)
+    assert wallet.exported_private_key(address) == '0x' + ETH_KEY
+    with pytest.raises(ValueError, match='already in the wallet as "Key"'):
+        wallet.add_ethereum_key('Again', 'ETH', '0X' + ETH_KEY.upper())
+    assert wallet.add_ethereum_key('Testnet', 'TETH', ETH_KEY).address == ETH_KEY_ADDRESS
+
+
+@pytest.mark.parametrize(
+    'coin_symbol, key, message',
+    [
+        ('BTC', ETH_KEY, 'BTC is not an Ethereum coin'),
+        ('ETH', '1234', '64 hexadecimal digits'),
+    ],
+)
+def test_add_ethereum_key_rejects_incorrect_keys(coin_symbol, key, message):
+    with pytest.raises(ValueError, match=message):
+        Wallet.create(MNEMONIC, '').add_ethereum_key('Key', coin_symbol, key)
+
+
+def test_add_wif_rejects_ethereum_coin():
+    with pytest.raises(ValueError, match='imported in hex format'):
+        Wallet.create(MNEMONIC, '').add_wif('Key', 'ETH', BTC_WIF, 'ethereum')
+
+
+def test_private_key_of_imported_wif():
+    wallet = Wallet.create(MNEMONIC, '')
+
+    address = wallet.add_wif('Key', 'BTC', BTC_WIF, 'p2wpkh')
+
+    assert wallet.private_key(address) == get_private_key_from_wif_format(BTC_WIF)[0]
+    assert wallet.exported_private_key(address) == BTC_WIF
+
+
+def test_ethereum_accounts_and_keys_are_saved():
+    wallet = Wallet.create(MNEMONIC, '')
+    wallet.add_account_group('', 'ETH')
+    wallet.add_ethereum_key('Key', 'TETH', ETH_KEY)
+
+    restored = Wallet.from_json(wallet.to_json())
+    restored.open('')
+
+    assert [address.address for address in restored.addresses()] == [
+        METAMASK_ADDRESS,
+        ETH_KEY_ADDRESS,
+    ]

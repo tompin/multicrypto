@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 
 from multicrypto.address import translate_private_key
 from multicrypto.bip32 import HARDENED
-from multicrypto.coins import P2TR, P2WPKH, coins, get_address_types
+from multicrypto.coins import P2TR, P2WPKH, coins, get_address_types, get_any_coin, is_ethereum
 from multicrypto.gui.dialogs import (
     SecretDialog,
     ask_password,
@@ -39,10 +39,14 @@ from multicrypto.gui.dialogs import (
 from multicrypto.gui.forms import (
     ADDRESS_TYPE_NAMES,
     EXPECTED_ERRORS,
+    add_private_key,
     address_type_name,
+    all_coins,
     coins_with_slip44,
     fetch_balances,
-    format_amount,
+    format_coin_amount,
+    key_entry_address,
+    scannable_coins,
 )
 from multicrypto.gui.qr import QrDialog, qr_image
 from multicrypto.wallet import (
@@ -96,13 +100,16 @@ class _CoinTypeForm(QDialog):
 
     def _coin_changed(self):
         current = self.address_type.currentText()
-        address_types = get_address_types(coins[self.coin.currentText()])
+        coin_symbol = self.coin.currentText()
+        address_types = get_address_types(get_any_coin(coin_symbol))
         self.address_type.blockSignals(True)
         self.address_type.clear()
         self.address_type.addItems(address_types)
         if current in address_types:
             self.address_type.setCurrentText(current)
         self.address_type.blockSignals(False)
+        # Ethereum coins have one address type
+        self.form.setRowVisible(self.address_type, not is_ethereum(coin_symbol))
         self.update_preview()
 
     def update_preview(self):
@@ -358,7 +365,7 @@ class ReceiveDialog(_AccountTypeForm):
 
 class ImportWifDialog(_CoinTypeForm):
     def __init__(self, parent, submit, symbols: Optional[List[str]] = None):
-        super().__init__(parent, 'Import private key', symbols or sorted(coins), submit)
+        super().__init__(parent, 'Import private key', symbols or all_coins(), submit)
         self.wif = password_field()
         self.address = QLabel()
         self.form.addRow('Private key (WIF)', self.wif)
@@ -367,12 +374,15 @@ class ImportWifDialog(_CoinTypeForm):
         self.add_buttons()
 
     def update_preview(self):
-        wif = self.wif.text().strip()
-        if not wif:
+        coin_symbol = self.coin.currentText()
+        key_format = 'hex' if is_ethereum(coin_symbol) else 'WIF'
+        self.form.labelForField(self.wif).setText(f'Private key ({key_format})')
+        key = self.wif.text().strip()
+        if not key:
             self.address.setText('')
             return
         try:
-            address = check_entry(self.coin.currentText(), wif, self.address_type.currentText())
+            address = key_entry_address(coin_symbol, key, self.address_type.currentText())
         except ValueError as error:
             self.address.setText(f'({error})')
         else:
@@ -481,7 +491,7 @@ class WalletTab(QWidget):
         layout.addLayout(buttons)
 
     def _visible_groups(self) -> List[AccountGroup]:
-        visible = set(self.app.visible_coins(coins))
+        visible = set(self.app.visible_coins(all_coins()))
         return [group for group in self.app.wallet.account_groups() if group.coin in visible]
 
     def _expanded_changed(self, item: QTreeWidgetItem, expanded: bool):
@@ -497,7 +507,7 @@ class WalletTab(QWidget):
         selected = self._selected()
         self.tree.clear()
         wallet = self.app.wallet
-        visible = set(self.app.visible_coins(coins))
+        visible = set(self.app.visible_coins(all_coins()))
         for group in self._visible_groups():
             accounts = [(account, wallet.account_addresses(account)) for account in group.accounts]
             group_addresses = [address for _, addresses in accounts for address in addresses]
@@ -539,7 +549,7 @@ class WalletTab(QWidget):
 
     def _add_address_item(self, parent: QTreeWidgetItem, address: WalletAddress, path: str):
         item = QTreeWidgetItem(
-            parent, [address.label, path, address.address, self._balance_text(address.id)]
+            parent, [address.label, path, address.address, self._balance_text(address)]
         )
         item.setData(0, ITEM_ROLE, (ADDRESS, address.id))
         self._align_balance(item)
@@ -548,17 +558,18 @@ class WalletTab(QWidget):
     def _align_balance(item: QTreeWidgetItem):
         item.setTextAlignment(3, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-    def _balance_text(self, address_id: str) -> str:
-        balance = self.balances.get(address_id)
+    def _balance_text(self, address: WalletAddress) -> str:
+        balance = self.balances.get(address.id)
         if balance is None:
             return ''
-        return format_amount(balance) if isinstance(balance, int) else balance
+        return format_coin_amount(address.coin, balance) if isinstance(balance, int) else balance
 
     def _sum_text(self, addresses: List[WalletAddress]) -> str:
-        """Sum of the known balances of the addresses (balances not fetched are skipped)."""
+        """Sum of the known balances of the addresses of one coin (balances not fetched are
+        skipped)."""
         balances = [self.balances.get(address.id) for address in addresses]
         known = [balance for balance in balances if isinstance(balance, int)]
-        return format_amount(sum(known)) if known else ''
+        return format_coin_amount(addresses[0].coin, sum(known)) if known else ''
 
     def clear(self):
         self.tree.clear()
@@ -655,10 +666,12 @@ class WalletTab(QWidget):
         return address
 
     def import_wif(self):
-        def submit(label, coin, wif, address_type):
-            self.app.modify_wallet(lambda wallet: wallet.add_wif(label, coin, wif, address_type))
+        def submit(label, coin, key, address_type):
+            self.app.modify_wallet(
+                lambda wallet: add_private_key(wallet, label, coin, key, address_type)
+            )
 
-        ImportWifDialog(self, submit, self.app.visible_coins(sorted(coins))).exec()
+        ImportWifDialog(self, submit, self.app.visible_coins(all_coins())).exec()
 
     def translate_key(self, address: WalletAddress):
         def submit(label, coin, wif, address_type):
@@ -706,11 +719,12 @@ class WalletTab(QWidget):
             return
         if self.app.wallet is None:
             return
+        key_format = ' (hex)' if is_ethereum(address.coin) else ''
         SecretDialog(
             self,
-            f'Private key of "{address.label}"',
+            f'Private key{key_format} of "{address.label}"',
             f'{address.coin} {address.address_type} {address.address}',
-            secret_line(self.app.wallet.private_key_wif(address)),
+            secret_line(self.app.wallet.exported_private_key(address)),
         ).exec()
 
     def rename(self):
@@ -790,14 +804,14 @@ class WalletTab(QWidget):
 
     def _account_actions(self, account) -> Dict[str, Callable[[], None]]:
         actions = {'New address...': self.new_address}
-        if coins[account.coin].get('apis'):
+        if account.coin in scannable_coins():
             actions['Scan for used addresses'] = lambda: self.app.background_scan.start_account(
                 account
             )
         return actions
 
     def _group_actions(self, coin_symbol: str) -> Dict[str, Callable[[], None]]:
-        if not coins[coin_symbol].get('apis'):
+        if coin_symbol not in scannable_coins():
             return {}
         return {'Scan for used addresses': lambda: self.app.background_scan.start_coin(coin_symbol)}
 
@@ -829,15 +843,20 @@ class WalletTab(QWidget):
         menu = QMenu(self)
         menu.addAction('Copy address', self.copy_address)
         menu.addAction('Show QR...', self.show_qr)
-        menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
-        menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
-        if coins[address.coin].get('apis'):
-            menu.addAction('Sweep this address', lambda: self.app.sweep_tab.select_source(address))
-        sign_action = menu.addAction(
-            'Sign message', lambda: self.app.sign_tab.select_address(address)
-        )
-        sign_action.setEnabled(address.address_type != P2TR)
-        menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
+        if not is_ethereum(address.coin):
+            menu.addAction('Check UTXO', lambda: self.app.balance_tab.check_address(address))
+            menu.addAction(
+                'Send from this address', lambda: self.app.send_tab.select_source(address)
+            )
+            if get_any_coin(address.coin).get('apis'):
+                menu.addAction(
+                    'Sweep this address', lambda: self.app.sweep_tab.select_source(address)
+                )
+            sign_action = menu.addAction(
+                'Sign message', lambda: self.app.sign_tab.select_address(address)
+            )
+            sign_action.setEnabled(address.address_type != P2TR)
+            menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
         menu.addAction('Rename...', self.rename)
         menu.addAction('Show key...', self.show_key)
         menu.exec(self.tree.viewport().mapToGlobal(position))

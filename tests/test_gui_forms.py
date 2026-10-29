@@ -4,6 +4,7 @@ from tests import http_mock
 from multicrypto.api import InsufficientFundsError, PreparedTransaction, get_api
 from multicrypto.coins import coins
 from multicrypto.gui.forms import (
+    add_private_key,
     address_details,
     address_type_name,
     check_confirmation_words,
@@ -12,9 +13,14 @@ from multicrypto.gui.forms import (
     check_signable,
     check_sources,
     choose_word_positions,
+    all_coins,
+    all_coins_with_api,
     coins_with_api,
     coins_with_slip44,
+    format_coin_amount,
     is_testnet,
+    key_entry_address,
+    scannable_coins,
     describe_error,
     describe_sweep,
     describe_transaction,
@@ -457,3 +463,63 @@ def test_parse_fee_rate(text, rate):
 def test_parse_fee_rate_errors(text, error):
     with pytest.raises(ValueError, match=error):
         parse_fee_rate(text)
+
+
+ETH_KEY = '46' * 32
+ETH_KEY_ADDRESS = '0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F'
+ETH_NODE = 'https://ethereum-rpc.publicnode.com'
+
+
+def test_coin_lists_with_ethereum():
+    assert all_coins() == sorted([*coins, 'ETH', 'TETH'])
+    assert {'ETH', 'TETH'} <= set(all_coins_with_api())
+    assert {'ETH', 'TETH'} <= set(coins_with_slip44())
+    assert 'ETH' not in coins_with_api()  # coins with unspent outputs, e.g. for Sweep
+    assert 'ETH' not in scannable_coins()  # until discovery supports Ethereum
+    assert is_testnet('TETH') and not is_testnet('ETH')
+
+
+def test_format_coin_amount():
+    assert format_coin_amount('BTC', 150000000) == '1.50000000'
+    assert format_coin_amount('ETH', 10**18 + 5) == '1.000000000000000005'
+    assert format_coin_amount('TETH', 0) == '0'
+
+
+def test_address_type_name_of_ethereum():
+    assert address_type_name('ethereum') == 'Ethereum'
+    assert address_type_name('p2wpkh') == 'Native SegWit (p2wpkh)'
+
+
+def test_key_entry_address():
+    assert key_entry_address('ETH', '0x' + ETH_KEY, 'ethereum') == ETH_KEY_ADDRESS
+    with pytest.raises(ValueError, match='64 hexadecimal digits'):
+        key_entry_address('ETH', 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn', 'ethereum')
+
+
+def test_add_private_key():
+    wallet = Wallet.create(' '.join(['abandon'] * 11 + ['about']), '')
+
+    eth = add_private_key(wallet, 'Eth', 'ETH', ETH_KEY, 'ethereum')
+    btc = add_private_key(
+        wallet, 'Btc', 'BTC', 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn', 'p2pkh'
+    )
+
+    assert eth.address == ETH_KEY_ADDRESS
+    assert btc.address == '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH'
+
+
+def test_parse_ethereum_address():
+    assert parse_address(' ' + ETH_KEY_ADDRESS.lower(), 'TETH') == ETH_KEY_ADDRESS
+    with pytest.raises(ValueError, match='checksum'):
+        parse_address(ETH_KEY_ADDRESS.replace('d', 'D', 1), 'ETH')
+
+
+@http_mock.activate
+def test_fetch_balances_of_ethereum_addresses():
+    http_mock.add(http_mock.POST, ETH_NODE, json={'jsonrpc': '2.0', 'id': 1, 'result': hex(10**18)})
+
+    balances = fetch_balances(
+        [make_address('e', coin='ETH', address_type='ethereum', address=ETH_KEY_ADDRESS)]
+    )
+
+    assert balances == {'e': 10**18}

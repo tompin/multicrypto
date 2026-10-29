@@ -4,6 +4,9 @@ P2SH_P2WPKH = 'p2sh-p2wpkh'  # segwit nested in P2SH, e.g. 3... for BTC
 P2WPKH = 'p2wpkh'  # native segwit (bech32), e.g. bc1q... for BTC
 P2TR = 'p2tr'  # taproot key path only (bech32m, BIP-86), e.g. bc1p... for BTC
 ADDRESS_TYPES = (P2PKH, P2SH_P2WPKH, P2WPKH, P2TR)
+# Pseudo address type of Ethereum coins, they have one kind of addresses (not in ADDRESS_TYPES,
+# which lists the address types of the coins with unspent outputs)
+ETHEREUM = 'ethereum'
 
 # Dictionary with coins definition with coin symbols as keys. Optional 'address_types' lists
 # supported address types (only P2PKH by default), P2WPKH and P2TR require also 'bech32_hrp'.
@@ -170,8 +173,23 @@ ethereum_coins = {
 
 
 def get_address_types(coin):
+    if 'chain_id' in coin:
+        return (ETHEREUM,)
     return coin.get('address_types', (P2PKH,))
 
 
 def get_coins_with_api():
     return ','.join(coin['name'].title() for coin in coins.values() if coin.get('apis'))
+
+
+def get_any_coin(coin_symbol):
+    """Definition of the coin with unspent outputs or of the Ethereum coin."""
+    if coin_symbol in coins:
+        return coins[coin_symbol]
+    if coin_symbol in ethereum_coins:
+        return ethereum_coins[coin_symbol]
+    raise ValueError(f'Unknown coin {coin_symbol}')
+
+
+def is_ethereum(coin_symbol):
+    return coin_symbol in ethereum_coins

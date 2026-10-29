@@ -27,6 +27,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from nacl import bindings, pwhash
 from nacl.exceptions import CryptoError
 
+from multicrypto import ethereum
 from multicrypto.address import (
     convert_private_key_to_coin_address,
     convert_private_key_to_wif_format,
@@ -36,7 +37,18 @@ from multicrypto.address import (
 from multicrypto.base58 import BASE58_ALPHABET, base58_to_bytes
 from multicrypto.bip32 import HARDENED, ExtendedKey, master_key_from_seed
 from multicrypto.bip39 import mnemonic_to_seed, normalize_mnemonic, validate_mnemonic
-from multicrypto.coins import P2PKH, P2SH_P2WPKH, P2TR, P2WPKH, coins, get_address_types
+from multicrypto.coins import (
+    ETHEREUM,
+    P2PKH,
+    P2SH_P2WPKH,
+    P2TR,
+    P2WPKH,
+    coins,
+    ethereum_coins,
+    get_address_types,
+    get_any_coin,
+    is_ethereum,
+)
 from multicrypto.ellipticcurve import secp256k1
 from multicrypto.utils import double_sha256
 
@@ -51,9 +63,9 @@ DEFAULT_PATH = os.path.join(os.path.expanduser('~'), '.multicrypto', 'wallet.mcw
 DEFAULT_OPSLIMIT = pwhash.argon2id.OPSLIMIT_MODERATE
 DEFAULT_MEMLIMIT = pwhash.argon2id.MEMLIMIT_MODERATE
 MIN_PASSWORD_LENGTH = 10
-PURPOSES = {P2PKH: 44, P2SH_P2WPKH: 49, P2WPKH: 84, P2TR: 86}
-# order of the accounts of the group, like in Ledger Live
-ADDRESS_TYPE_ORDER = (P2TR, P2WPKH, P2SH_P2WPKH, P2PKH)
+PURPOSES = {P2PKH: 44, P2SH_P2WPKH: 49, P2WPKH: 84, P2TR: 86, ETHEREUM: 44}
+# order of the accounts of the group, like in Ledger Live (Ethereum groups have one account)
+ADDRESS_TYPE_ORDER = (P2TR, P2WPKH, P2SH_P2WPKH, P2PKH, ETHEREUM)
 RECEIVE_CHAIN = 0
 CHANGE_CHAIN = 1
 CHAIN_LABELS = {RECEIVE_CHAIN: 'Address', CHANGE_CHAIN: 'Change'}
@@ -67,9 +79,7 @@ class WalletError(Exception):
 
 
 def get_coin(coin_symbol: str) -> Dict[str, Any]:
-    if coin_symbol not in coins:
-        raise ValueError(f'Unknown coin {coin_symbol}')
-    return coins[coin_symbol]
+    return get_any_coin(coin_symbol)
 
 
 def check_wif_private_key(wif_private_key: str, coin_symbol: str) -> None:
@@ -93,6 +103,8 @@ def check_wif_private_key(wif_private_key: str, coin_symbol: str) -> None:
 def check_entry(coin_symbol: str, wif_private_key: str, address_type: str) -> str:
     """Validate imported private key data and return its address."""
     coin = get_coin(coin_symbol)
+    if is_ethereum(coin_symbol):
+        raise ValueError('Ethereum private keys are imported in hex format')
     validate_address_type(address_type, coin)
     check_wif_private_key(wif_private_key, coin_symbol)
     private_key, compressed = get_private_key_from_wif_format(wif_private_key)
@@ -166,7 +178,8 @@ class AccountGroup:
 
 @dataclass
 class ImportedKey:
-    """Private key imported in WIF format, which is not derived from the mnemonic."""
+    """Private key which is not derived from the mnemonic, in the export format of the coin:
+    WIF, or hex (0x and 64 digits) for Ethereum coins (the field keeps its name in the file)."""
 
     label: str
     coin: str
@@ -177,6 +190,8 @@ class ImportedKey:
 
     @cached_property
     def address(self) -> str:
+        if self.address_type == ETHEREUM:
+            return ethereum.private_key_to_address(ethereum.parse_private_key(self.wif))
         private_key, compressed = get_private_key_from_wif_format(self.wif)
         return convert_private_key_to_coin_address(
             private_key, coins[self.coin], compressed, self.address_type
@@ -267,9 +282,13 @@ class Wallet:
         cache_key = (account.coin, account.path, chain, index)
         if cache_key not in self._addresses:
             private_key = self._derive(account, chain, index).private_key
-            self._addresses[cache_key] = convert_private_key_to_coin_address(
-                private_key, coins[account.coin], True, account.address_type
-            )
+            if account.address_type == ETHEREUM:
+                address = ethereum.private_key_to_address(private_key)
+            else:
+                address = convert_private_key_to_coin_address(
+                    private_key, coins[account.coin], True, account.address_type
+                )
+            self._addresses[cache_key] = address
         return self._addresses[cache_key]
 
     def _hd_address(self, account: HDAccount, hd_address: HDAddress) -> WalletAddress:
@@ -327,7 +346,11 @@ class Wallet:
             raise ValueError(
                 f'{coin_symbol} has no SLIP-44 coin type, its keys can be only imported'
             )
-        validate_address_type(address_type, coin)
+        if is_ethereum(coin_symbol):
+            if address_type != ETHEREUM:
+                raise ValueError(f'Address type of {coin_symbol} must be {ETHEREUM}')
+        else:
+            validate_address_type(address_type, coin)
         if account is None:
             account = self.next_account_number(coin_symbol, address_type)
         if not 0 <= account < HARDENED:
@@ -367,7 +390,7 @@ class Wallet:
 
     def add_default_groups(self) -> None:
         """Add the first account group of every coin with SLIP-44 coin type."""
-        for coin_symbol, coin in coins.items():
+        for coin_symbol, coin in {**coins, **ethereum_coins}.items():
             if 'slip44' in coin:
                 self.add_account_group('', coin_symbol, 0)
 
@@ -451,6 +474,19 @@ class Wallet:
         self.imported.append(key)
         return self._imported_address(key)
 
+    def add_ethereum_key(self, label: str, coin_symbol: str, private_key_hex: str) -> WalletAddress:
+        """Import Ethereum private key in hex format, raise ValueError when it is incorrect or
+        present."""
+        if not is_ethereum(coin_symbol):
+            raise ValueError(f'{coin_symbol} is not an Ethereum coin')
+        key_hex = ethereum.format_private_key(ethereum.parse_private_key(private_key_hex))
+        for key in self.imported:
+            if (key.coin, key.wif) == (coin_symbol, key_hex):
+                raise ValueError(f'Address {key.address} is already in the wallet as "{key.label}"')
+        key = ImportedKey(label, coin_symbol, key_hex, ETHEREUM)
+        self.imported.append(key)
+        return self._imported_address(key)
+
     def account_addresses(self, account: HDAccount) -> List[WalletAddress]:
         addresses = sorted(account.addresses, key=lambda address: (address.chain, address.index))
         return [self._hd_address(account, hd_address) for hd_address in addresses]
@@ -494,13 +530,30 @@ class Wallet:
         item, container, _ = self._locate(item_id)
         container[:] = [element for element in container if element is not item]
 
+    def private_key(self, address: WalletAddress) -> int:
+        if address.account_id is None:
+            key = self._locate(address.id)[0]
+            if key.address_type == ETHEREUM:
+                return ethereum.parse_private_key(key.wif)
+            return get_private_key_from_wif_format(key.wif)[0]
+        account = self.get_account(address.account_id)
+        return self._derive(account, address.chain, address.index).private_key
+
     def private_key_wif(self, address: WalletAddress) -> str:
+        if address.address_type == ETHEREUM:
+            raise ValueError('Ethereum private keys are not in WIF format')
         if address.account_id is None:
             return self._locate(address.id)[0].wif
         account = self.get_account(address.account_id)
         return generate_wif(
             account.coin, self._derive(account, address.chain, address.index).private_key
         )
+
+    def exported_private_key(self, address: WalletAddress) -> str:
+        """Private key in WIF format, or in hex format for Ethereum."""
+        if address.address_type == ETHEREUM:
+            return ethereum.format_private_key(self.private_key(address))
+        return self.private_key_wif(address)
 
     def to_json(self) -> bytes:
         return json.dumps(
