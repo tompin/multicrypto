@@ -367,6 +367,12 @@ class PreparedTransaction:
     vsize: int = 0
 
 
+def coin_dust_threshold(coin: Coin, address: str) -> int:
+    """Smallest amount of the output to the address which nodes of the coin relay: the dust
+    threshold of Bitcoin Core, or the dust limit of the coin when it is bigger (Dogecoin)."""
+    return max(get_dust_threshold(address_to_script(address, coin)), coin.get('dust_limit', 0))
+
+
 def build_transaction(
     coin: Coin,
     inputs: List[Dict[str, Any]],
@@ -383,7 +389,7 @@ def build_transaction(
     outputs = [{'address': destination_address, 'satoshis': satoshis}]
     change = input_satoshis - satoshis - fee
     change_added_to_fee = 0
-    dust_threshold = get_dust_threshold(address_to_script(change_address, coin))
+    dust_threshold = coin_dust_threshold(coin, change_address)
     if change >= dust_threshold:
         outputs.append({'address': change_address, 'satoshis': change})
     elif change > 0:
@@ -619,7 +625,7 @@ def prepare_sweep(
     utxos = [utxo for utxo in utxos if utxo]
     if not utxos:
         raise ValueError('No inputs found for the private key')
-    dust_threshold = get_dust_threshold(address_to_script(destination_address, coin))
+    dust_threshold = coin_dust_threshold(coin, destination_address)
     prepared = []
     for start in range(0, len(utxos), batch_size):
         batch = utxos[start : start + batch_size]

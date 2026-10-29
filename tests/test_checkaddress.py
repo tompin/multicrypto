@@ -132,7 +132,9 @@ def test_checkadress_minimum_input_greater_than_maximum_input_failure():
 
 
 @patch.object(sys, 'argv', ['', '-a', 'DGyUmjSLAabzjui4NbjWT1ktjasFpzxXRm', '-c', 'DOGE'])
-def test_checkadress_no_api_failure():
+def test_checkadress_no_api_failure(monkeypatch):
+    monkeypatch.delitem(coins['DOGE'], 'apis')
+
     with pytest.raises(Exception) as exc_info:
         main()
 

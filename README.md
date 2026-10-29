@@ -310,7 +310,7 @@ recovered without both of them.
 | --- | --- | --- | --- | --- | --- |
 | Bitcoin | BTC | Yes | Yes | Yes | Yes |
 | Dash | DASH | Yes | Yes | Yes | No |
-| Dogecoin | DOGE | Yes | No | No | No |
+| Dogecoin | DOGE | Yes | Yes | Yes | No |
 | Litecoin | LTC | Yes | Yes | Yes | Yes |
 | Bitcoin testnet | TBTC | Yes | Yes | Yes | Yes |
 | Litecoin testnet | TLTC | Yes | Yes | Yes | Yes |
@@ -458,6 +458,13 @@ mempool.space, blockstream.info) need `'type': 'esplora'`, for Bitcoin:
 Block explorers with the API v2 of Blockbook (explorer of Trezor) need `'type': 'blockbook'` and
 the URL ending with `/api/v2` (see DASH above). Unspent outputs of coinbase transactions with less
 than 100 confirmations are skipped, nodes reject transactions spending them.
+Coins with their own dust limit (Dogecoin Core requires an extra fee for outputs below 0.01 DOGE)
+define `dust_limit` in satoshis, change below it is added to the fee. Optional `high_fee_rate` in
+sat/vB (1000 by default) is the fee rate above which the GUI warns before sending, for Dogecoin:
+```python
+'dust_limit': 10**6,
+'high_fee_rate': 10**6,
+```
 Optional `network` entry enables `multicrypto.network`. Values come from chainparams.cpp
 (`pchMessageStart`, `nDefaultPort`, `vSeeds`) and version.h (`PROTOCOL_VERSION`):
 ```python

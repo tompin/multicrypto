@@ -79,7 +79,9 @@ def test_discover_scans_account_groups():
     assert sum(checked) == (41 + 120) + (42 + 120) + 160
 
 
-def test_discover_coin_without_api():
+def test_discover_coin_without_api(monkeypatch):
+    monkeypatch.delitem(coins['DOGE'], 'apis')
+
     with pytest.raises(ValueError, match='DOGE cannot be scanned'):
         discover(Wallet.create(MNEMONIC, ''), 'DOGE', lambda count: None, lambda: False)
 

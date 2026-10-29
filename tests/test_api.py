@@ -6,6 +6,7 @@ from tests import http_mock
 
 from multicrypto.api import (
     BlockbookAPI,
+    coin_dust_threshold,
     EsploraAPI,
     InsightAPI,
     InsufficientFundsError,
@@ -841,3 +842,31 @@ def test_blockbook_api_rate_limit():
 
     with pytest.raises(RateLimitError):
         BlockbookAPI(BLOCKBOOK_COIN).get_utxo(BLOCKBOOK_ADDRESS)
+
+
+DOGE_ADDRESS = 'DMD3LjhxVwpTXs1f7ckpUm9L2GbQxu38cn'
+
+
+def test_coin_dust_threshold():
+    assert coin_dust_threshold(coins['BTC'], SEGWIT_ADDRESS) == 294
+    # Dogecoin Core requires extra fee for outputs below 0.01 DOGE (soft dust limit)
+    assert coin_dust_threshold(coins['DOGE'], DOGE_ADDRESS) == 10**6
+
+
+def test_dogecoin_change_below_dust_limit_is_added_to_fee():
+    utxos = [
+        {
+            'txid': '11' * 32,
+            'vout': 0,
+            'satoshis': 10**8,
+            'address': DOGE_ADDRESS,
+            'source_address': DOGE_ADDRESS,
+            'scriptPubKey': address_to_script(DOGE_ADDRESS, coins['DOGE']).hex(),
+            'private_key': 12345,
+        }
+    ]
+
+    prepared = prepare_utxos(coins['DOGE'], utxos, DOGE_ADDRESS, 10**8 - 1_200_000, 300_000)
+
+    assert prepared.outputs == [{'address': DOGE_ADDRESS, 'satoshis': 10**8 - 1_200_000}]
+    assert prepared.change_added_to_fee == 900_000

@@ -276,7 +276,8 @@ def fetch_balances(addresses: List[WalletAddress]) -> Dict[str, Union[int, str]]
     return balances
 
 
-HIGH_FEE_RATE = 1000  # sat/vB, the confirmation shows a warning above it
+# sat/vB, the confirmation shows a warning above it (coins can have their own 'high_fee_rate')
+HIGH_FEE_RATE = 1000
 
 
 def parse_fee_rate(text: str) -> float:
@@ -337,8 +338,9 @@ def describe_transaction(
         ('Size', f'{_vsize(prepared)} vB ({len(prepared.raw_transaction) // 2} bytes)'),
         ('Broadcast', broadcast_target),
     ]
-    if _fee_rate(prepared) > HIGH_FEE_RATE:
-        rows.append(('Warning', f'Fee rate is above {HIGH_FEE_RATE} sat/vB'))
+    high_fee_rate = coins[coin_symbol].get('high_fee_rate', HIGH_FEE_RATE)
+    if _fee_rate(prepared) > high_fee_rate:
+        rows.append(('Warning', f'Fee rate is above {high_fee_rate} sat/vB'))
     return rows
 
 

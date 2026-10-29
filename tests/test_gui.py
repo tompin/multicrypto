@@ -1171,6 +1171,7 @@ def test_group_menu_scans_coin(window, monkeypatch):
     window.wallet_tab._group_actions('LTC')['Scan for used addresses']()
 
     assert started == ['LTC']
+    monkeypatch.delitem(coins['DOGE'], 'apis')
     assert window.wallet_tab._group_actions('DOGE') == {}
 
 

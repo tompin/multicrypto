@@ -184,6 +184,22 @@ def test_describe_transaction_with_high_fee_rate():
     assert rows[-1] == ('Warning', 'Fee rate is above 1000 sat/vB')
 
 
+def test_describe_transaction_with_high_fee_rate_of_coin():
+    # 20000 sat/vB is a usual fee rate of Dogecoin (0.2 DOGE/kB)
+    prepared = PreparedTransaction(
+        '00' * 10, [{}], [{'address': 'dest', 'satoshis': 10**8}], 2 * 10**8, 20000, vsize=1
+    )
+
+    assert describe_transaction(prepared, 'DOGE', ['src'], 'API')[-1][0] != 'Warning'
+    prepared = PreparedTransaction(
+        '00' * 10, [{}], [{'address': 'dest', 'satoshis': 10**8}], 2 * 10**8, 2 * 10**6, vsize=1
+    )
+    assert describe_transaction(prepared, 'DOGE', ['src'], 'API')[-1] == (
+        'Warning',
+        'Fee rate is above 1000000 sat/vB',
+    )
+
+
 def test_describe_transaction_with_change_added_to_fee():
     prepared = PreparedTransaction(
         '00', [{}], [{'address': 'dest', 'satoshis': 98707}], 100000, 1000, 293
@@ -297,10 +313,11 @@ def test_coins_with_slip44(monkeypatch):
 
 
 @http_mock.activate
-def test_fetch_balances():
+def test_fetch_balances(monkeypatch):
     api_url = get_api(coins['BTC']).base_url
     failing_address = 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
-    no_api_coin = next(symbol for symbol, coin in coins.items() if not coin.get('apis'))
+    no_api_coin = 'DOGE'
+    monkeypatch.delitem(coins[no_api_coin], 'apis')
     http_mock.add(
         http_mock.GET,
         f'{api_url}/address/{SEGWIT_ADDRESS}/utxo',

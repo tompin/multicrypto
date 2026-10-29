@@ -64,6 +64,11 @@ coins = {
         'address_prefix_bytes': b'\x1e',
         'secret_prefix_bytes': b'\x9e',
         'script_prefix_bytes': b'\x16',
+        'apis': [{'url': 'https://dogecoin.atomicwallet.io/api/v2', 'type': 'blockbook'}],
+        # Dogecoin Core 1.14.5+ requires an extra fee for outputs below 0.01 DOGE (soft dust
+        # limit), fees are much higher in satoshis per byte than for bitcoin
+        'dust_limit': 10**6,
+        'high_fee_rate': 10**6,
         'network': {
             'magic': b'\xc0\xc0\xc0\xc0',
             'port': 22556,
