@@ -473,11 +473,20 @@ def parse_private_key_input(text: str, integer: bool) -> str:
     return value
 
 
+def translated_private_key(wif: str, output_symbol: str) -> str:
+    """Private key in WIF format of another coin, or in hex format for Ethereum."""
+    if is_ethereum(output_symbol):
+        return ethereum.format_private_key(get_private_key_from_wif_format(wif)[0])
+    return translate_private_key(wif, coins[output_symbol]['secret_prefix_bytes'])
+
+
 def translated_key_addresses(wif: str, output_symbol: str) -> Tuple[str, List[Tuple[str, str]]]:
-    """Private key in WIF format of another coin and its addresses of all supported types."""
-    coin = coins[output_symbol]
-    translated = translate_private_key(wif, coin['secret_prefix_bytes'])
+    """Private key of another coin and its addresses of all supported types."""
+    translated = translated_private_key(wif, output_symbol)
     private_key, compressed = get_private_key_from_wif_format(wif)
+    if is_ethereum(output_symbol):
+        return translated, [(ETHEREUM, ethereum.private_key_to_address(private_key))]
+    coin = coins[output_symbol]
     address_types = get_address_types(coin) if compressed else (P2PKH,)
     return translated, [
         (
@@ -486,6 +495,16 @@ def translated_key_addresses(wif: str, output_symbol: str) -> Tuple[str, List[Tu
         )
         for address_type in address_types
     ]
+
+
+def source_wif(wallet: Wallet, address: WalletAddress) -> str:
+    """Private key of the wallet address in WIF format, Ethereum keys as bitcoin WIF with
+    compressed public key, so they can be translated to other coins."""
+    if is_ethereum(address.coin):
+        return convert_private_key_to_wif_format(
+            wallet.private_key(address), coins['BTC']['secret_prefix_bytes']
+        )
+    return wallet.private_key_wif(address)
 
 
 def parse_vanity_pattern(text: str, coin_symbol: str, address_type: str) -> str:

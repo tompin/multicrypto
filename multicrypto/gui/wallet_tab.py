@@ -25,9 +25,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from multicrypto.address import translate_private_key
 from multicrypto.bip32 import HARDENED
-from multicrypto.coins import P2TR, P2WPKH, coins, get_address_types, get_any_coin, is_ethereum
+from multicrypto.coins import P2TR, P2WPKH, get_address_types, get_any_coin, is_ethereum
 from multicrypto.gui.dialogs import (
     SecretDialog,
     ask_password,
@@ -47,13 +46,14 @@ from multicrypto.gui.forms import (
     format_coin_amount,
     key_entry_address,
     scannable_coins,
+    source_wif,
+    translated_private_key,
 )
 from multicrypto.gui.qr import QrDialog, qr_image
 from multicrypto.wallet import (
     AccountGroup,
     WalletAddress,
     account_path,
-    check_entry,
     group_address_types,
 )
 
@@ -413,7 +413,7 @@ class TranslateKeyDialog(_CoinTypeForm):
         coin_symbol='BTC',
         symbols: Optional[List[str]] = None,
     ):
-        super().__init__(parent, title, symbols or sorted(coins), submit)
+        super().__init__(parent, title, symbols or all_coins(), submit)
         self.source_wif = wif
         self.base_label = label
         self.address = QLabel()
@@ -422,15 +422,14 @@ class TranslateKeyDialog(_CoinTypeForm):
         self.add_buttons()
 
     def _translated_wif(self) -> str:
-        prefix = coins[self.coin.currentText()]['secret_prefix_bytes']
-        return translate_private_key(self.source_wif, prefix)
+        return translated_private_key(self.source_wif, self.coin.currentText())
 
     def update_preview(self):
         coin_symbol = self.coin.currentText()
         if not self.label.isModified():
             self.label.setText(f'{self.base_label} ({coin_symbol})')
         try:
-            address = check_entry(
+            address = key_entry_address(
                 coin_symbol, self._translated_wif(), self.address_type.currentText()
             )
         except ValueError as error:
@@ -674,16 +673,18 @@ class WalletTab(QWidget):
         ImportWifDialog(self, submit, self.app.visible_coins(all_coins())).exec()
 
     def translate_key(self, address: WalletAddress):
-        def submit(label, coin, wif, address_type):
-            self.app.modify_wallet(lambda wallet: wallet.add_wif(label, coin, wif, address_type))
+        def submit(label, coin, key, address_type):
+            self.app.modify_wallet(
+                lambda wallet: add_private_key(wallet, label, coin, key, address_type)
+            )
 
         TranslateKeyDialog(
             self,
             'Translate to another coin',
-            self.app.wallet.private_key_wif(address),
+            source_wif(self.app.wallet, address),
             address.label,
             submit,
-            symbols=self.app.visible_coins(sorted(coins)),
+            symbols=self.app.visible_coins(all_coins()),
         ).exec()
 
     def copy_address(self):
@@ -849,16 +850,13 @@ class WalletTab(QWidget):
             lambda: self.app.balance_tab.check_address(address),
         )
         menu.addAction('Send from this address', lambda: self.app.send_tab.select_source(address))
-        if not ethereum:
-            if get_any_coin(address.coin).get('apis'):
-                menu.addAction(
-                    'Sweep this address', lambda: self.app.sweep_tab.select_source(address)
-                )
-            sign_action = menu.addAction(
-                'Sign message', lambda: self.app.sign_tab.select_address(address)
-            )
-            sign_action.setEnabled(address.address_type != P2TR)
-            menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
+        if not ethereum and get_any_coin(address.coin).get('apis'):
+            menu.addAction('Sweep this address', lambda: self.app.sweep_tab.select_source(address))
+        sign_action = menu.addAction(
+            'Sign message', lambda: self.app.sign_tab.select_address(address)
+        )
+        sign_action.setEnabled(address.address_type != P2TR)
+        menu.addAction('Translate to another coin...', lambda: self.translate_key(address))
         menu.addAction('Rename...', self.rename)
         menu.addAction('Show key...', self.show_key)
         menu.exec(self.tree.viewport().mapToGlobal(position))

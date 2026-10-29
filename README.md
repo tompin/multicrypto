@@ -259,8 +259,18 @@ detects a mistyped passphrase. Tabs:
 - **Vanity** - search for an address starting with the given pattern (like `genaddress`) in many
   processes, the found key can be added to the wallet.
 
+Ethereum (`ETH`) and its Sepolia testnet (`TETH`) are supported too: the account group
+*Ethereum #n* has the addresses `m/44'/60'/n'/0/i` (group #0 has the addresses of MetaMask, the
+address 0 of group #n is account n of Ledger Live), private keys are imported and shown in hex
+format, Balance shows the balance, nonce and number of transactions, Send sends ether from one
+address with EIP-1559 fees in gwei (*Max* sends the balance minus the max fee, *Suggest* fills the
+fees suggested by the node), the scan finds used addresses with Blockscout, messages are signed
+like `personal_sign` (EIP-191) and Vanity and Translate support Ethereum private keys. New and
+restored wallets get the groups Ethereum #0 and TETH #0, existing wallets add them with
+*New account...*. ETH and TETH use the same coin type 60, so their addresses are the same.
+
 The account groups are collapsed to one row with the balance of the group, the expanded groups are
-kept until the wallet is locked. The testnet coins (TBTC, TLTC) are hidden unless *View → Show
+kept until the wallet is locked. The testnet coins (TBTC, TLTC, TETH) are hidden unless *View → Show
 testnets* is checked (remembered in `~/.multicrypto/gui.json`), the Translate and Vanity tabs
 show all coins.
 
@@ -320,8 +330,8 @@ P2WSH addresses and taproot script path is not supported (sending to them works)
 
 Ethereum coins are defined in `ethereum_coins` in `multicrypto/coins.py`, separately from the coins
 with unspent outputs. Commands `checkaddress`, `genaddress`, `signmessage`, `verifymessage`,
-`transprivkey` and `sendeth` support them, the GUI does not support them yet. Transactions sending ether use EIP-1559 (type 2) format, transactions
-calling contracts (e.g. tokens) are not supported. Keccak-256 and RLP are implemented in pure Python
+`transprivkey` and `sendeth` support them, the GUI supports them too. Transactions sending ether
+use EIP-1559 (type 2) format, transactions calling contracts (e.g. tokens) are not supported. Keccak-256 and RLP are implemented in pure Python
 (`multicrypto.keccak`, `multicrypto.rlp`), so there are no new dependencies.
 
 Nodes are used through JSON-RPC: requests go to the first public node from `rpcs` which responds

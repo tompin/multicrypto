@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
 from multicrypto.coins import coins
 from multicrypto.gui.dialogs import password_field
 from multicrypto.gui.forms import (
+    add_private_key,
+    all_coins,
     parse_private_key_input,
     translate_address_text,
     translated_key_addresses,
@@ -63,6 +65,9 @@ class TranslateTab(QWidget):
         self.integer = QCheckBox('Integer (decimal or hex with 0x)')
         self.show_key = QCheckBox('Show keys')
         self.key_output_coin = coin_box('LTC')
+        self.key_output_coin.clear()
+        self.key_output_coin.addItems(all_coins())  # private keys translate also to Ethereum
+        self.key_output_coin.setCurrentText('LTC')
         self.translated_key = password_field()
         self.translated_key.setReadOnly(True)
         self.key_addresses = QTableWidget(0, 2)
@@ -183,8 +188,10 @@ class TranslateTab(QWidget):
         if self.source_wif is None or self.app.wallet is None:
             return
 
-        def submit(label, coin, wif, address_type):
-            self.app.modify_wallet(lambda wallet: wallet.add_wif(label, coin, wif, address_type))
+        def submit(label, coin, key, address_type):
+            self.app.modify_wallet(
+                lambda wallet: add_private_key(wallet, label, coin, key, address_type)
+            )
 
         TranslateKeyDialog(
             self,

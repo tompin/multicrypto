@@ -21,9 +21,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from multicrypto.coins import coins, get_address_types
+from multicrypto.coins import ETHEREUM, get_address_types, get_any_coin, is_ethereum
 from multicrypto.gui.dialogs import password_field
-from multicrypto.gui.forms import EXPECTED_ERRORS, format_duration, parse_vanity_pattern
+from multicrypto.gui.forms import (
+    EXPECTED_ERRORS,
+    add_private_key,
+    all_coins,
+    format_duration,
+    parse_vanity_pattern,
+)
 from multicrypto.vanity import (
     VANITY_ADDRESS_TYPES,
     VanitySearch,
@@ -45,10 +51,11 @@ class VanityTab(QWidget):
         self.search: Optional[VanitySearch] = None
         self.started = 0.0
         self.speed = DEFAULT_SPEED
-        self.found: Optional[Tuple[str, str, str, str]] = None  # coin, type, address, WIF
+        # coin, type, address, private key (WIF, hex for Ethereum)
+        self.found: Optional[Tuple[str, str, str, str]] = None
         cores = os.cpu_count() or 1
         self.coin = QComboBox()
-        self.coin.addItems(sorted(coins))
+        self.coin.addItems(all_coins())
         self.coin.setCurrentText('BTC')
         self.address_type = QComboBox()
         self.pattern = QLineEdit()
@@ -134,15 +141,20 @@ class VanityTab(QWidget):
         self.progress.setText('')
 
     def _coin_changed(self):
-        address_types = [
-            address_type
-            for address_type in get_address_types(coins[self.coin.currentText()])
-            if address_type in VANITY_ADDRESS_TYPES
-        ]
+        coin_symbol = self.coin.currentText()
+        if is_ethereum(coin_symbol):
+            address_types = [ETHEREUM]
+        else:
+            address_types = [
+                address_type
+                for address_type in get_address_types(get_any_coin(coin_symbol))
+                if address_type in VANITY_ADDRESS_TYPES
+            ]
         self.address_type.blockSignals(True)
         self.address_type.clear()
         self.address_type.addItems(address_types)
         self.address_type.blockSignals(False)
+        self.address_type.setEnabled(not is_ethereum(coin_symbol))
         self._validate_pattern()
 
     def _validate_pattern(self) -> Optional[str]:
@@ -240,7 +252,7 @@ class VanityTab(QWidget):
             if not label:
                 raise ValueError('Enter the label')
             self.app.modify_wallet(
-                lambda wallet: wallet.add_wif(label, coin_symbol, wif, address_type)
+                lambda wallet: add_private_key(wallet, label, coin_symbol, wif, address_type)
             )
         except EXPECTED_ERRORS as error:
             self.app.show_error(error)

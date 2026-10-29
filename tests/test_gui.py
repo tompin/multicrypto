@@ -1609,3 +1609,128 @@ def test_ethereum_group_menu_scans_coin(window, monkeypatch):
     window.wallet_tab._group_actions('ETH')['Scan for used addresses']()
 
     assert started == ['ETH']
+
+
+WEB3_ADDRESS = '0x5ce9454909639D2D17A3F753ce7d93fa0b9aB12E'
+WEB3_SIGNATURE = (
+    '0xe6ca9bba58c88611fad66a6ce8f996908195593807c4b38bd528d2cff09d4eb3'
+    '3e5bfbbf4d3e39b1a2fd816a7680c19ebebaf3a141b239934ad43cb33fcec8ce1c'
+)
+
+
+def test_sign_and_verify_ethereum_message(qapp, window):
+    unlock(window)
+    address = ethereum_address(window, 'TETH')
+    tab = window.sign_tab
+
+    tab.select_address(address)
+    tab.sign_message.setPlainText('Zażółć gęślą jaźń')
+    tab.sign()
+    wait_until(qapp, lambda: tab.signature.text())
+    tab.verify_coin.setCurrentText('BTC')
+    tab.verify_address.setText(address.address)
+    tab.verify_message.setPlainText('Zażółć gęślą jaźń')
+    tab.verify_signature.setText(tab.signature.text())
+    tab.verify()
+
+    assert len(tab.signature.text()) == 132
+    # detected from the wallet address, ETH and TETH have the same addresses (coin type 60)
+    assert tab.verify_coin.currentText() == 'ETH'
+    assert 'Signature is valid' in tab.verify_result.text()
+    tab.verify_coin.setCurrentText('TETH')
+    tab.verify_address.setText('')
+    tab.verify_address.setText(address.address)
+    assert tab.verify_coin.currentText() == 'TETH'  # kept, it has the address
+
+
+def test_verify_ethereum_message_of_other_address(window):
+    unlock(window)
+    tab = window.sign_tab
+    tab.verify_coin.setCurrentText('BTC')
+
+    tab.verify_address.setText(WEB3_ADDRESS)
+    tab.verify_message.setPlainText('I♥SF')
+    tab.verify_signature.setText(WEB3_SIGNATURE)
+    tab.verify()
+
+    assert tab.verify_coin.currentText() == 'ETH'
+    assert 'Signature is valid' in tab.verify_result.text()
+    tab.verify_signature.setText('0x1234')
+    tab.verify()
+    assert 'Signature must have 65 bytes' in tab.verify_result.text()
+
+
+def test_vanity_search_ethereum_and_add_to_wallet(qapp, window):
+    unlock(window)
+    tab = window.vanity_tab
+    tab.coin.setCurrentText('ETH')
+    tab.pattern.setText('0xA')
+    tab.workers.setValue(1)
+
+    assert not tab.address_type.isEnabled()
+    assert tab.address_type.currentText() == 'ethereum'
+    assert 'Addresses start with 0x' in tab.pattern_status.text()
+    assert '~16 attempts' in tab.pattern_status.text()
+    tab.start()
+    wait_until(qapp, lambda: not tab.result_group.isHidden(), seconds=60)
+
+    address = tab.result_address.text()
+    assert address.lower().startswith('0xa')
+    assert private_key_to_address(parse_private_key(tab.result_key.text())) == address
+    tab.result_label.setText('Vanity')
+    tab.add_to_wallet()
+    [imported] = window.wallet.imported_addresses()
+    assert (imported.coin, imported.address) == ('ETH', address)
+
+
+def test_translate_key_tab_to_ethereum(window):
+    unlock(window)
+    tab = window.translate_tab
+    tab.key.setText('0x' + '00' * 31 + '01')
+    tab.integer.setChecked(True)
+    tab.key_output_coin.setCurrentText('ETH')
+
+    tab.translate_key()
+
+    assert tab.translated_key.text() == '0x' + '00' * 31 + '01'
+    assert tab.key_addresses.item(0, 1).text() == '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'
+
+
+def test_translate_ethereum_key_to_bitcoin_in_wallet(window, monkeypatch):
+    unlock(window)
+    address = window.modify_wallet(
+        lambda wallet: wallet.add_ethereum_key('Eth', 'ETH', '00' * 31 + '01')
+    )
+
+    def accept(dialog):
+        dialog.coin.setCurrentText('BTC')
+        dialog.address_type.setCurrentText('p2pkh')
+        assert dialog.address.text() == '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH'
+        dialog.accept()
+
+    monkeypatch.setattr(wallet_tab_module.TranslateKeyDialog, 'exec', accept)
+    window.wallet_tab.translate_key(address)
+
+    btc = [key for key in window.wallet.imported_addresses() if key.coin == 'BTC']
+    assert [key.address for key in btc] == ['1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH']
+
+
+def test_translate_bitcoin_key_to_ethereum_in_wallet(window, monkeypatch):
+    unlock(window)
+    address = window.modify_wallet(
+        lambda wallet: wallet.add_wif(
+            'Btc', 'BTC', 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn', 'p2pkh'
+        )
+    )
+
+    def accept(dialog):
+        dialog.coin.setCurrentText('ETH')
+        assert not dialog.form.isRowVisible(dialog.address_type)
+        assert dialog.address.text() == '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'
+        dialog.accept()
+
+    monkeypatch.setattr(wallet_tab_module.TranslateKeyDialog, 'exec', accept)
+    window.wallet_tab.translate_key(address)
+
+    eth = [key for key in window.wallet.imported_addresses() if key.coin == 'ETH']
+    assert [key.address for key in eth] == ['0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf']

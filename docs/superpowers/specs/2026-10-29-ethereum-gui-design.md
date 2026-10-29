@@ -154,6 +154,15 @@ have readable messages.
 - Live: a test wallet with the TETH keys from `testnet_wallet.json` - import, balances, sending
   from the GUI on Sepolia and the scan.
 
+Results of the live test (2026-10-29): `MainWindow` offscreen with a test wallet file imported
+both TETH keys, showed their balances from the public nodes and sent 0.001 TETH from the Send
+tab (confirmation rows with nonce 4, gas limit 21000, max fee per gas 1.000000015 gwei), mined in
+block 12021464 with status success. The scan of ETH on the mainnet for the `abandon ... about`
+mnemonic with Blockscout found 199 used addresses of account 0 (MetaMask) and the address 0 of
+accounts 1 and 2 (Ledger Live) in 187 seconds. *Refresh balances* of a new wallet took over two
+minutes because the API of LTC (litecoinspace.org) timed out and the Insight API of DASH returned
+a response which is not JSON, the balances of Ethereum addresses were fetched immediately.
+
 ## Phases
 
 1. Data model and helpers, Wallet tab (tree, balances, Receive, import and export of keys).

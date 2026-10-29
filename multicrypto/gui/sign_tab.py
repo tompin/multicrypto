@@ -1,4 +1,5 @@
-"""Sign / Verify tab: signing messages with wallet keys and verifying signatures (BIP-137)."""
+"""Sign / Verify tab: signing messages with wallet keys and verifying signatures (BIP-137, EIP-191
+for Ethereum)."""
 
 import html
 
@@ -15,11 +16,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from multicrypto.coins import P2TR, coins
+from multicrypto import ethereum
+from multicrypto.coins import P2TR, coins, is_ethereum
 from multicrypto.ecdsa import sign_message, verify_signature
 from multicrypto.gui.address_picker import WalletAddressPicker
 from multicrypto.gui.dialogs import coin_box, set_coins
-from multicrypto.gui.forms import check_signable, parse_address
+from multicrypto.gui.forms import all_coins, check_signable, parse_address
 from multicrypto.wallet import WalletAddress
 
 VALID_COLOR = '#2e7d32'
@@ -30,7 +32,7 @@ class SignTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.sign_coin = coin_box(app.visible_coins(sorted(coins)))
+        self.sign_coin = coin_box(app.visible_coins(all_coins()))
         self.sign_coin.currentTextChanged.connect(lambda _text: self.refresh())
         self.sign_picker = WalletAddressPicker()
         self.sign_message = QPlainTextEdit()
@@ -42,7 +44,7 @@ class SignTab(QWidget):
         copy_button.clicked.connect(
             lambda _checked=False: QApplication.clipboard().setText(self.signature.text())
         )
-        self.verify_coin = coin_box(app.visible_coins(sorted(coins)))
+        self.verify_coin = coin_box(app.visible_coins(all_coins()))
         self.verify_address = QLineEdit()
         self.verify_address.textChanged.connect(self._detect_coin)
         self.verify_message = QPlainTextEdit()
@@ -58,7 +60,7 @@ class SignTab(QWidget):
         signature_row.addWidget(copy_button)
         sign_group = QGroupBox(
             'Sign message (p2pkh, p2sh-p2wpkh and p2wpkh addresses, BIP-137, taproot addresses '
-            'are not supported)'
+            'are not supported; Ethereum addresses like personal_sign, EIP-191)'
         )
         sign_form = QFormLayout(sign_group)
         sign_form.addRow('Coin', self.sign_coin)
@@ -94,8 +96,8 @@ class SignTab(QWidget):
         )
 
     def update_coins(self):
-        set_coins(self.sign_coin, self.app.visible_coins(sorted(coins)))
-        set_coins(self.verify_coin, self.app.visible_coins(sorted(coins)))
+        set_coins(self.sign_coin, self.app.visible_coins(all_coins()))
+        set_coins(self.verify_coin, self.app.visible_coins(all_coins()))
 
     def clear(self):
         self.sign_picker.clear()
@@ -123,9 +125,15 @@ class SignTab(QWidget):
         except ValueError as error:
             self.app.show_error(error)
             return
-        wif = self.app.wallet.private_key_wif(address)
         self.signature.clear()
         self.sign_button.setEnabled(False)
+        if is_ethereum(address.coin):
+            private_key = self.app.wallet.private_key(address)
+            self.app.worker.run(
+                lambda: ethereum.sign_message(message, private_key), self._signed, self._failed
+            )
+            return
+        wif = self.app.wallet.private_key_wif(address)
         self.app.worker.run(
             lambda: sign_message(coins[address.coin], message, wif, address.address_type).decode(),
             self._signed,
@@ -142,24 +150,33 @@ class SignTab(QWidget):
         self.app.show_error(error)
 
     def _detect_coin(self, text: str):
-        """Select the coin of the wallet address entered for verification."""
-        if self.app.wallet is None:
-            return
-        for address in self.app.wallet.addresses():
-            if address.address == text.strip():
-                self.verify_coin.setCurrentText(address.coin)
+        """Select the coin of the wallet address entered for verification (the selected coin is
+        kept when it has the address, e.g. ETH and TETH have the same addresses), an address
+        starting with 0x selects ETH unless an Ethereum coin is selected."""
+        address_text = text.strip()
+        if self.app.wallet is not None:
+            wallet_coins = [
+                address.coin
+                for address in self.app.wallet.addresses()
+                if address.address == address_text
+            ]
+            if wallet_coins:
+                if self.verify_coin.currentText() not in wallet_coins:
+                    self.verify_coin.setCurrentText(wallet_coins[0])
                 return
+        if address_text.startswith('0x') and not is_ethereum(self.verify_coin.currentText()):
+            self.verify_coin.setCurrentText('ETH')
 
     def verify(self):
         coin_symbol = self.verify_coin.currentText()
+        message = self.verify_message.toPlainText()
+        signature = self.verify_signature.text()
         try:
             address = parse_address(self.verify_address.text(), coin_symbol)
-            valid = verify_signature(
-                coins[coin_symbol],
-                self.verify_message.toPlainText(),
-                self.verify_signature.text(),
-                address,
-            )
+            if is_ethereum(coin_symbol):
+                valid = ethereum.verify_message(message, signature, address)
+            else:
+                valid = verify_signature(coins[coin_symbol], message, signature, address)
         except ValueError as error:
             self._show_result(str(error), INVALID_COLOR)
             return

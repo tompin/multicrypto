@@ -21,6 +21,7 @@ from multicrypto.gui.forms import (
     is_testnet,
     key_entry_address,
     scannable_coins,
+    source_wif,
     describe_error,
     describe_ethereum_transaction,
     describe_sweep,
@@ -43,6 +44,7 @@ from multicrypto.gui.forms import (
     parse_wif,
     translate_address_text,
     translated_key_addresses,
+    translated_private_key,
 )
 from multicrypto.ethereum import GWEI, Transaction
 from multicrypto.ethereum_api import FeeSuggestion, PreparedEthereumTransaction
@@ -599,3 +601,25 @@ def test_describe_ethereum_transaction_with_warning():
         'Max fee per gas 5 gwei is lower than the base fee 10 gwei of the next block, '
         'the transaction will wait until the base fee drops',
     )
+
+
+KEY_1_WIF = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn'
+
+
+def test_translated_key_addresses_to_ethereum():
+    key, addresses = translated_key_addresses(KEY_1_WIF, 'ETH')
+
+    assert key == '0x' + '00' * 31 + '01'
+    assert addresses == [('ethereum', '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf')]
+
+
+def test_translated_private_key():
+    assert translated_private_key(KEY_1_WIF, 'TETH') == '0x' + '00' * 31 + '01'
+    assert translated_private_key(KEY_1_WIF, 'LTC').startswith('T')
+
+
+def test_source_wif_of_ethereum_address():
+    wallet = Wallet.create(' '.join(['abandon'] * 11 + ['about']), '')
+    address = wallet.add_ethereum_key('Key', 'ETH', '00' * 31 + '01')
+
+    assert source_wif(wallet, address) == KEY_1_WIF
