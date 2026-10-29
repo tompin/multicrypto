@@ -130,17 +130,41 @@ def test_methods_convert_hex_quantities():
     ]
 
 
-@http_mock.activate
-def test_blockscout_get_tx_count():
-    url = f'https://eth.blockscout.com/api/v2/addresses/{ADDRESS}/counters'
-    http_mock.add(http_mock.GET, url, json={'transactions_count': '12', 'gas_usage_count': '0'})
+BLOCKSCOUT_ADDRESS = f'https://eth.blockscout.com/api/v2/addresses/{ADDRESS}'
 
-    assert get_explorer(ETH).get_tx_count(ADDRESS) == 12
+
+@http_mock.activate
+def test_blockscout_get_tx_count_from_the_only_page_of_transactions():
+    page = {'items': [{'hash': '0x1'}, {'hash': '0x2'}], 'next_page_params': None}
+    http_mock.add(http_mock.GET, f'{BLOCKSCOUT_ADDRESS}/transactions', json=page)
+
+    assert get_explorer(ETH).get_tx_count(ADDRESS) == 2
+    assert len(http_mock.calls) == 1
+
+
+@http_mock.activate
+def test_blockscout_get_tx_count_without_transactions():
+    page = {'items': [], 'next_page_params': None}
+    http_mock.add(http_mock.GET, f'{BLOCKSCOUT_ADDRESS}/transactions', json=page)
+
+    assert get_explorer(ETH).get_tx_count(ADDRESS) == 0
+
+
+@pytest.mark.parametrize('counter, count', [('120', 120), ('3', 50)])
+@http_mock.activate
+def test_blockscout_get_tx_count_with_more_pages_uses_counter(counter, count):
+    page = {'items': [{'hash': '0x1'}] * 50, 'next_page_params': {'index': 1}}
+    http_mock.add(http_mock.GET, f'{BLOCKSCOUT_ADDRESS}/transactions', json=page)
+    http_mock.add(
+        http_mock.GET, f'{BLOCKSCOUT_ADDRESS}/counters', json={'transactions_count': counter}
+    )
+
+    assert get_explorer(ETH).get_tx_count(ADDRESS) == count
 
 
 @http_mock.activate
 def test_blockscout_rate_limit():
-    url = f'https://explorer.example/addresses/{ADDRESS}/counters'
+    url = f'https://explorer.example/addresses/{ADDRESS}/transactions'
     http_mock.add(http_mock.GET, url, status=429, body='slow down')
 
     with pytest.raises(RateLimitError):

@@ -230,6 +230,11 @@ def test_decode_transaction_rejects_wrong_number_of_fields():
         decode_transaction(b'\x02' + rlp.encode([1, 2, 3]))
 
 
+def test_transaction_accepts_gas_limit_below_21000():
+    # transfer to own address on Sepolia after the fork with repriced gas
+    assert make_transaction(gas_limit=12000).gas_limit == 12000
+
+
 def test_transaction_max_fee():
     assert make_transaction().max_fee == 21000 * 40 * GWEI
 
@@ -238,7 +243,7 @@ def test_transaction_max_fee():
     'fields, message',
     [
         (dict(max_priority_fee_per_gas=50 * GWEI), 'priority fee'),
-        (dict(gas_limit=20999), 'gas limit'),
+        (dict(gas_limit=0), 'gas limit'),
         (dict(value=-1), 'negative'),
         (dict(nonce=-1), 'negative'),
         (dict(to='0x1234'), '40 hexadecimal'),

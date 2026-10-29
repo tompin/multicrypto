@@ -80,8 +80,8 @@ def get_args():
         '--gas_limit',
         type=check_positive,
         default=None,
-        help='Gas limit, by default estimated by the node (21000 for a transfer to an account '
-        'without code)',
+        help='Gas limit, by default estimated by the node (e.g. 21000 for a transfer to '
+        'an existing account without code on the mainnet)',
     )
     parser.add_argument(
         '--nonce',

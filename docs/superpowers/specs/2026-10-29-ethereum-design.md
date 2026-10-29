@@ -37,7 +37,10 @@ Block explorers:
 
 - Blockscout (`eth.blockscout.com`, `eth-sepolia.blockscout.com`) - API v2 and Etherscan
   compatible API without a key. `/api/v2/addresses/{address}/counters` gives
-  `transactions_count` (sent and received), also `"0"` for unused addresses.
+  `transactions_count` (sent and received), but it is cached: it stayed `"0"` for addresses with
+  new transactions and unchanged for hours for other addresses. The list
+  `/api/v2/addresses/{address}/transactions` (50 per page, sent and received) is up to date, so
+  the number of transactions comes from its first page when there are no more pages.
 - Etherscan API V2 - requires a key.
 - Ethplorer - `freekey` works, but it is focused on tokens.
 
@@ -66,6 +69,14 @@ every hard fork) is not implemented, JSON-RPC to public or own node is used like
   ETH and TETH, new `sendeth` command sends ether (`--dry_run`, `--node`, fee, gas and nonce
   options). `sendcrypto` options are specific to unspent outputs, so it is not extended.
 
+## Gas on Sepolia
+
+Sepolia already has the next fork (block headers have `blockAccessListHash` and `slotNumber`)
+with repriced gas, the mainnet does not have it yet. Gas used on Sepolia: transfer to an existing
+account 21000, to own address 12000, to a new address without value 15000, creating an account
+by sending ether to a new address about 205000 (204600 used). So 21000 is not the minimum gas
+limit and the gas limit is always estimated by the node.
+
 ## Verification
 
 - Keccak-256: known digests and SHA3-256 of hashlib for lengths around the block size.
@@ -74,6 +85,15 @@ every hard fork) is not implemented, JSON-RPC to public or own node is used like
 - Live: transactions with nonce 0 signed with the private key 1 (address with sent transactions)
   were rejected with `nonce too low: next nonce 4979` (mainnet) and `998` (Sepolia) by all nodes
   of the coin definitions, so the nodes decode the transaction and recover the right sender.
+
+- Live transfers on Sepolia (2026-10-29) between two test accounts from `testnet_wallet.json`:
+  transfer creating the account (204600 gas), transfer to own address (12000 gas), return
+  transfer (21000 gas) - all mined with status 1 and balances matching to wei; the transaction
+  hash of `--dry_run` was the same as of the sent transaction (deterministic signature); resent
+  transaction was "already known"; transaction with tip 0 was replaced by `--nonce` with higher
+  fees (only the replacement was mined); `--nonce 0` was rejected with "nonce too low".
+- Balances from public nodes were sometimes stale for a moment after a block (load balanced
+  backends), the balance check before signing can use such a balance.
 
 ## Stage 2 (GUI)
 
