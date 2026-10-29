@@ -19,7 +19,10 @@ ETHER_DECIMALS = 18
 GWEI_DECIMALS = 9
 GWEI = 10**GWEI_DECIMALS
 ETHER = 10**ETHER_DECIMALS
-TRANSFER_GAS = 21000  # gas used by a transfer to an account without code, minimum of all
+# Gas of a transfer to an existing account without code. It is not the minimum: since the fork with
+# repriced gas (on Sepolia in 2026) a transfer to own address costs less and creating an account
+# by sending ether to a new address costs more, so the gas limit is estimated by the node.
+TRANSFER_GAS = 21000
 EIP1559_TYPE = 2
 SIGNED_FIELDS = 12
 
@@ -151,8 +154,8 @@ class Transaction:
                 raise ValueError(f'Transaction {name} cannot be negative')
         if self.max_priority_fee_per_gas > self.max_fee_per_gas:
             raise ValueError('Max priority fee per gas cannot be bigger than max fee per gas')
-        if self.gas_limit < TRANSFER_GAS:
-            raise ValueError(f'Transaction gas limit cannot be lower than {TRANSFER_GAS}')
+        if self.gas_limit <= 0:
+            raise ValueError('Transaction gas limit must be positive')
 
     @property
     def max_fee(self) -> int:

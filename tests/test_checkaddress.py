@@ -171,7 +171,7 @@ def test_checkadress_get_utxo_from_address_failure(get_utxo_mock):
 
 ETH_ADDRESS = '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'
 ETH_NODE = ethereum_coins['ETH']['rpcs'][0]
-ETH_COUNTERS = f'https://eth.blockscout.com/api/v2/addresses/{ETH_ADDRESS}/counters'
+ETH_TRANSACTIONS = f'https://eth.blockscout.com/api/v2/addresses/{ETH_ADDRESS}/transactions'
 
 
 def add_ethereum_account_responses(node=ETH_NODE):
@@ -184,7 +184,8 @@ def add_ethereum_account_responses(node=ETH_NODE):
 @patch('sys.stdout', new_callable=StringIO)
 def test_checkaddress_ethereum(sys_stdout):
     add_ethereum_account_responses()
-    http_mock.add(http_mock.GET, ETH_COUNTERS, json={'transactions_count': '5'})
+    page = {'items': [{'hash': '0x1'}] * 5, 'next_page_params': None}
+    http_mock.add(http_mock.GET, ETH_TRANSACTIONS, json=page)
 
     main()
 
@@ -201,7 +202,7 @@ def test_checkaddress_ethereum(sys_stdout):
 @patch('sys.stdout', new_callable=StringIO)
 def test_checkaddress_ethereum_with_own_node_and_unavailable_explorer(sys_stdout, caplog):
     add_ethereum_account_responses('http://localhost:8545')
-    http_mock.add(http_mock.GET, ETH_COUNTERS, status=500, body='error')
+    http_mock.add(http_mock.GET, ETH_TRANSACTIONS, status=500, body='error')
 
     main()
 

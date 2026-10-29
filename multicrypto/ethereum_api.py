@@ -127,10 +127,19 @@ class BlockscoutAPI:
         self.base_url = base_url
         self.timeout = timeout
 
+    def _get(self, path: str) -> Any:
+        response = http_request(f'{self.base_url}/{path}', self.timeout)
+        return check_response(response, self.base_url).json()
+
     def get_tx_count(self, address: str) -> int:
-        """Number of transactions sent and received by the address."""
-        response = http_request(f'{self.base_url}/addresses/{address}/counters', self.timeout)
-        return int(check_response(response, self.base_url).json()['transactions_count'])
+        """Number of transactions sent and received by the address. The counters of Blockscout
+        are cached (they were not updated hours after new transactions of an address), so
+        the first page of transactions gives the number when there are no more pages."""
+        page = self._get(f'addresses/{address}/transactions')
+        if page.get('next_page_params') is None:
+            return len(page['items'])
+        counters = self._get(f'addresses/{address}/counters')
+        return max(int(counters['transactions_count']), len(page['items']))
 
 
 def get_explorer(coin: Coin, timeout: float = DEFAULT_TIMEOUT) -> BlockscoutAPI:
