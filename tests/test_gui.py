@@ -14,6 +14,7 @@ from multicrypto.scripts import address_to_script
 
 pytest.importorskip('PySide6')
 
+from PySide6.QtCore import QEvent  # noqa: E402
 from PySide6.QtWidgets import QLabel  # noqa: E402
 
 import multicrypto.gui.send_tab as send_tab_module  # noqa: E402
@@ -118,8 +119,15 @@ def window(qapp, tmp_path):
     save_show_testnets(settings_path, True)  # the tests send testnet coins
     window = MainWindow(wallet_file, settings_path=settings_path)
     yield window
+    close_window(qapp, window)
+
+
+def close_window(qapp, window):
+    """Stop the window and delete it, so the windows of the tests do not pile up until the end."""
     window.timer.stop()
     qapp.removeEventFilter(window)
+    window.deleteLater()
+    qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def unlock(window):
@@ -279,8 +287,7 @@ def test_testnets_are_hidden_by_default(qapp, tmp_path):
     assert window.sweep_tab.coin.findText('TLTC') >= 0
     assert window.sweep_tab.coin.currentText() == 'LTC'
     assert load_show_testnets(settings_path)
-    window.timer.stop()
-    qapp.removeEventFilter(window)
+    close_window(qapp, window)
 
 
 def test_account_groups_are_collapsed_and_remember_expanding(window):
@@ -1257,8 +1264,7 @@ def test_scale_menu_checks_saved_scale(qapp, tmp_path):
     window = MainWindow(WalletFile(str(tmp_path / 'wallet.mcw')), settings_path=settings_path)
 
     assert scale_actions(window)['150%'].isChecked()
-    window.timer.stop()
-    qapp.removeEventFilter(window)
+    close_window(qapp, window)
 
 
 def test_choosing_scale_saves_it(window, monkeypatch):
