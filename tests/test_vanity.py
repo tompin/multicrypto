@@ -24,6 +24,8 @@ from multicrypto.vanity import (
         ('BTC', 'p2wpkh', 'BC1QXY', 'bc1qxy'),
         ('TBTC', 'p2wpkh', 'tb1qxy', 'tb1qxy'),
         ('DOGE', 'p2pkh', 'DAb', 'DAb'),
+        ('ETH', 'p2pkh', '0xAbC', '0xabc'),
+        ('TETH', 'p2pkh', '0x', '0x'),
     ],
 )
 def test_validate_vanity_pattern(coin_symbol, address_type, pattern, expected):
@@ -39,6 +41,8 @@ def test_validate_vanity_pattern(coin_symbol, address_type, pattern, expected):
         ('BTC', 'p2wpkh', 'bc1qab', 'Character b is not used in bech32 addresses'),
         ('DOGE', 'p2wpkh', 'doge', 'not supported for dogecoin'),
         ('BTC', 'p2tr', 'bc1p', 'Vanity addresses of type p2tr are not supported'),
+        ('ETH', 'p2pkh', 'abc', 'must start with 0x'),
+        ('ETH', 'p2pkh', '0xabg', 'Character g is not a hexadecimal digit'),
     ],
 )
 def test_validate_vanity_pattern_errors(coin_symbol, address_type, pattern, error):
@@ -54,6 +58,8 @@ def test_validate_vanity_pattern_errors(coin_symbol, address_type, pattern, erro
         ('BTC', 'p2sh-p2wpkh', '3A', 58),
         ('BTC', 'p2wpkh', 'bc1qxy', 32**2),
         ('DOGE', 'p2pkh', 'DAb', 58**2),
+        ('ETH', 'p2pkh', '0xabc', 16**3),
+        ('ETH', 'p2pkh', '0x', 1),
     ],
 )
 def test_expected_attempts(coin_symbol, address_type, pattern, attempts):
@@ -63,6 +69,7 @@ def test_expected_attempts(coin_symbol, address_type, pattern, attempts):
 def test_pattern_hint():
     assert pattern_hint('BTC', 'p2wpkh') == 'Addresses start with bc1q'
     assert pattern_hint('BTC', 'p2pkh') == 'Addresses are from 1111… to 1QLb…'
+    assert pattern_hint('ETH', 'p2pkh') == 'Addresses start with 0x followed by hexadecimal digits'
 
 
 class StopAfter:

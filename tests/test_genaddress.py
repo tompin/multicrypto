@@ -15,6 +15,7 @@ from multicrypto.base58 import BASE58_ALPHABET
 from multicrypto.coins import coins
 from multicrypto.commands.genaddress import main
 from multicrypto.consts import OP_EQUAL, OP_16, OP_ADD, OP_15
+from multicrypto.ethereum import parse_private_key, private_key_to_address
 from multicrypto.vanity import find_address
 
 
@@ -98,4 +99,37 @@ def test_segwit_address_not_supported(sys_stdout, caplog):
     main()
 
     assert 'Address type p2sh-p2wpkh is not supported for dogecoin' in caplog.text
+    assert 'Address:' not in sys_stdout.getvalue()
+
+
+@pytest.mark.parametrize('coin_symbol', ['ETH', 'TETH'])
+def test_find_ethereum_address(coin_symbol):
+    address, private_key = find_address(coin_symbol, 'p2pkh', '0xab', True, StopAfter(10**6))
+
+    assert address.lower().startswith('0xab')
+    assert private_key_to_address(parse_private_key(private_key)) == address
+
+
+@patch.object(sys, 'argv', ['', '-s', 'ETH', '-p', '0xA'])
+@patch('sys.stdout', new_callable=StringIO)
+def test_genaddress_ethereum(sys_stdout):
+    main()
+
+    output = sys_stdout.getvalue()
+    assert 'Looking for pattern 0xa for ethereum' in output
+    address = output.split('Address: ')[1].split('\n')[0]
+    private_key = output.split('Private key: ')[1].split('\n')[0]
+    assert address.lower().startswith('0xa')
+    assert private_key_to_address(parse_private_key(private_key)) == address
+
+
+@pytest.mark.parametrize(
+    'args', [['-i', '51'], ['-u'], ['-w'], ['-t', 'p2wpkh']], ids=['script', 'u', 'w', 't']
+)
+@patch('sys.stdout', new_callable=StringIO)
+def test_genaddress_ethereum_rejects_bitcoin_options(sys_stdout, caplog, args):
+    with patch.object(sys, 'argv', ['', '-s', 'ETH'] + args):
+        main()
+
+    assert 'Ethereum addresses have no input scripts' in caplog.text
     assert 'Address:' not in sys_stdout.getvalue()

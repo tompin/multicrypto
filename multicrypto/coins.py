@@ -139,6 +139,35 @@ coins = {
     },
 }
 
+# Coins using the account model of Ethereum instead of unspent outputs, they have their own
+# addresses, transactions and APIs (JSON-RPC of nodes and Blockscout explorers), so they are kept
+# apart from the coins above. 'rpcs' lists JSON-RPC endpoints of public nodes tried in order.
+ethereum_coins = {
+    'ETH': {
+        'name': 'ethereum',
+        'slip44': 60,
+        'chain_id': 1,
+        'rpcs': [
+            'https://ethereum-rpc.publicnode.com',
+            'https://eth.drpc.org',
+            'https://mainnet.gateway.tenderly.co',
+        ],
+        'explorers': [{'url': 'https://eth.blockscout.com/api/v2', 'type': 'blockscout'}],
+    },
+    'TETH': {
+        'name': 'ethereum sepolia testnet',
+        # Ethereum wallets (e.g. MetaMask) use the coin type of the mainnet on testnets too
+        'slip44': 60,
+        'chain_id': 11155111,
+        'rpcs': [
+            'https://ethereum-sepolia-rpc.publicnode.com',
+            'https://sepolia.gateway.tenderly.co',
+            'https://rpc.sepolia.ethpandaops.io',
+        ],
+        'explorers': [{'url': 'https://eth-sepolia.blockscout.com/api/v2', 'type': 'blockscout'}],
+    },
+}
+
 
 def get_address_types(coin):
     return coin.get('address_types', (P2PKH,))
