@@ -2,6 +2,8 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
+
 from multicrypto.commands.verifymessage import main
 
 
@@ -61,3 +63,30 @@ def test_verifymessage_incorrect_signature(sys_stdout, caplog):
 
     assert sys_stdout.getvalue() == ''
     assert 'Signature is not correct base64' in caplog.text
+
+
+ETH_ADDRESS = '0x5ce9454909639D2D17A3F753ce7d93fa0b9aB12E'
+ETH_SIGNATURE = (
+    '0xe6ca9bba58c88611fad66a6ce8f996908195593807c4b38bd528d2cff09d4eb3'
+    '3e5bfbbf4d3e39b1a2fd816a7680c19ebebaf3a141b239934ad43cb33fcec8ce1c'
+)
+
+
+@pytest.mark.parametrize('message, valid', [('I♥SF', 'True'), ('I♥NY', 'False')])
+@patch('sys.stdout', new_callable=StringIO)
+def test_verifymessage_ethereum(sys_stdout, message, valid):
+    sys.argv = ['', '-c', 'ETH', '-a', ETH_ADDRESS.lower(), '-m', message, '-s', ETH_SIGNATURE]
+
+    main()
+
+    assert sys_stdout.getvalue() == valid + '\n'
+
+
+@patch('sys.stdout', new_callable=StringIO)
+def test_verifymessage_ethereum_incorrect_signature(sys_stdout, caplog):
+    sys.argv = ['', '-c', 'ETH', '-a', ETH_ADDRESS, '-m', 'Hi', '-s', '0x1234']
+
+    main()
+
+    assert 'Signature must have 65 bytes, it has 2' in caplog.text
+    assert sys_stdout.getvalue() == ''

@@ -95,6 +95,22 @@ limit and the gas limit is always estimated by the node.
 - Balances from public nodes were sometimes stale for a moment after a block (load balanced
   backends), the balance check before signing can use such a balance.
 
+## Additions after stage 1
+
+- `sendeth`: the private key is asked without echo (`getpass`) or read from the standard input
+  when `-p` is not given; the transaction is sent after confirmation (`--yes` skips it and is
+  required when the standard input is not a terminal); warnings about fees: max fee per gas
+  lower than the base fee of the next block, more than 10 times the suggested max fee, max fee
+  higher than the value; `--wait` polls `eth_getTransactionReceipt` and shows the status, block
+  and paid fee. Ctrl-D and Ctrl-C at the questions cancel without traceback.
+- EIP-191 (`personal_sign`) in `signmessage` and `verifymessage`, checked with the example of
+  web3.py documentation (a remembered example of ethers did not match, so it is not used).
+- `transprivkey -o ETH`, and its documented mode without `--output_symbol`, which failed before
+  because argparse validated the default empty string with the coin symbol type.
+- Live (Sepolia): key from the standard input with `--yes --wait` (mined, status success),
+  interactive session in a pseudo terminal (key not echoed, answer `n` did not send, `y` sent
+  a mined transaction), fee warning in `--dry_run`.
+
 ## Stage 2 (GUI)
 
 - Wallet: account group with one account `m/44'/60'/0'/0/i` (MetaMask compatible, no change

@@ -69,3 +69,41 @@ def test_signmessage_address_type_not_supported(sys_stdout, caplog):
 
     assert sys_stdout.getvalue() == ''
     assert 'not supported for dogecoin' in caplog.text
+
+
+# Example of personal_sign from the documentation of web3.py
+ETH_PRIVATE_KEY = '0xb25c7db31feed9122727bf0939dc769a96564b2de4c4726d035b36ecf1e5b364'
+ETH_SIGNATURE = (
+    '0xe6ca9bba58c88611fad66a6ce8f996908195593807c4b38bd528d2cff09d4eb3'
+    '3e5bfbbf4d3e39b1a2fd816a7680c19ebebaf3a141b239934ad43cb33fcec8ce1c'
+)
+
+
+@patch('sys.stdout', new_callable=StringIO)
+def test_signmessage_ethereum(sys_stdout):
+    sys.argv = ['', '-c', 'ETH', '-p', ETH_PRIVATE_KEY, '-m', 'I♥SF']
+
+    main()
+
+    assert sys_stdout.getvalue() == ETH_SIGNATURE + '\n'
+
+
+@patch('sys.stdout', new_callable=StringIO)
+def test_signmessage_ethereum_incorrect_private_key(sys_stdout, caplog):
+    sys.argv = ['', '-c', 'ETH', '-m', 'Hi']
+    sys.argv += ['-p', 'KzReaUKzSaGarrhFhjNMweTrpUx4gqX1KCMFSWJx9374kYNHpmSu']
+
+    main()
+
+    assert 'Ethereum private key must have 64 hexadecimal digits' in caplog.text
+    assert sys_stdout.getvalue() == ''
+
+
+@patch('sys.stdout', new_callable=StringIO)
+def test_signmessage_ethereum_rejects_address_type(sys_stdout, caplog):
+    sys.argv = ['', '-c', 'TETH', '-p', ETH_PRIVATE_KEY, '-m', 'Hi', '-t', 'p2wpkh']
+
+    main()
+
+    assert 'Ethereum addresses have no address types' in caplog.text
+    assert sys_stdout.getvalue() == ''

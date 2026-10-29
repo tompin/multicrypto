@@ -12,12 +12,14 @@ from multicrypto.ethereum_api import (
     EthereumRPC,
     FeeSuggestion,
     NodeUnavailableError,
+    Receipt,
     RpcError,
     broadcast_transaction,
     get_explorer,
     get_rpc,
     prepare_transfer,
     suggest_fees,
+    wait_for_receipt,
 )
 
 NODE1 = 'https://node1.example'
@@ -318,3 +320,104 @@ def test_broadcast_transaction_rejected_by_node():
 
     with pytest.raises(RpcError, match='nonce too low'):
         broadcast_transaction(rpc, prepared)
+
+
+RECEIPT = {
+    'transactionHash': '0xabc',
+    'status': '0x1',
+    'blockNumber': '0x10',
+    'gasUsed': '0x5208',
+    'effectiveGasPrice': hex(2 * GWEI),
+}
+
+
+@http_mock.activate
+def test_get_receipt():
+    http_mock.add(http_mock.POST, NODE1, json=rpc_result(RECEIPT))
+
+    receipt = EthereumRPC([NODE1]).get_receipt('0xabc')
+
+    assert receipt == Receipt('0xabc', True, 16, 21000, 2 * GWEI)
+    assert receipt.fee == 42000 * GWEI
+    assert json.loads(http_mock.calls[0].request.body)['params'] == ['0xabc']
+
+
+@http_mock.activate
+def test_get_receipt_of_failed_transaction():
+    http_mock.add(http_mock.POST, NODE1, json=rpc_result(dict(RECEIPT, status='0x0')))
+
+    assert not EthereumRPC([NODE1]).get_receipt('0xabc').success
+
+
+@http_mock.activate
+def test_get_receipt_of_pending_transaction():
+    http_mock.add(http_mock.POST, NODE1, json=rpc_result(None))
+
+    assert EthereumRPC([NODE1]).get_receipt('0xabc') is None
+
+
+class FakeClock:
+    def __init__(self):
+        self.time = 0.0
+        self.sleeps = []
+
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+        self.time += seconds
+
+    def __call__(self):
+        return self.time
+
+
+class ReceiptRPC:
+    def __init__(self, receipts):
+        self.receipts = list(receipts)
+
+    def get_receipt(self, transaction_hash):
+        return self.receipts.pop(0) if len(self.receipts) > 1 else self.receipts[0]
+
+
+def test_wait_for_receipt_polls_until_transaction_is_mined():
+    receipt = Receipt('0xabc', True, 16, 21000, GWEI)
+    clock = FakeClock()
+
+    result = wait_for_receipt(ReceiptRPC([None, None, receipt]), '0xabc', 60, 4, clock.sleep, clock)
+
+    assert result == receipt
+    assert clock.sleeps == [4, 4]
+
+
+def test_wait_for_receipt_returns_none_after_timeout():
+    clock = FakeClock()
+
+    assert wait_for_receipt(ReceiptRPC([None]), '0xabc', 10, 4, clock.sleep, clock) is None
+    assert clock.sleeps == [4, 4, 2]
+
+
+def prepared_with(**fields):
+    return prepare_transfer(ETH, FakeRPC(), 1, DESTINATION, fields.pop('value', 10**17), **fields)
+
+
+def test_fee_warnings_of_suggested_fees():
+    assert prepared_with().fee_warnings() == []
+
+
+def test_fee_warning_when_max_fee_is_lower_than_base_fee():
+    warnings = prepared_with(max_fee_per_gas=GWEI).fee_warnings()
+
+    assert warnings == [
+        'Max fee per gas 1 gwei is lower than the base fee 10 gwei of the next block, '
+        'the transaction will wait until the base fee drops'
+    ]
+
+
+def test_fee_warning_when_max_fee_is_much_higher_than_suggested():
+    warnings = prepared_with(max_fee_per_gas=221 * GWEI, value=10**18 // 2).fee_warnings()
+
+    assert warnings == ['Max fee per gas 221 gwei is more than 10 times the suggested 22 gwei']
+
+
+def test_fee_warning_when_max_fee_is_higher_than_value():
+    warnings = prepared_with(value=1).fee_warnings()
+
+    assert warnings == ['Max fee 0.000462 is higher than the sent value 0.000000000000000001']

@@ -8,9 +8,10 @@ from multicrypto.address import (
     convert_private_key_to_address,
     convert_private_key_to_wif_format,
 )
-from multicrypto.coins import coins
+from multicrypto import ethereum
+from multicrypto.coins import coins, ethereum_coins
 from multicrypto.utils import save_qrcode, get_integer
-from multicrypto.validators import check_coin_symbol
+from multicrypto.validators import check_any_coin_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,8 @@ def get_args():
     parser = argparse.ArgumentParser(
         description='Translates private key between different coins. '
         'Without specifying output symbol it will return '
-        'integer value of the private key'
+        'integer value of the private key. Ethereum private keys are in hex format, they are '
+        'translated to other coins as integers (-i) with 0x prefix'
     )
     parser.add_argument(
         '-p',
@@ -31,9 +33,10 @@ def get_args():
     parser.add_argument(
         '-o',
         '--output_symbol',
-        type=check_coin_symbol,
+        type=check_any_coin_symbol,
         required=False,
-        default='',
+        # argparse converts a default string with the type, so the default is not an empty string
+        default=None,
         help='Symbol of the coin for which we want to know corresponding translated private key',
     )
     parser.add_argument(
@@ -58,7 +61,7 @@ def get_args():
 
 
 def translate(args):
-    output_coin_symbol = args.output_symbol.upper()
+    output_coin_symbol = args.output_symbol or ''
     private_key = args.private_key
     file_name = args.file
 
@@ -80,6 +83,11 @@ def translate(args):
     except ValueError as exc:
         logger.error(exc)
         return '', '', ''
+
+    if output_coin_symbol in ethereum_coins:
+        int_private_key, compressed = get_private_key_from_wif_format(wif_private_key)
+        address = ethereum.private_key_to_address(int_private_key)
+        return ethereum.format_private_key(int_private_key), compressed, address
 
     output_private_key_prefix_bytes = coins[output_coin_symbol]['secret_prefix_bytes']
     output_address_prefix_bytes = coins[output_coin_symbol]['address_prefix_bytes']

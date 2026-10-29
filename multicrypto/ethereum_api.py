@@ -9,15 +9,17 @@ which nodes don't have (the nonce counts only sent transactions).
 
 import json
 import logging
+import time
 import urllib.error
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from multicrypto.api import DEFAULT_TIMEOUT, InsufficientFundsError, check_response, http_request
 from multicrypto.ethereum import (
     SignedTransaction,
     Transaction,
     format_ether,
+    format_gwei,
     private_key_to_address,
     validate_address,
 )
@@ -33,6 +35,9 @@ TRANSIENT_ERROR_MESSAGES = ('rate limit', 'too many requests')
 FEE_HISTORY_BLOCKS = 10
 FEE_PERCENTILE = 50
 MIN_PRIORITY_FEE = 10**7  # 0.01 gwei, some recent blocks can have only transactions without tip
+# Max fee per gas above this multiple of the suggested one is probably a mistake
+HIGH_FEE_RATIO = 10
+RECEIPT_POLL_INTERVAL = 4  # in seconds, blocks are produced every 12 seconds
 
 
 class RpcError(ValueError):
@@ -114,6 +119,34 @@ class EthereumRPC:
         """Send the signed transaction in hex (with 0x), return its hash."""
         return self.call('eth_sendRawTransaction', raw_transaction)
 
+    def get_receipt(self, transaction_hash: str) -> Optional['Receipt']:
+        """Receipt of the mined transaction, None when it is not mined yet."""
+        receipt = self.call('eth_getTransactionReceipt', transaction_hash)
+        if not receipt:
+            return None
+        return Receipt(
+            transaction_hash=receipt['transactionHash'],
+            success=int(receipt['status'], 16) == 1,
+            block_number=int(receipt['blockNumber'], 16),
+            gas_used=int(receipt['gasUsed'], 16),
+            effective_gas_price=int(receipt['effectiveGasPrice'], 16),
+        )
+
+
+@dataclass(frozen=True)
+class Receipt:
+    """Result of the mined transaction, a failed transaction (reverted) pays the fee too."""
+
+    transaction_hash: str
+    success: bool
+    block_number: int
+    gas_used: int
+    effective_gas_price: int  # base fee of the block plus the paid priority fee
+
+    @property
+    def fee(self) -> int:
+        return self.gas_used * self.effective_gas_price
+
 
 def get_rpc(coin: Coin, nodes: Optional[Sequence[str]] = None, timeout=DEFAULT_TIMEOUT):
     """Client for the given node URLs or for the public nodes of the coin."""
@@ -176,10 +209,35 @@ class PreparedEthereumTransaction:
     signed: SignedTransaction
     sender: str
     balance: int
+    fee_suggestion: FeeSuggestion
 
     @property
     def max_total(self) -> int:
         return self.transaction.value + self.transaction.max_fee
+
+    def fee_warnings(self) -> List[str]:
+        """Warnings about fees which are probably mistakes, to show before sending."""
+        transaction = self.transaction
+        suggestion = self.fee_suggestion
+        warnings = []
+        if transaction.max_fee_per_gas < suggestion.base_fee_per_gas:
+            warnings.append(
+                f'Max fee per gas {format_gwei(transaction.max_fee_per_gas)} gwei is lower than '
+                f'the base fee {format_gwei(suggestion.base_fee_per_gas)} gwei of the next block, '
+                'the transaction will wait until the base fee drops'
+            )
+        if transaction.max_fee_per_gas > HIGH_FEE_RATIO * suggestion.max_fee_per_gas:
+            warnings.append(
+                f'Max fee per gas {format_gwei(transaction.max_fee_per_gas)} gwei is more than '
+                f'{HIGH_FEE_RATIO} times the suggested '
+                f'{format_gwei(suggestion.max_fee_per_gas)} gwei'
+            )
+        if 0 < transaction.value < transaction.max_fee:
+            warnings.append(
+                f'Max fee {format_ether(transaction.max_fee)} is higher than the sent value '
+                f'{format_ether(transaction.value)}'
+            )
+        return warnings
 
 
 def prepare_transfer(
@@ -211,8 +269,8 @@ def prepare_transfer(
         nonce = rpc.get_nonce(sender)
     if gas_limit is None:
         gas_limit = rpc.estimate_gas(sender, destination, value)
+    suggestion = suggest_fees(rpc)
     if max_priority_fee_per_gas is None or max_fee_per_gas is None:
-        suggestion = suggest_fees(rpc)
         if max_priority_fee_per_gas is None:
             max_priority_fee_per_gas = suggestion.max_priority_fee_per_gas
             if max_fee_per_gas is not None:
@@ -233,7 +291,8 @@ def prepare_transfer(
             f'Balance {format_ether(balance)} of {sender} does not cover '
             f'{format_ether(value)} and the max fee {format_ether(transaction.max_fee)}'
         )
-    return PreparedEthereumTransaction(transaction, transaction.sign(private_key), sender, balance)
+    signed = transaction.sign(private_key)
+    return PreparedEthereumTransaction(transaction, signed, sender, balance, suggestion)
 
 
 def broadcast_transaction(rpc: EthereumRPC, prepared: PreparedEthereumTransaction) -> str:
@@ -245,3 +304,20 @@ def broadcast_transaction(rpc: EthereumRPC, prepared: PreparedEthereumTransactio
         if 'already known' in error.message.lower():
             return prepared.signed.hash
         raise
+
+
+def wait_for_receipt(
+    rpc: EthereumRPC,
+    transaction_hash: str,
+    timeout: float,
+    interval: float = RECEIPT_POLL_INTERVAL,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> Optional[Receipt]:
+    """Receipt of the transaction when it is mined before the timeout (in seconds), else None."""
+    deadline = clock() + timeout
+    while True:
+        receipt = rpc.get_receipt(transaction_hash)
+        if receipt is not None or clock() >= deadline:
+            return receipt
+        sleep(min(interval, max(0.0, deadline - clock())))
