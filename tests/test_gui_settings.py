@@ -8,8 +8,10 @@ from multicrypto.gui.settings import (
     apply_scale,
     check_scale,
     initial_scale,
+    load_auto_lock,
     load_scale,
     load_show_testnets,
+    save_auto_lock,
     save_scale,
     save_show_testnets,
 )
@@ -84,3 +86,24 @@ def test_show_testnets_setting(tmp_path):
 
     assert load_show_testnets(path) is True
     assert load_scale(path) == 1.5
+
+
+@pytest.mark.parametrize('content', ['{"auto_lock": 0}', '{"auto_lock": -5}', '{"auto_lock": "5"}'])
+def test_invalid_auto_lock_means_never(tmp_path, content):
+    path = tmp_path / 'gui.json'
+    path.write_text(content)
+
+    assert load_auto_lock(str(path)) is None
+
+
+def test_save_and_load_auto_lock(tmp_path):
+    path = str(tmp_path / 'gui.json')
+    assert load_auto_lock(path) is None
+    save_scale(path, 2)
+
+    save_auto_lock(path, 15)
+    assert load_auto_lock(path) == 15
+    save_auto_lock(path, None)
+
+    assert load_auto_lock(path) is None
+    assert load_scale(path) == 2

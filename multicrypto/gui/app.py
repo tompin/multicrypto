@@ -26,8 +26,9 @@ def get_args():
         '--auto_lock',
         type=check_positive,
         required=False,
-        default=5,
-        help='Lock the wallet after given number of minutes of inactivity. Default 5 minutes',
+        default=None,
+        help='Lock the wallet after given number of minutes of inactivity, overrides the auto lock '
+        'chosen in View menu. Default is never (the wallet stays unlocked until it is locked)',
     )
     parser.add_argument(
         '-s',
@@ -60,7 +61,7 @@ def main():
     apply_scale(initial_scale(args.scale, SETTINGS_PATH))
     app = QApplication(sys.argv[:1])
     app.setStyle('Fusion')
-    window = MainWindow(WalletFile(args.wallet or DEFAULT_PATH), args.auto_lock * 60)
+    window = MainWindow(WalletFile(args.wallet or DEFAULT_PATH), args.auto_lock)
     window.show()
     QTimer.singleShot(0, window.start)
     sys.exit(app.exec())

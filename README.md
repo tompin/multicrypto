@@ -235,9 +235,10 @@ context menu of its account. A single account is scanned quickly from its contex
 On high resolution screens the interface can be enlarged in *View → Scale* (applied after restart
 and remembered in `~/.multicrypto/gui.json`) or for one run with `--scale` (e.g. `--scale=1.5`).
 
-The wallet is locked after 5 minutes of inactivity (`--auto_lock`). Python cannot reliably remove
-data from memory, so the keys of the unlocked wallet stay in memory of the process until it is
-locked. Keep the mnemonic and the passphrase (if set) written down separately - the funds cannot be
+The wallet stays unlocked until File → Lock or closing the application. *View → Auto lock* locks
+it after 5, 15, 30 or 60 minutes of inactivity (remembered in `~/.multicrypto/gui.json`),
+`--auto_lock=<MINUTES>` sets it for one run. Python cannot reliably remove data from memory, so
+the keys of the unlocked wallet stay in memory of the process until it is locked. Keep the mnemonic and the passphrase (if set) written down separately - the funds cannot be
 recovered without both of them.
 
 ### Supported coins
